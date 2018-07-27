@@ -132,7 +132,7 @@ for jCell = 1 : numWanted
     
     % multiply with the original image to recover intensity information
     imMask3DPad = repmat( imMaskPad, 1,1, numTimes);
-    imCell3DPad = imMask3DPad .* image3Dpad;
+    imCell3DPad = imMask3DPad .* mat2gray( image3Dpad);
     
     % get region around cell;
     ub = round( stats( currCell).Centroid + boxSize/2 );
@@ -142,8 +142,8 @@ for jCell = 1 : numWanted
     % field of view region
     IsolatedCells( jCell).cell3D = imCell3DPad( lb(2): ub(2), lb(1): ub(1), : );
     IsolatedCells( jCell).cellMIP = max( IsolatedCells( jCell).cell3D, [], 3);
-    IsolatedCells( jCell).raw = image3Dpad( lb(2): ub(2), lb(1): ub(1), : );
-    IsolatedCells( jCell).rawMIP = max( IsolatedCells( jCell).raw, [], 3);
+    IsolatedCells( jCell).raw = mat2gray( image3Dpad( lb(2): ub(2), lb(1): ub(1), : ) );
+    IsolatedCells( jCell).rawMIP = mat2gray( max( IsolatedCells( jCell).raw, [], 3) );
     IsolatedCells( jCell).cellNumber = currCell;
     IsolatedCells( jCell).locations = imUserNumbered;
     

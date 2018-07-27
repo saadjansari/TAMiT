@@ -1,3 +1,5 @@
+function fileInfo = loadND2file()
+
     % This block of code takes the user selected ND2 file and imports it,
     % extracts metadata
                
@@ -69,3 +71,9 @@
         end
         
     end
+    
+    fileInfo.metaData = Meta;
+    fileInfo.img = imData;
+    fileInfo.time = PlaneTimes;
+    
+end
