@@ -1,0 +1,159 @@
+Movie Name: anon
+Current Cell: 2
+Data Location: /Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Pictures/180726_1618/anon/2
+[Warning: generateGuessInterphase: The user
+provided a 3D array for the first argument.
+3rd dimension is assumed as time and an MIP
+is being taken] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('generateGuessInterphase', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m', 21)" style="font-weight:bold">generateGuessInterphase</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m',21,0)">line 21</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('InitLoadInterphaseTest', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m', 67)" style="font-weight:bold">InitLoadInterphaseTest</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m',67,0)">line 67</a>)] 
+generateGuessInterphase: 4 possible lines found.
+[Warning: Invalid MinPeakHeight. There are
+no data points greater than MinPeakHeight.] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('findpeaks>removePeaksBelowMinPeakHeight', '/Applications/MATLAB_R2018a.app/toolbox/signal/signal/findpeaks.m', 516)" style="font-weight:bold">findpeaks>removePeaksBelowMinPeakHeight</a> (<a href="matlab: opentoline('/Applications/MATLAB_R2018a.app/toolbox/signal/signal/findpeaks.m',516,0)">line 516</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('findpeaks', '/Applications/MATLAB_R2018a.app/toolbox/signal/signal/findpeaks.m', 147)" style="font-weight:bold">findpeaks</a> (<a href="matlab: opentoline('/Applications/MATLAB_R2018a.app/toolbox/signal/signal/findpeaks.m',147,0)">line 147</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('Microtubule/EstimateNextPoint', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m', 1195)" style="font-weight:bold">Microtubule/EstimateNextPoint</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m',1195,0)">line 1195</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('Microtubule/EstimateMicrotubulePoints', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m', 1035)" style="font-weight:bold">Microtubule/EstimateMicrotubulePoints</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m',1035,0)">line 1035</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('generateGuessInterphase', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m', 240)" style="font-weight:bold">generateGuessInterphase</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m',240,0)">line 240</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('InitLoadInterphaseTest', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m', 67)" style="font-weight:bold">InitLoadInterphaseTest</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m',67,0)">line 67</a>)] 
+[Warning: Invalid MinPeakHeight. There are
+no data points greater than MinPeakHeight.] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('findpeaks>removePeaksBelowMinPeakHeight', '/Applications/MATLAB_R2018a.app/toolbox/signal/signal/findpeaks.m', 516)" style="font-weight:bold">findpeaks>removePeaksBelowMinPeakHeight</a> (<a href="matlab: opentoline('/Applications/MATLAB_R2018a.app/toolbox/signal/signal/findpeaks.m',516,0)">line 516</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('findpeaks', '/Applications/MATLAB_R2018a.app/toolbox/signal/signal/findpeaks.m', 147)" style="font-weight:bold">findpeaks</a> (<a href="matlab: opentoline('/Applications/MATLAB_R2018a.app/toolbox/signal/signal/findpeaks.m',147,0)">line 147</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('Microtubule/EstimateNextPoint', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m', 1195)" style="font-weight:bold">Microtubule/EstimateNextPoint</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m',1195,0)">line 1195</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('Microtubule/EstimateMicrotubulePoints', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m', 1052)" style="font-weight:bold">Microtubule/EstimateMicrotubulePoints</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m',1052,0)">line 1052</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('generateGuessInterphase', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m', 240)" style="font-weight:bold">generateGuessInterphase</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m',240,0)">line 240</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('InitLoadInterphaseTest', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m', 67)" style="font-weight:bold">InitLoadInterphaseTest</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m',67,0)">line 67</a>)] 
+[Warning: Invalid MinPeakHeight. There are
+no data points greater than MinPeakHeight.] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('findpeaks>removePeaksBelowMinPeakHeight', '/Applications/MATLAB_R2018a.app/toolbox/signal/signal/findpeaks.m', 516)" style="font-weight:bold">findpeaks>removePeaksBelowMinPeakHeight</a> (<a href="matlab: opentoline('/Applications/MATLAB_R2018a.app/toolbox/signal/signal/findpeaks.m',516,0)">line 516</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('findpeaks', '/Applications/MATLAB_R2018a.app/toolbox/signal/signal/findpeaks.m', 147)" style="font-weight:bold">findpeaks</a> (<a href="matlab: opentoline('/Applications/MATLAB_R2018a.app/toolbox/signal/signal/findpeaks.m',147,0)">line 147</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('Microtubule/EstimateNextPoint', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m', 1195)" style="font-weight:bold">Microtubule/EstimateNextPoint</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m',1195,0)">line 1195</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('Microtubule/EstimateMicrotubulePoints', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m', 1035)" style="font-weight:bold">Microtubule/EstimateMicrotubulePoints</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m',1035,0)">line 1035</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('generateGuessInterphase', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m', 240)" style="font-weight:bold">generateGuessInterphase</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m',240,0)">line 240</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('InitLoadInterphaseTest', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m', 67)" style="font-weight:bold">InitLoadInterphaseTest</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m',67,0)">line 67</a>)] 
+---------------- Saving All Open Figures ---------------- \n
+[Warning: amplitude is less than background
+value for microtubule 1] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('Microtubule/prepareForFit', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m', 53)" style="font-weight:bold">Microtubule/prepareForFit</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m',53,0)">line 53</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('fitInterphaseCurves', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/fitInterphaseCurves.m', 18)" style="font-weight:bold">fitInterphaseCurves</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/fitInterphaseCurves.m',18,0)">line 18</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('InitLoadInterphaseTest', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m', 72)" style="font-weight:bold">InitLoadInterphaseTest</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m',72,0)">line 72</a>)] 
+[Warning: amplitude LB is less than
+background UB value for microtubule 1] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('Microtubule/prepareForFit', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m', 67)" style="font-weight:bold">Microtubule/prepareForFit</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Microtubule.m',67,0)">line 67</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('fitInterphaseCurves', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/fitInterphaseCurves.m', 18)" style="font-weight:bold">fitInterphaseCurves</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/fitInterphaseCurves.m',18,0)">line 18</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('InitLoadInterphaseTest', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m', 72)" style="font-weight:bold">InitLoadInterphaseTest</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m',72,0)">line 72</a>)] 
+
+                                         Norm of      First-order 
+ Iteration  Func-count     f(x)          step          optimality
+     0         19     1.91871e+06                           105
+     1         38     1.91851e+06          0.095           5.21      
+     2         57      1.9185e+06      0.0212426          0.261      
+     3         76      1.9185e+06        0.00475          0.013      
+
+<a href = "matlab: helpview([docroot '/toolbox/optim/msg_csh/optim_msg_csh.map'],'local_min_possible_lsq','CSHelpWindow');">Local minimum possible</a>.
+
+lsqnonlin stopped because the final change in the sum of squares relative to 
+its initial value is less than the selected value of the <a href = "matlab: helpview([docroot '/toolbox/optim/msg_csh/optim_msg_csh.map'],'function_tolerance_lsq','CSHelpWindow');">function tolerance</a>.
+
+<<a href = "matlab: createExitMsg('snls',3.000000e+00,true,true,'lsqnonlin',2.581546e-07,'selected',1.000000e-06,0.000000e+00,'',0.000000e+00,0.000000e+00,'',0.000000e+00);">stopping criteria details</a>>
+
+Mission Accomplished
+
+                                         Norm of      First-order 
+ Iteration  Func-count     f(x)          step          optimality
+     0         19     1.81229e+06                         9e+05
+     1         38     1.80921e+06       0.195243       4.19e+05      
+     2         57      1.8084e+06      0.0704167       2.29e+05      
+     3         76      1.8083e+06      0.0321477       1.53e+05      
+     4         95     1.80816e+06      0.0588552       4.55e+04      
+     5        114       1.808e+06       0.250472       8.59e+04      
+     6        133     1.80791e+06      0.0661863       1.54e+04      
+     7        152     1.80791e+06       0.286925       1.54e+04      
+     8        171     1.80791e+06      0.0717314       1.67e+04      
+     9        190     1.80791e+06       0.143463       1.67e+04      
+    10        209     1.80791e+06      0.0358657       1.67e+04      
+    11        228     1.80791e+06     0.00896642       1.67e+04      
+    12        247     1.80791e+06     0.00224161       1.67e+04      
+    13        266     1.80791e+06    0.000560401       1.67e+04      
+    14        285     1.80791e+06      0.0001401       8.08e+03      
+
+<a href = "matlab: helpview([docroot '/toolbox/optim/msg_csh/optim_msg_csh.map'],'local_min_possible_lsq','CSHelpWindow');">Local minimum possible</a>.
+
+lsqnonlin stopped because the final change in the sum of squares relative to 
+its initial value is less than the selected value of the <a href = "matlab: helpview([docroot '/toolbox/optim/msg_csh/optim_msg_csh.map'],'function_tolerance_lsq','CSHelpWindow');">function tolerance</a>.
+
+<<a href = "matlab: createExitMsg('snls',3.000000e+00,true,true,'lsqnonlin',1.560105e-07,'selected',1.000000e-06,0.000000e+00,'',0.000000e+00,0.000000e+00,'',0.000000e+00);">stopping criteria details</a>>
+
+Mission Accomplished
+
+                                         Norm of      First-order 
+ Iteration  Func-count     f(x)          step          optimality
+     0         19     1.90143e+06                      1.04e+04
+Objective function returned NaN; trying a new point...
+     1         38     1.90143e+06        3.27212       1.04e+04      
+     2         57     1.90097e+06       0.163606       8.81e+03      
+     3         76     1.90097e+06       0.327212       8.81e+03      
+     4         95     1.90097e+06       0.081803       8.81e+03      
+     5        114     1.90097e+06      0.0204507       1.68e+04      
+     6        133     1.90096e+06     0.00511269       1.72e+04      
+     7        152     1.90095e+06     0.00511269       7.05e+03      
+     8        171     1.90094e+06     0.00511269       6.31e+03      
+     9        190     1.90093e+06      0.0102254       1.06e+04      
+    10        209      1.9008e+06      0.0204507       1.01e+04      
+    11        228     1.90072e+06      0.0409015       1.75e+04      
+    12        247     1.90036e+06      0.0409015       3.05e+04      
+    13        266     1.89969e+06       0.081803        2.8e+04      
+    14        285     1.89884e+06       0.163606       2.76e+04      
+    15        304     1.89884e+06       0.327212       2.76e+04      
+    16        323     1.89883e+06       0.081803       3.74e+04      
+    17        342     1.89859e+06      0.0204507       2.07e+04      
+    18        361     1.89847e+06      0.0409015       2.06e+04      
+    19        380     1.89847e+06       0.081803       2.06e+04      
+    20        399     1.89842e+06      0.0204507       1.14e+04      
+    21        418      1.8983e+06      0.0204507       1.47e+04      
+    22        437     1.89818e+06      0.0409015       1.82e+04      
+    23        456     1.89818e+06       0.081803       1.82e+04      
+    24        475     1.89817e+06      0.0204507       1.64e+04      
+    25        494     1.89811e+06      0.0204507       2.11e+04      
+    26        513     1.89811e+06      0.0409015       2.11e+04      
+
+<a href = "matlab: helpview([docroot '/toolbox/optim/msg_csh/optim_msg_csh.map'],'solver_stopped_premature','CSHelpWindow');">Solver stopped prematurely</a>.
+
+lsqnonlin stopped because it exceeded the iteration limit,
+<a href = "matlab: helpview([docroot '/toolbox/optim/msg_csh/optim_msg_csh.map'],'max_iter','CSHelpWindow');">options.MaxIterations</a> = 25 (the selected value).
+
+Mission Accomplished
+
+                                         Norm of      First-order 
+ Iteration  Func-count     f(x)          step          optimality
+     0         19     1.89048e+06                      4.27e+04
+     1         38     1.88917e+06       0.663313       2.42e+04      
+     2         57     1.88787e+06       0.713296       3.63e+04      
+     3         76     1.88532e+06       0.732469       3.23e+04      
+     4         95     1.88269e+06        1.36979       4.83e+04      
+     5        114     1.88269e+06        1.15323       4.83e+04      
+     6        133     1.88243e+06       0.288308       6.76e+04      
+     7        152      1.8814e+06       0.072077       2.42e+03      
+     8        171      1.8813e+06        0.10326       1.18e+04      
+     9        190     1.88122e+06       0.144154       6.23e+03      
+    10        209     1.88122e+06       0.144154       6.23e+03      
+    11        228     1.88113e+06      0.0360385       4.29e+03      
+    12        247     1.88113e+06       0.072077       4.29e+03      
+    13        266     1.88113e+06      0.0180192       4.29e+03      
+    14        285     1.88113e+06     0.00450481       4.29e+03      
+    15        304     1.88113e+06      0.0011262       6.97e+03      
+    16        323     1.88113e+06      0.0011262       6.97e+03      
+    17        342     1.88113e+06    0.000281551       4.08e+03      
+    18        361     1.88113e+06    0.000281551       6.99e+03      
+    19        380     1.88113e+06    7.03877e-05       4.64e+03      
+
+<a href = "matlab: helpview([docroot '/toolbox/optim/msg_csh/optim_msg_csh.map'],'local_min_possible_lsq','CSHelpWindow');">Local minimum possible</a>.
+
+lsqnonlin stopped because the final change in the sum of squares relative to 
+its initial value is less than the selected value of the <a href = "matlab: helpview([docroot '/toolbox/optim/msg_csh/optim_msg_csh.map'],'function_tolerance_lsq','CSHelpWindow');">function tolerance</a>.
+
+<<a href = "matlab: createExitMsg('snls',3.000000e+00,true,true,'lsqnonlin',1.215808e-07,'selected',1.000000e-06,0.000000e+00,'',0.000000e+00,0.000000e+00,'',0.000000e+00);">stopping criteria details</a>>
+
+Mission Accomplished
+---------------- Saving All Open Figures ---------------- \n

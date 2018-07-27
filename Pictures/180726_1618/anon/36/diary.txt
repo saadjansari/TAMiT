@@ -1,0 +1,369 @@
+Movie Name: anon
+Current Cell: 36
+Data Location: /Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Pictures/180726_1618/anon/36
+[Warning: generateGuessInterphase: The user
+provided a 3D array for the first argument.
+3rd dimension is assumed as time and an MIP
+is being taken] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('generateGuessInterphase', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m', 21)" style="font-weight:bold">generateGuessInterphase</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m',21,0)">line 21</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('InitLoadInterphaseTest', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m', 67)" style="font-weight:bold">InitLoadInterphaseTest</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m',67,0)">line 67</a>)] 
+generateGuessInterphase: 0 possible lines found.
+{Undefined function or variable 'MTOC'.
+
+Error in <a href="matlab:matlab.internal.language.introspective.errorDocCallback('generateGuessInterphase', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m', 163)" style="font-weight:bold">generateGuessInterphase</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m',163,0)">line 163</a>)
+    plot( [MTOC.x], [MTOC.y], 'b*',
+    'MarkerSize', 12, 'LineWidth', 3); hold
+    off;
+
+Error in <a href="matlab:matlab.internal.language.introspective.errorDocCallback('InitLoadInterphaseTest', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m', 67)" style="font-weight:bold">InitLoadInterphaseTest</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m',67,0)">line 67</a>)
+    MicrotubuleBank =
+    generateGuessInterphase( imageFull,
+    logicMask, SavePathCell);
+} 
+for jCell = 36 : length( IsolatedCells)
+    
+    currCell = IsolatedCells(jCell).cellNumber;
+    SavePathCell = [ SavePath, filesep, num2str(currCell)];
+    %create this path
+    mkdir(SavePathCell)
+    addpath(SavePathCell)
+    
+    diary( [SavePathCell, filesep, 'diary.txt'] )
+    disp(['Movie Name: ' movieName])
+    disp(['Current Cell: ' num2str(currCell)])
+    disp(['Data Location: ' SavePathCell])
+
+    %% Generate Estimates
+
+    % Generate a guess for the microtubule locations.
+    currFrame = 2;
+    framesforGuess = currFrame-1 : currFrame+1;
+    imCellTimeline = IsolatedCells( jCell).cell3D;
+    imCellTimelineRaw = IsolatedCells( jCell).raw;
+
+    % save cell number, and segmentation mask with cell location, and cell
+    % movie in the folder.
+    cellInfo.cellNumber = currCell;
+    cellInfo.framesSeg = framesForSeg;
+    cellInfo.location = IsolatedCells(jCell).locations;
+
+    logicMask = logical( IsolatedCells( jCell).cell3D(:, :, currFrame) );
+    imageFull = IsolatedCells( jCell).raw(:, :, framesforGuess);
+
+    MicrotubuleBank = generateGuessInterphase( imageFull, logicMask, SavePathCell);
+
+    %% Fit Microtubule Curves
+
+    image2D = IsolatedCells( jCell).raw(:, :, currFrame) .* logicMask;
+    MicrotubuleBank = fitInterphaseCurves( MicrotubuleBank, image2D, SavePathCell);
+    
+    cellInfo.MicrotubuleBank = MicrotubuleBank;
+    save([SavePathCell, filesep, 'cellInfo.mat'], 'cellInfo')
+    clear MicrotubuleBank cellInfo
+    diary off
+    
+end
+[Warning: Directory already exists.] 
+Movie Name: anon
+Current Cell: 36
+Data Location: /Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Pictures/180726_1618/anon/36
+[Warning: generateGuessInterphase: The user
+provided a 3D array for the first argument.
+3rd dimension is assumed as time and an MIP
+is being taken] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('generateGuessInterphase', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m', 21)" style="font-weight:bold">generateGuessInterphase</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m',21,0)">line 21</a>)] 
+generateGuessInterphase: 0 possible lines found.
+No MTOCs were found! No microtubules can exist for this cell.
+{Dot indexing is not supported for variables
+of this type.
+
+Error in <a href="matlab:matlab.internal.language.introspective.errorDocCallback('fitInterphaseCurves', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/fitInterphaseCurves.m', 11)" style="font-weight:bold">fitInterphaseCurves</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/fitInterphaseCurves.m',11,0)">line 11</a>)
+numTubes = length( [MicrotubuleBank.id] );
+} 
+opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/fitInterphaseCurves.m',11,0)
+for jCell = 36 : length( IsolatedCells)
+    
+    currCell = IsolatedCells(jCell).cellNumber;
+    SavePathCell = [ SavePath, filesep, num2str(currCell)];
+    %create this path
+    mkdir(SavePathCell)
+    addpath(SavePathCell)
+    
+    diary( [SavePathCell, filesep, 'diary.txt'] )
+    disp(['Movie Name: ' movieName])
+    disp(['Current Cell: ' num2str(currCell)])
+    disp(['Data Location: ' SavePathCell])
+
+    %% Generate Estimates
+
+    % Generate a guess for the microtubule locations.
+    currFrame = 2;
+    framesforGuess = currFrame-1 : currFrame+1;
+    imCellTimeline = IsolatedCells( jCell).cell3D;
+    imCellTimelineRaw = IsolatedCells( jCell).raw;
+
+    % save cell number, and segmentation mask with cell location, and cell
+    % movie in the folder.
+    cellInfo.cellNumber = currCell;
+    cellInfo.framesSeg = framesForSeg;
+    cellInfo.location = IsolatedCells(jCell).locations;
+
+    logicMask = logical( IsolatedCells( jCell).cell3D(:, :, currFrame) );
+    imageFull = IsolatedCells( jCell).raw(:, :, framesforGuess);
+
+    MicrotubuleBank = generateGuessInterphase( imageFull, logicMask, SavePathCell);
+
+    %% Fit Microtubule Curves
+
+    image2D = IsolatedCells( jCell).raw(:, :, currFrame) .* logicMask;
+    MicrotubuleBank = fitInterphaseCurves( MicrotubuleBank, image2D, SavePathCell);
+    
+    cellInfo.MicrotubuleBank = MicrotubuleBank;
+    save([SavePathCell, filesep, 'cellInfo.mat'], 'cellInfo')
+    clear MicrotubuleBank cellInfo
+    diary off
+    
+end
+[Warning: Directory already exists.] 
+Movie Name: anon
+Current Cell: 36
+Data Location: /Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Pictures/180726_1618/anon/36
+[Warning: generateGuessInterphase: The user
+provided a 3D array for the first argument.
+3rd dimension is assumed as time and an MIP
+is being taken] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('generateGuessInterphase', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m', 21)" style="font-weight:bold">generateGuessInterphase</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m',21,0)">line 21</a>)] 
+generateGuessInterphase: 0 possible lines found.
+No MTOCs were found! No microtubules can exist for this cell.
+{Dot indexing is not supported for variables
+of this type.
+
+Error in <a href="matlab:matlab.internal.language.introspective.errorDocCallback('fitInterphaseCurves', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/fitInterphaseCurves.m', 30)" style="font-weight:bold">fitInterphaseCurves</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/fitInterphaseCurves.m',30,0)">line 30</a>)
+idxDead = find( [MicrotubuleBank.dead]);
+} 
+opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/fitInterphaseCurves.m',30,0)
+for jCell = 36 : length( IsolatedCells)
+    
+    currCell = IsolatedCells(jCell).cellNumber;
+    SavePathCell = [ SavePath, filesep, num2str(currCell)];
+    %create this path
+    mkdir(SavePathCell)
+    addpath(SavePathCell)
+    
+    diary( [SavePathCell, filesep, 'diary.txt'] )
+    disp(['Movie Name: ' movieName])
+    disp(['Current Cell: ' num2str(currCell)])
+    disp(['Data Location: ' SavePathCell])
+
+    %% Generate Estimates
+
+    % Generate a guess for the microtubule locations.
+    currFrame = 2;
+    framesforGuess = currFrame-1 : currFrame+1;
+    imCellTimeline = IsolatedCells( jCell).cell3D;
+    imCellTimelineRaw = IsolatedCells( jCell).raw;
+
+    % save cell number, and segmentation mask with cell location, and cell
+    % movie in the folder.
+    cellInfo.cellNumber = currCell;
+    cellInfo.framesSeg = framesForSeg;
+    cellInfo.location = IsolatedCells(jCell).locations;
+
+    logicMask = logical( IsolatedCells( jCell).cell3D(:, :, currFrame) );
+    imageFull = IsolatedCells( jCell).raw(:, :, framesforGuess);
+
+    MicrotubuleBank = generateGuessInterphase( imageFull, logicMask, SavePathCell);
+
+    %% Fit Microtubule Curves
+
+    image2D = IsolatedCells( jCell).raw(:, :, currFrame) .* logicMask;
+    MicrotubuleBank = fitInterphaseCurves( MicrotubuleBank, image2D, SavePathCell);
+    
+    cellInfo.MicrotubuleBank = MicrotubuleBank;
+    save([SavePathCell, filesep, 'cellInfo.mat'], 'cellInfo')
+    clear MicrotubuleBank cellInfo
+    diary off
+    
+end
+[Warning: Directory already exists.] 
+Movie Name: anon
+Current Cell: 36
+Data Location: /Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Pictures/180726_1618/anon/36
+[Warning: generateGuessInterphase: The user
+provided a 3D array for the first argument.
+3rd dimension is assumed as time and an MIP
+is being taken] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('generateGuessInterphase', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m', 21)" style="font-weight:bold">generateGuessInterphase</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m',21,0)">line 21</a>)] 
+generateGuessInterphase: 0 possible lines found.
+No MTOCs were found! No microtubules can exist for this cell.
+---------------- Saving All Open Figures ---------------- \n
+{Error using <a href="matlab:matlab.internal.language.introspective.errorDocCallback('saveas', '/Applications/MATLAB_R2018a.app/toolbox/matlab/general/saveas.m', 134)" style="font-weight:bold">saveas</a> (<a href="matlab: opentoline('/Applications/MATLAB_R2018a.app/toolbox/matlab/general/saveas.m',134,0)">line 134</a>)
+Invalid filename:
+/Users/saadjansari/Documents/Projects/Curved
+Microtubule
+Detector/Pictures/180726_1618/anon/36/
+
+Error in <a href="matlab:matlab.internal.language.introspective.errorDocCallback('SaveOpenFigsToFolder', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/SaveOpenFigsToFolder.m', 26)" style="font-weight:bold">SaveOpenFigsToFolder</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/SaveOpenFigsToFolder.m',26,0)">line 26</a>)
+        saveas( h, figPath, figFormat);
+        
+Error in <a href="matlab:matlab.internal.language.introspective.errorDocCallback('fitInterphaseCurves', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/fitInterphaseCurves.m', 139)" style="font-weight:bold">fitInterphaseCurves</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/fitInterphaseCurves.m',139,0)">line 139</a>)
+SaveOpenFigsToFolder(SavePath, 'png', 1);
+} 
+matlab.internal.language.introspective.errorDocCallback('SaveOpenFigsToFolder', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/SaveOpenFigsToFolder.m', 26)
+opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/SaveOpenFigsToFolder.m',26,0)
+for jCell = 36 : length( IsolatedCells)
+    
+    currCell = IsolatedCells(jCell).cellNumber;
+    SavePathCell = [ SavePath, filesep, num2str(currCell)];
+    %create this path
+    mkdir(SavePathCell)
+    addpath(SavePathCell)
+    
+    diary( [SavePathCell, filesep, 'diary.txt'] )
+    disp(['Movie Name: ' movieName])
+    disp(['Current Cell: ' num2str(currCell)])
+    disp(['Data Location: ' SavePathCell])
+
+    %% Generate Estimates
+
+    % Generate a guess for the microtubule locations.
+    currFrame = 2;
+    framesforGuess = currFrame-1 : currFrame+1;
+    imCellTimeline = IsolatedCells( jCell).cell3D;
+    imCellTimelineRaw = IsolatedCells( jCell).raw;
+
+    % save cell number, and segmentation mask with cell location, and cell
+    % movie in the folder.
+    cellInfo.cellNumber = currCell;
+    cellInfo.framesSeg = framesForSeg;
+    cellInfo.location = IsolatedCells(jCell).locations;
+
+    logicMask = logical( IsolatedCells( jCell).cell3D(:, :, currFrame) );
+    imageFull = IsolatedCells( jCell).raw(:, :, framesforGuess);
+
+    MicrotubuleBank = generateGuessInterphase( imageFull, logicMask, SavePathCell);
+
+    %% Fit Microtubule Curves
+
+    image2D = IsolatedCells( jCell).raw(:, :, currFrame) .* logicMask;
+    MicrotubuleBank = fitInterphaseCurves( MicrotubuleBank, image2D, SavePathCell);
+    
+    cellInfo.MicrotubuleBank = MicrotubuleBank;
+    save([SavePathCell, filesep, 'cellInfo.mat'], 'cellInfo')
+    clear MicrotubuleBank cellInfo
+    diary off
+    
+end
+[Warning: Directory already exists.] 
+Movie Name: anon
+Current Cell: 36
+Data Location: /Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Pictures/180726_1618/anon/36
+[Warning: generateGuessInterphase: The user
+provided a 3D array for the first argument.
+3rd dimension is assumed as time and an MIP
+is being taken] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('generateGuessInterphase', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m', 21)" style="font-weight:bold">generateGuessInterphase</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m',21,0)">line 21</a>)] 
+generateGuessInterphase: 0 possible lines found.
+No MTOCs were found! No microtubules can exist for this cell.
+<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/SaveOpenFigsToFolder.m',6,1)">6   </a>    disp('---------------- Saving All Open Figures ---------------- \n')
+exist( filePath, 'dir')
+
+ans =
+
+     7
+
+addpath(filePath);
+    
+    % get all the figure handles
+    FigHandles = findobj('Type', 'figure');
+jFig = 1
+
+jFig =
+
+     1
+
+h = FigHandles( jFig)
+
+h = 
+
+  <a href="matlab:helpPopup matlab.ui.Figure" style="font-weight:bold">Figure</a> (1) with properties:
+
+      Number: 1
+        Name: ''
+       Color: [0.9400 0.9400 0.9400]
+    Position: [1 45 1366 628]
+       Units: 'pixels'
+
+  Show <a href="matlab:if exist('h', 'var'), matlab.graphics.internal.getForDisplay('h', h, 'matlab.ui.Figure'), else, matlab.graphics.internal.getForDisplay('h'), end">all properties</a>
+
+figName = [ h.Name ]
+
+figName =
+
+  0×0 empty <a href="matlab:helpPopup char" style="font-weight:bold">char</a> array
+
+if system_dependent('IsDebugMode')==1, dbquit; end
+currCell = IsolatedCells(jCell).cellNumber;
+    SavePathCell = [ SavePath, filesep, num2str(currCell)];
+    %create this path
+    mkdir(SavePathCell)
+[Warning: Directory already exists.] 
+    addpath(SavePathCell)
+    
+    diary( [SavePathCell, filesep, 'diary.txt'] )
+    disp(['Movie Name: ' movieName])
+Movie Name: anon
+    disp(['Current Cell: ' num2str(currCell)])
+Current Cell: 36
+    disp(['Data Location: ' SavePathCell])
+Data Location: /Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Pictures/180726_1618/anon/36
+
+    %% Generate Estimates
+
+    % Generate a guess for the microtubule locations.
+    currFrame = 2;
+    framesforGuess = currFrame-1 : currFrame+1;
+    imCellTimeline = IsolatedCells( jCell).cell3D;
+    imCellTimelineRaw = IsolatedCells( jCell).raw;
+
+    % save cell number, and segmentation mask with cell location, and cell
+    % movie in the folder.
+    cellInfo.cellNumber = currCell;
+    cellInfo.framesSeg = framesForSeg;
+    cellInfo.location = IsolatedCells(jCell).locations;
+
+    logicMask = logical( IsolatedCells( jCell).cell3D(:, :, currFrame) );
+    imageFull = IsolatedCells( jCell).raw(:, :, framesforGuess);
+
+    MicrotubuleBank = generateGuessInterphase( imageFull, logicMask, SavePathCell);
+[Warning: generateGuessInterphase: The user
+provided a 3D array for the first argument.
+3rd dimension is assumed as time and an MIP
+is being taken] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('generateGuessInterphase', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m', 21)" style="font-weight:bold">generateGuessInterphase</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m',21,0)">line 21</a>)] 
+generateGuessInterphase: 0 possible lines found.
+No MTOCs were found! No microtubules can exist for this cell.
+
+    %% Fit Microtubule Curves
+
+    image2D = IsolatedCells( jCell).raw(:, :, currFrame) .* logicMask;
+    MicrotubuleBank = fitInterphaseCurves( MicrotubuleBank, image2D, SavePathCell);
+<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/SaveOpenFigsToFolder.m',6,1)">6   </a>    disp('---------------- Saving All Open Figures ---------------- \n')
+if system_dependent('IsDebugMode')==1, dbcont; end
+---------------- Saving All Open Figures ---------------- \n
+    
+    cellInfo.MicrotubuleBank = MicrotubuleBank;
+    save([SavePathCell, filesep, 'cellInfo.mat'], 'cellInfo')
+    clear MicrotubuleBank cellInfo
+    diary off
+Movie Name: anon
+Current Cell: 36
+Data Location: /Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Pictures/180726_1618/anon/36
+[Warning: generateGuessInterphase: The user
+provided a 3D array for the first argument.
+3rd dimension is assumed as time and an MIP
+is being taken] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('generateGuessInterphase', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m', 21)" style="font-weight:bold">generateGuessInterphase</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m',21,0)">line 21</a>)] 
+generateGuessInterphase: 0 possible lines found.
+No MTOCs were found! No microtubules can exist for this cell.
+---------------- Saving All Open Figures ---------------- \n

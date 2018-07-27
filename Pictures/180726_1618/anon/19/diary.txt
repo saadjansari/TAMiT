@@ -1,0 +1,71 @@
+Movie Name: anon
+Current Cell: 19
+Data Location: /Users/saadjansari/Documents/Projects/Curved Microtubule Detector/Pictures/180726_1618/anon/19
+[Warning: generateGuessInterphase: The user
+provided a 3D array for the first argument.
+3rd dimension is assumed as time and an MIP
+is being taken] 
+[> In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('generateGuessInterphase', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m', 21)" style="font-weight:bold">generateGuessInterphase</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/generateGuessInterphase.m',21,0)">line 21</a>)
+  In <a href="matlab:matlab.internal.language.introspective.errorDocCallback('InitLoadInterphaseTest', '/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m', 67)" style="font-weight:bold">InitLoadInterphaseTest</a> (<a href="matlab: opentoline('/Users/saadjansari/Documents/Projects/Curved Microtubule Detector/InitLoadInterphaseTest.m',67,0)">line 67</a>)] 
+generateGuessInterphase: 2 possible lines found.
+---------------- Saving All Open Figures ---------------- \n
+
+                                         Norm of      First-order 
+ Iteration  Func-count     f(x)          step          optimality
+     0         19     1.95203e+06                      3.83e+05
+     1         38     1.94275e+06        0.25483       2.66e+05      
+     2         57     1.93788e+06       0.252301       3.21e+05      
+     3         76     1.93401e+06       0.160057       2.95e+05      
+     4         95     1.92771e+06       0.420093       1.45e+06      
+     5        114     1.92771e+06       0.232298       1.45e+06      
+     6        133     1.92669e+06      0.0580745       1.92e+05      
+     7        152     1.92604e+06      0.0580745       6.98e+05      
+     8        171     1.92573e+06       0.129316       3.11e+04      
+     9        190     1.92572e+06       0.252317        6.3e+04      
+    10        209     1.92572e+06       0.110561        6.3e+04      
+    11        228     1.92572e+06      0.0276404        6.3e+04      
+    12        247     1.92572e+06     0.00691009        6.3e+04      
+    13        266     1.92572e+06     0.00172752        6.3e+04      
+    14        285     1.92572e+06    0.000431881        6.3e+04      
+    15        304     1.92571e+06     0.00010797       6.18e+04      
+
+<a href = "matlab: helpview([docroot '/toolbox/optim/msg_csh/optim_msg_csh.map'],'local_min_possible_lsq','CSHelpWindow');">Local minimum possible</a>.
+
+lsqnonlin stopped because the final change in the sum of squares relative to 
+its initial value is less than the selected value of the <a href = "matlab: helpview([docroot '/toolbox/optim/msg_csh/optim_msg_csh.map'],'function_tolerance_lsq','CSHelpWindow');">function tolerance</a>.
+
+<<a href = "matlab: createExitMsg('snls',3.000000e+00,true,true,'lsqnonlin',7.807785e-07,'selected',1.000000e-06,0.000000e+00,'',0.000000e+00,0.000000e+00,'',0.000000e+00);">stopping criteria details</a>>
+
+Mission Accomplished
+
+                                         Norm of      First-order 
+ Iteration  Func-count     f(x)          step          optimality
+     0         19     2.25466e+06                      6.16e+03
+     1         38     2.25452e+06       0.533618       2.03e+04      
+     2         57     2.25244e+06       0.133404       1.77e+04      
+     3         76     2.25244e+06       0.266809       1.77e+04      
+     4         95     2.25244e+06      0.0667022       1.77e+04      
+     5        114     2.25213e+06      0.0166756       2.22e+04      
+     6        133     2.25213e+06      0.0333511       2.22e+04      
+     7        152     2.25197e+06     0.00833778       2.47e+04      
+     8        171     2.25197e+06      0.0166756       2.47e+04      
+     9        190     2.25195e+06     0.00416889       1.43e+04      
+    10        209     2.25195e+06     0.00416889       1.43e+04      
+    11        228     2.25194e+06     0.00104222       1.42e+04      
+    12        247     2.25194e+06     0.00208444       1.42e+04      
+    13        266     2.25193e+06    0.000521111       1.42e+04      
+    14        285     2.25193e+06     0.00104222       1.42e+04      
+    15        304     2.25193e+06    0.000260556       1.42e+04      
+    16        323     2.25193e+06    6.51389e-05       2.62e+04      
+    17        342     2.25193e+06    6.51389e-05       1.42e+04      
+    18        361     2.25193e+06    1.62847e-05       1.42e+04      
+
+<a href = "matlab: helpview([docroot '/toolbox/optim/msg_csh/optim_msg_csh.map'],'local_min_possible_lsq','CSHelpWindow');">Local minimum possible</a>.
+
+lsqnonlin stopped because the final change in the sum of squares relative to 
+its initial value is less than the selected value of the <a href = "matlab: helpview([docroot '/toolbox/optim/msg_csh/optim_msg_csh.map'],'function_tolerance_lsq','CSHelpWindow');">function tolerance</a>.
+
+<<a href = "matlab: createExitMsg('snls',3.000000e+00,true,true,'lsqnonlin',7.435890e-08,'selected',1.000000e-06,0.000000e+00,'',0.000000e+00,0.000000e+00,'',0.000000e+00);">stopping criteria details</a>>
+
+Mission Accomplished
+---------------- Saving All Open Figures ---------------- \n
