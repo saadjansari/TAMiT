@@ -48,7 +48,7 @@ SegmentationInfo = generateSegmentationMask( imageForSeg); % generate segmentati
 
 % Isolate cells via segmentation mask:
 cellsToPick = 1:SegmentationInfo.NumCells; % specify vector of cells or just use 'prompt'
-IsolatedCells = useSegmentationMask( imTime, SegmentationInfo.MaskLogical, 'prompt');
+IsolatedCells = useSegmentationMask( imTime, SegmentationInfo.MaskLogical, cellsToPick);
 clear imTime % to clear some memory
 
 % For each cell, estimate and fit microtubules
@@ -61,9 +61,9 @@ for jCell = 1 : length( IsolatedCells)
     imCellTimeline = IsolatedCells( jCell).cell3D;
     imCellTimelineRaw = IsolatedCells( jCell).raw;
     
-    framesToAnalyze = 2; % specify frames to analyze for microtubules
+    framesToAnalyze = 1:200; % specify frames to analyze for microtubules
     
-    for jFrame = 1 : length( framesToAnalyze)
+    for jFrame = 1 : 20: length( framesToAnalyze)
         
         currFrame = framesToAnalyze( jFrame); % current frame
         
