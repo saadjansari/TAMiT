@@ -47,7 +47,7 @@ imageForSeg = mat2gray( mean( imTime( :, :, framesForSeg), 3 ) );
 SegmentationInfo = generateSegmentationMask( imageForSeg); % generate segmentation mask
 
 % Isolate cells via segmentation mask:
-cellsToPick = 1:SegmentationInfo.NumCells; % specify vector of cells or just use 'prompt'
+cellsToPick = 27; % specify vector of cells or just use 'prompt'
 IsolatedCells = useSegmentationMask( imTime, SegmentationInfo.MaskLogical, cellsToPick);
 clear imTime % to clear some memory
 

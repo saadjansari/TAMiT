@@ -361,7 +361,7 @@ SaveOpenFigsToFolder( SavePath, 'png', 1)
     function [imSeeds, nms, rotations] = findMTSeeds( imageOld)
         
         % Use a steerable filter to detect locations of lines (ridge detector)
-        [res, theta, nms, rotations] = steerableDetector( imageOld,4,2.5, 180);
+        [res, theta, nms, rotations] = steerableDetector( imageOld,4,2, 180);
 
         % The suppressed response max has some noise in the background. We will use
         % the fact the most of the interphase lines are oriented along the
