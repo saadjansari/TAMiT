@@ -1,6 +1,6 @@
 function dispImg( varargin)
         
-if length(varargin) == 1 && ( isa( varargin{1}, 'double') || isa( varargin{1}, 'logical') || isa( varargin{1}, 'uint8') )
+if length(varargin) == 1 && ( isa( varargin{1}, 'double') || isa( varargin{1}, 'logical') || isa( varargin{1}, 'uint8') || isa( varargin{1}, 'single') )
     % its a single image
     img = varargin{1};
     figure; imagesc(img); axis equal; 
@@ -36,7 +36,7 @@ elseif length( varargin) > 1
         set(gca, 'xlim', [1 size(img{jFig}, 1)], 'ylim', [1 size(img{jFig}, 2)], 'xtick',[], 'ytick',[] )
     end
     pos = get(gcf, 'position');
-%     set(gcf, 'pos', [-10000 pos(2:end)]);
+    set(gcf, 'pos', [10000 pos(2:end)]);
     set(gcf, 'WindowState', 'maximized');
         
 else

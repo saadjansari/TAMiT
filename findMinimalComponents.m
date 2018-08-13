@@ -1,10 +1,11 @@
-function isolatedComponents = findMinimalComponents( newNetwork)
+function BestConnections = findMinimalComponents( newNetwork, params)
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
 
 plotFlag = 1;
 
 imBombed = bombNetworkJunctions( newNetwork);
+imBombed = bwareafilt( imBombed, [ 4 Inf]);
 cc = bwconncomp( imBombed); nObj = cc.NumObjects;
 
 % We will label all the objects and their endpoints uniquely.
@@ -27,7 +28,7 @@ initSeq = linkObjectEndpoints( endPoints);
 % Extend sequences until no longer possible
 runFlag = 1; fullSeq = initSeq; count = 0;
 while runFlag && count < 10
-    [ fullSeq, runFlag] = extendSequences( endPoints, fullSeq, initSeq);
+    [ fullSeq, runFlag] = extendSequences( endPoints, fullSeq, initSeq, params.costs);
     fullSeq = removeChildrenSequences( fullSeq);
     count = count+1;
 end
@@ -49,30 +50,29 @@ lineProps = analyzeLineImages( imConnections);
 % best match.
 BestConnections = findBestGlobalSequences( imConnections, lineProps);
 
+BestConnections = removeSimilarLines( BestConnections);
+
 % all plots
 if plotFlag
     
-    %     dispImg( newNetwork, imBombed, [1 2])
-
-    %     imEnd = 0 * imBombed;
-    %     imEnd( [endPoints.pixId] ) = 1;
-    %     imEnd2 = zeros( [ size(imEnd), 3] );
-    %     imEnd2(:,:,1) = imBombed-imEnd;
-    %     imEnd2(:,:,2) = imEnd;
-    %     dispImg( imEnd2); title('Endpoints of Bombed Network'); set(gca, 'FontSize', 15);
-
-    nR = 2; nC = ceil( length( fullSeq)/2);
-    dispImg( imConnections{:}, [nR, nC] )
+%     dispImg( newNetwork, imBombed, [1 2])
+% 
+%     imEnd = 0 * imBombed;
+%     imEnd( [endPoints.pixId] ) = 1;
+%     imEnd2 = zeros( [ size(imEnd), 3] );
+%     imEnd2(:,:,1) = imBombed-imEnd;
+%     imEnd2(:,:,2) = imEnd;
+%     dispImg( imEnd2); title('Endpoints of Bombed Network'); set(gca, 'FontSize', 15);
+% 
+%     nR = 2; nC = ceil( length( fullSeq)/2);
+%     dispImg( imConnections{:}, [nR, nC] ); title('All Possible Components');
+    
+%     nR = 1; nC = length( BestConnections);
+%     dispImg( BestConnections{:}, [nR, nC] ); title('Best Components');
+%    
+    plotFinalComponents( newNetwork, BestConnections);
     
 end
-
-
-
-
-
-
-isolatedComponents = 1;
-
 
     function imBombed = bombNetworkJunctions( newNetwork)
         
@@ -390,13 +390,16 @@ isolatedComponents = 1;
         
     end
 
-    function [fullSeq, extendFlag] = extendSequences( endPoints, initSeq, initPairs)
+    function [fullSeq, extendFlag] = extendSequences( endPoints, initSeq, initPairs, cost)
         % extendSequences : extends sequences by linking endpoints if they
         % are close in space and their orientation matches
         
-        phiSpreadCone = deg2rad( 35);
-        lengthCone = 10;
-        maxPhiDiff = deg2rad(80);
+%         phiSpreadCone = deg2rad( 35);
+%         lengthCone = 10;
+%         maxPhiDiff = deg2rad(80);
+        phiSpreadCone = cost.maxPhiDiff_EE/3;
+        lengthCone = cost.maxDistLink;
+        maxPhiDiff = cost.maxPhiDiff_EE;
         fullSeq = initSeq;
         extendFlag = 0;
         
@@ -719,19 +722,20 @@ isolatedComponents = 1;
         % we'll use a moving filter of 5 pixels to find the local
         % orientations
         filtSize = 5;
-        
+        filtHalf = (filtSize-1)/2 * mod(filtSize, 2) + filtSize/2 * ~ mod(filtSize, 2);
+
         thetaList = [];
         for jPix = 1 : numPix
             
-            if jPix <= (filtSize-1)/2
+            if jPix <= filtHalf
                 startPix = 1;
             else
-                startPix = jPix - (filtSize-1)/2;
+                startPix = jPix - filtHalf;
             end
-            if jPix > numPix - (filtSize-1)/2
+            if jPix > numPix - filtHalf
                 endPix = numPix;
             else
-                endPix = jPix + (filtSize-1)/2;
+                endPix = jPix + filtHalf;
             end
             
             localLine = xyList( startPix : endPix, :)';
@@ -743,12 +747,44 @@ isolatedComponents = 1;
             
         end
         
+        filtSize = 15;
+        filtHalf = (filtSize-1)/2 * mod(filtSize, 2) + filtSize/2 * ~ mod(filtSize, 2);
+        contourLengthList = [];
+        endLengthList = [];
+        for jPix = 1 : numPix
+            
+            if jPix <= filtHalf
+                startPix = 1;
+            else
+                startPix = jPix - filtHalf;
+            end
+            if jPix > numPix - filtHalf
+                endPix = numPix;
+            else
+                endPix = jPix + filtHalf;
+            end
+            
+            p1 = xyList( startPix, :);
+            p2 = xyList( endPix, :);
+
+            conLen = abs( mat_dist( p1(1), p1(2) ) - mat_dist( p2(1), p2(2) ) );
+            endLen = norm( [ p1(1)-p2(1), p1(2)-p2(2) ] );
+            
+            contourLengthList = [ contourLengthList, conLen];
+            endLengthList = [ endLengthList, endLen];
+                        
+        end
+        
+        contourLength = max( mat_dist(:) );
+        endLength = norm( [ xyList(1,1)-xyList(end,1), xyList(1,2)-xyList(end,2) ] );
+        
         % store information about line/curve
         lineProps.length = numPix;
         lineProps.theta = mean( thetaList);
         lineProps.thetaVar = std( thetaList);
         lineProps.thetaRaw = thetaList;
-        
+        lineProps.meanContPerL = mean( contourLengthList./endLengthList);
+        lineProps.contPerL = contourLength/endLength;
     end
 
     function lineProps = analyzeLineImages( imageCellArray)
@@ -769,73 +805,106 @@ isolatedComponents = 1;
         % explains the original image by enforcing decisions on strongly
         % overlapping roads.
         
-        maxOverlap = 15;
+        maxOverlap = 25;
         
         numRoads = length( allRoads);
         
-        winners = []; losers = [];
+        winners = [];
         for jRoad = 1 : numRoads
             
             % get overlaps
-            overlaps = cellfun( @(v) sum( allRoads{jRoad}(:) & v(:) ) > maxOverlap, allRoads );
+            overlaps = cellfun( @(v) sum( allRoads{jRoad}(:) & v(:) )>maxOverlap, allRoads);
             
             % remove overlap with itself
             overlaps(jRoad) = 0;
             
+            % find conflict Roads
             conflictRoads = find( overlaps);
-        
-            % for each conflicting road, check the oreintations of all the
-            % other segments to see which roadway this overlap truly
-            % belongs to.
-            winner = jRoad;
-            for kRoad = conflictRoads
-                
-                var1 = lineProps( jRoad).thetaVar;
-                var2 = lineProps( kRoad).thetaVar;
-                
-                % find propereties of overlap region
-                imOverlap = logical( 0 * allRoads{1} );
-                
-                imOverlap( allRoads{jRoad}(:) & allRoads{kRoad}(:) ) = 1;
-                overlapProps = findLineImageVariance( imOverlap);
-                
-                % get local orientations of overlap region
-                thBoth = overlapProps.thetaRaw;
-                th1 = lineProps(jRoad).thetaRaw;
-                th2 = lineProps(kRoad).thetaRaw;
-%                 loc1 = strfind( th1, thBoth);
-%                 loc2 = strfind( th2, thBoth);
-%                 th1( loc1: loc1+length(thBoth)-1) = [];
-%                 th2( loc2: loc2+length(thBoth)-1) = [];
-                
-                th1 = smooth(th1, 10); th2 = smooth(th2, 10); thBoth = smooth( thBoth, 10);
-%                 figure; plot(th1); hold on; plot(th2); plot(thBoth);
-                
-                d1 = diff( th1); d2 = diff( th2); dB = diff( thBoth);
-%                 figure; plot(d1); hold on; plot(d2); plot(dB);
-                
-                N = min( [length(d1), length(d2)] );
-                % get local orientations of the lines in competition after
-                % excluding the overlap region
-                
-                [h1, p1, ~] = kstest2( dB, d1 );
-                [h2, p2, ~] = kstest2( dB, d2 );
-
-                if p1 >= p2
-                    winner = jRoad;
-                    losers = [ losers, kRoad];
-                elseif p1 < p2
-                    winner = kRoad;
-                    losers = [ losers, jRoad];
+            
+            % This road has conflicts with other roads, but there may be
+            % different regions of overlap. So we need to get the pixel
+            % indices of the overlap regions with each other road and try
+            % to group the competition.
+            groups = {};
+            for iRoad = conflictRoads
+                group = [iRoad];
+                for iiRoad = conflictRoads
+                    if iiRoad ~= iRoad
+                        % get pixel indices of both roads
+                        r1 = allRoads{ iRoad};
+                        r2 = allRoads{ iiRoad};
+                        
+                        overlapFlag = sum( r1(:) & r2(:))>maxOverlap;
+                        if overlapFlag
+                            group = [ group, iiRoad];
+                        end
+                    end
                 end
-                
+                groups = { groups{:}, group };
             end
             
-            winners = [ winners, winner];
-        
+            % There will be a single winner from each group. At the end,
+            % any roads that are not winners will be deemed a loser.
+            for jComp = 1 : length( groups)
+                cGroup = [ jRoad, groups{ jComp}];
+                
+                [~, winnerIdx] = min([lineProps(cGroup).contPerL]);
+                if cGroup(winnerIdx) == 4
+                    stopP = 1;
+                end
+                winners = unique([ winners, cGroup(winnerIdx)]);
+            end
         end
+        BestRoads = { allRoads{ winners} };
+    end
+
+    function plotFinalComponents( imAll, bestComp)
         
-        BestRoads = { allRoads{ unique( winners)} };
+        colors = distinguishable_colors( length(bestComp), {'w', 'k'});
+        imBest = 0*imAll; imBest = repmat( imAll, 1, 1, 3);
+        
+        for jC = 1 : length(bestComp)
+            
+            [y,x] = find( bestComp{jC});
+            
+            for jInd = 1 : length(y)
+                if any( imBest( y(jInd), x(jInd), :) )
+                    imBest( y(jInd), x(jInd), :) = mat2gray( squeeze(imBest( y(jInd), x(jInd), :)) + colors(jC, :)');
+                else
+                    imBest( y(jInd), x(jInd), :) = colors(jC, :);
+                end
+            end
+            
+        end
+        dispImg( imAll, imBest, [1 2]);  set( gcf, 'NumberTitle', 'off', 'Name', 'MT network components');      
+        title( sprintf("Network's minimal components = %d", length(bestComp) ) );
+        
+    end
+
+    function BestLines = removeSimilarLines( allLines)
+        
+        % compare each pair of lines to see if any 2 lines are super close
+        % if any two lines are super close, keep there average.
+        % Define what it means for 2 lines to be similar or super close?
+        % if the overlap of any two lines is > 90% of the lines, they are
+        % similar
+        
+        BestLines = {};
+        nLines = length( allLines);
+        rmVal = [];
+        for jLine = 1 : nLines
+            if all(jLine ~= rmVal)
+                overlaps = cellfun( @(v) sum(allLines{jLine}(:) & v(:)), allLines ); 
+                lengs = cellfun(  @(v) sum( v(:) ), allLines );
+                ratios = overlaps ./ lengs;
+
+                cLines = find( ratios > 0.9);
+                rmVal = unique( [rmVal, cLines( cLines ~= jLine) ] );
+                % pick the avg line in cLines
+                X = cat(3, allLines{ cLines});
+                BestLines = { BestLines{:}, logical( sum( X, 3) ) };
+            end
+        end
         
     end
 

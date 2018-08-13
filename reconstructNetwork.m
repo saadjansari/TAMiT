@@ -5,7 +5,7 @@ function finalNetwork = reconstructNetwork( brokenNetwork, params)
 % matching, connection distance and line-axis shift matching.
 % Endpoints-Endpoint connections are encouraged where possible.
 
-plotFlag = 1;
+plotFlag = 0;
 % We start with an image of a broken network.
 % We have the barebones of the network, but it needs to be reinstated.
 % For each object we will determine if it should be linked to any of its
@@ -234,7 +234,7 @@ disp('Network successfully resinstated')
         
         stats = regionprops( cc, 'Area');
         
-        lengthCone = 6;
+        lengthCone = 10;
         phiSpreadCone = deg2rad( 50);
         linkPoints = [];
     
