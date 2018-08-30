@@ -1,4 +1,4 @@
-function finalNetwork = reconstructNetwork( brokenNetwork, params)
+function finalNetwork = reconstructNetwork( brokenNetwork, intensityImage, params)
 % reconstructNetwork: Take an image of a network of lines/curves that has
 % some broken links. This function looks at each endpoint and finds the
 % cost of connecting it to a nearby object based on local curvature
@@ -41,10 +41,12 @@ endPoints = findEndpointOrientation( endPoints);
 % Next, we will draw a cone from each endpoint in its local orientation and
 % find objects it can be linked with. We will also record information about
 % the objects it can be linked with
-linkPoints = findLinkPoints( endPoints);
+linkPoints = findLinkPoints( endPoints, params.costs);
 
 % Now, we will find the cost of every possible link
-linkCosts = findLinkCosts( linkPoints, params.costs);
+linkCosts = findLinkCosts( linkPoints, intensityImage, params.costs);
+
+linkCosts = removeDuplicateLinks( linkCosts);
 
 % establish links whose cost is below maximum cost
 finalNetwork = completeLinks( brokenNetwork, linkCosts);
@@ -56,9 +58,9 @@ if plotFlag
     dispImg( imDisp); title('Reinstated Network: Greens are new connections'); set(gca, 'FontSize', 15);
 end
 
-disp('Network successfully resinstated')
+disp('Network successfully reinstated')
 
-    function endPoints = findNetworkEndpoints( brokenNetwork)
+    function endPoints = findNetworkEndpoints( networkIn)
         % findNetworkEndpoints: finds the endpoints of a line/curve or any
         % shape composed of lines/curves. endPoints output is an mx4 array
         % where m is the number or endpoints. The first column gives the
@@ -76,67 +78,88 @@ disp('Network successfully resinstated')
         % side of the object.
         endPoints = [];
         
-        % for each object in the broken network
-        for jObj = 1 : nObj
-            
-            % get all its pixels, and turn on just the object
-            pixList = cc.PixelIdxList{ jObj};
-            imObj = 0 * brokenNetwork;
-            imObj( pixList) = 1;
-            % get cartesian indices of pixel
-            [yList, xList] = ind2sub( size(imObj), pixList );
-            
-            % check if any pixel satisfies our criterion for being an
-            % endpixel.
-            for jPix = 1 : length(pixList)
-                
-                y = yList( jPix); x = xList( jPix);
-                
-                % get the local 3x3 neighborhood
-                nhood = imObj( y-1:y+1, x-1:x+1);
-                
-                % apply criterion for endpoint
-                if sum( nhood( 2:2:end) ) < 2
-                    % if there aren't any horizontal/vertical or L-shaped
-                    % connections, it is an endpoint if there is only one
-                    % turned on pixel in the neighborhood. It is also an
-                    % endpoint if there are 2 turned on pixels but they are
-                    % very close together, indicating that something ends
-                    % at the current pixel.
-                    
-                    if sum( nhood(:) ) - 1 == 1
-                        
-                        endPoints = [ endPoints; pixList( jPix), x, y, jObj];
-                        
-                    elseif sum( nhood(:) ) - 1 == 2
+%         % for each object in the broken network
+%         for jObj = 1 : nObj
+%             
+%             % get all its pixels, and turn on just the object
+%             pixList = cc.PixelIdxList{ jObj};
+%             imObj = 0 * brokenNetwork;
+%             imObj( pixList) = 1;
+%             % get cartesian indices of pixel
+%             [yList, xList] = ind2sub( size(imObj), pixList );
+%             
+%             % check if any pixel satisfies our criterion for being an
+%             % endpixel.
+%             for jPix = 1 : length(pixList)
+%                 
+%                 y = yList( jPix); x = xList( jPix);
+%                 
+%                 % get the local 3x3 neighborhood
+%                 nhood = imObj( y-1:y+1, x-1:x+1);
+%                 
+%                 % apply criterion for endpoint
+%                 if sum( nhood( 2:2:end) ) < 2
+%                     % if there aren't any horizontal/vertical or L-shaped
+%                     % connections, it is an endpoint if there is only one
+%                     % turned on pixel in the neighborhood. It is also an
+%                     % endpoint if there are 2 turned on pixels but they are
+%                     % very close together, indicating that something ends
+%                     % at the current pixel.
+%                     
+%                     if sum( nhood(:) ) - 1 == 1
+%                         
+%                         endPoints = [ endPoints; pixList( jPix), x, y, jObj];
+%                         
+%                     elseif sum( nhood(:) ) - 1 == 2
+% 
+%                         % find the pixels that are turned on
+%                         idx = find( nhood);
+%                         idx = idx( idx ~= 5); % not the current pixel
+%                         [yi, xi] = ind2sub( size(nhood) , idx );
+% 
+%                         % find dist between pixels
+%                         if norm([diff(xi) diff(yi)]) < 2.1
+%                             
+%                             endPoints = [ endPoints; pixList( jPix), x, y, jObj];
+%                             
+%                         end
+%                         
+%                     end
+%                     
+%                 end
+%                 
+%             end
+% 
+%         end
+%         
+%         for jEnd = 1 : size( endPoints, 1)
+%             
+%             endPointsStruct( jEnd).pixId = endPoints( jEnd, 1);
+%             endPointsStruct( jEnd).x = endPoints( jEnd, 2);
+%             endPointsStruct( jEnd).y = endPoints( jEnd, 3);
+%             endPointsStruct( jEnd).objId = endPoints( jEnd, 4);
+%             
+%         end
+%         
+%         endPoints = endPointsStruct;
 
-                        % find the pixels that are turned on
-                        idx = find( nhood);
-                        idx = idx( idx ~= 5); % not the current pixel
-                        [yi, xi] = ind2sub( size(nhood) , idx );
-
-                        % find dist between pixels
-                        if norm([diff(xi) diff(yi)]) < 2.1
-                            
-                            endPoints = [ endPoints; pixList( jPix), x, y, jObj];
-                            
-                        end
-                        
-                    end
-                    
-                end
-                
-            end
-
-        end
+        imEndPoints = bwmorph( networkIn, 'endpoints');
         
-        for jEnd = 1 : size( endPoints, 1)
+        % for every connected pixels, find its centroid and that will be
+        % the endpoint
+        ccc = regionprops( imEndPoints, 'Centroid');
+        for jEnd = 1 : length(ccc)
             
-            endPointsStruct( jEnd).pixId = endPoints( jEnd, 1);
-            endPointsStruct( jEnd).x = endPoints( jEnd, 2);
-            endPointsStruct( jEnd).y = endPoints( jEnd, 3);
-            endPointsStruct( jEnd).objId = endPoints( jEnd, 4);
+            endPointsStruct( jEnd).x = round( ccc(jEnd).Centroid(1) );
+            endPointsStruct( jEnd).y = round( ccc(jEnd).Centroid(2) );
+            endPointsStruct( jEnd).pixId = sub2ind(size(imEndPoints), endPointsStruct( jEnd).y, endPointsStruct( jEnd).x);
             
+            % get the object number associated with this endpoint
+            objs = cellfun( @(v) any( v(:) == endPointsStruct( jEnd).pixId), cc.PixelIdxList );
+            endPointsStruct( jEnd).objId = find( objs);
+            if isempty( find( objs) )
+                error('Oh why o why wont...you fix me')
+            end
         end
         
         endPoints = endPointsStruct;
@@ -150,7 +173,7 @@ disp('Network successfully resinstated')
         
         % create a solid circle of radius 5 pixels that will be centered at
         % each endpoint to find the closest pixels.
-        searchRad = 5;
+        searchRad = 7;
         imCirc = zeros( searchRad*2+1);
         centerCirc = [ searchRad+1, searchRad+1];
         for jX = 1 : size( imCirc, 2)
@@ -228,14 +251,15 @@ disp('Network successfully resinstated')
 
     end
 
-    function linkPoints = findLinkPoints( endPoints)
+    function linkPoints = findLinkPoints( endPoints, cost)
         % findLinkPoints: finds the points that can be linked by drawing a
         % cone at each endpoint in the direction of its local orientation
         
         stats = regionprops( cc, 'Area');
         
-        lengthCone = 10;
-        phiSpreadCone = deg2rad( 50);
+        lengthCone = cost.maxDistLink;
+%         phiSpreadCone = atan( cost.maxDistLinkPerp / cost.maxDistLink);
+        phiSpreadCone = deg2rad(30);
         linkPoints = [];
     
         for jEnd = 1 : length( endPoints )
@@ -257,14 +281,19 @@ disp('Network successfully resinstated')
             imCone = 0 * brokenNetwork; 
             imCone( yEnd, xEnd) = 1;
             for jPhi = phiSweep
-                imCone( round( yEnd + lengthCone * sin( jPhi)), round( xEnd + lengthCone * cos( jPhi) ) ) = 1;
+                xV = round( round( xEnd + lengthCone * cos( jPhi) ) ); xV(xV < 1) = 1; xV( xV > size(imCone,2) ) = size(imCone,2);
+                yV = round( yEnd + lengthCone * sin( jPhi)); yV(yV < 1) = 1; yV( yV > size(imCone,1) ) = size(imCone,1);
+                imCone( yV, xV ) = 1;
             end
             imCone = bwconvhull( imCone);
             
             % Now, generate image containing any objects that appear in the
             % search cone.
+            try
             imSearch = imCone .* imOther;
-
+            catch
+                err =1;
+            end
             % We will get the pixel Indices of objects in the cone and
             % compare it with pixel indices of the brokenNetwork image to
             % determine which objects these belong to
@@ -349,14 +378,7 @@ disp('Network successfully resinstated')
                     phiLink = [ endPoints( id).phi];
                     [ linkPtY, linkPtX ] = ind2sub( size( brokenNetwork), idxLink);
                     
-                    % find differenc in phis to be used for cost
-                    % calculation. we account for the fact that two
-                    % endpoints are a perfect match if their phi values are
-                    % offset by pi radians. The perfect match corresponds
-                    % to a value of 0 in phiDiff below.
-                    phiDiff = min( abs( (phiLink - phi) + [-pi, +pi] ) );
-                    
-                    % if more than one endpoint from the same lnik obejct,
+                    % if more than one endpoint from the same link obejct,
                     % pick the closest one
                     
                     if length( id) > 1
@@ -373,6 +395,13 @@ disp('Network successfully resinstated')
                     objLink = [ endPoints( id).objId];
                     phiLink = [ endPoints( id).phi];
                     [ linkPtY, linkPtX ] = ind2sub( size( brokenNetwork), idxLink);
+                    
+                    % find differenc in phis to be used for cost
+                    % calculation. we account for the fact that two
+                    % endpoints are a perfect match if their phi values are
+                    % offset by pi radians. The perfect match corresponds
+                    % to a value of 0 in phiDiff below.
+                    phiDiff = min( abs( (phiLink - phi) + [-pi, +pi] ) );
                     
                     % find perpendicular distance of linking the two
                     % endpoints. generate a line by extending th elocal
@@ -423,12 +452,13 @@ disp('Network successfully resinstated')
             linkPointsStruct( jLink).EndtoEndLink = linkPoints( jLink, 8);
         end
         
-        linkPoints = linkPointsStruct;
-        
+        if exist('linkPointsStruct')
+            linkPoints = linkPointsStruct;
+        end
         
     end
 
-    function linkCosts = findLinkCosts( linkPoints, costs)
+    function linkCosts = findLinkCosts( linkPoints, imPlane, costs)
         % findLinkCosts: finds the cost of each link
         
         linkCosts = linkPoints;
@@ -442,6 +472,8 @@ disp('Network successfully resinstated')
             ee = linkPoints( jLink).EndtoEndLink;
             area1 = linkPoints( jLink).linkObjectSize1;
             area2 = linkPoints( jLink).linkObjectSize2;
+            idx1 = linkPoints( jLink).idx1;
+            idx2 = linkPoints( jLink).idx2;
             
             % extract parameters that determine max values
             maxCost = costs.maxCost;
@@ -452,6 +484,7 @@ disp('Network successfully resinstated')
             EEvsELScalingFactor = costs.EEvsELScalingFactor;
             linkObjectSizeScalingFactor = costs.linkObjectSizeScalingFactor;
             linkObjectSizeForScaling = costs.linkObjectSizeForScaling;
+            
             
             % Phi Cost (quadratic)
             % normalization constant for phi equation will scale with dist            
@@ -466,7 +499,8 @@ disp('Network successfully resinstated')
             
             % phi
             % Dist Cost (linear)
-            costDist = ( 1/ maxDistLink)^2 * dist^2;
+%             costDist = ( 1/ maxDistLink)^2 * dist^2;
+            costDist = 0;
             
             % Dist perp Cost ( linear)
             costDistPerp = ( 1/ maxDistLinkPerp)^2 * distPerp^2;
@@ -480,9 +514,79 @@ disp('Network successfully resinstated')
             % store costs
             linkCosts( jLink).cost = cost;
             linkCosts( jLink).completeLink = (cost <= maxCost);
+            linkCosts( jLink).meanEndIntensity = mean( imPlane( [idx1, idx2]) );
             
+            % find mean intensity of link
+            imLink = logical( 0*imPlane);
+            imLink( [idx1, idx2] ) = 1; imLink = bwconvhull( imLink);
+            imLink = imLink .* imPlane;
+            linkCosts( jLink).meanlinkIntensity = mean( imLink(imLink>0) );
+            
+            if linkCosts( jLink).meanlinkIntensity > linkCosts( jLink).meanEndIntensity ||...
+                abs(linkCosts( jLink).meanlinkIntensity - linkCosts( jLink).meanEndIntensity)*100/linkCosts( jLink).meanEndIntensity < 5
+                linkCosts( jLink).cost = linkCosts( jLink).cost *0.75;
+                linkCosts( jLink).completeLink = (linkCosts( jLink).cost <= maxCost);
+
+            end
         end
             
+    end
+
+    function linkCosts = removeDuplicateLinks( linkCosts)
+        
+        if isempty(linkCosts)
+            return
+        end
+        idx1 = [linkCosts.idx1];
+        idx2 = [linkCosts.idx2];
+        cost = [linkCosts.cost];
+        
+        idxRm = [];
+        for jLink1 = 1 : length(idx1)
+            % check if the reverse link is present in any of the other links.
+            id1 = idx1( jLink1); id2 = idx2( jLink1);
+            for jLink2 = 1 : length(idx1)
+                if jLink2 ~= jLink1 && idx1( jLink2)==id2 && idx2( jLink2)==id1
+                    c1 = cost( jLink1);
+                    c2 = cost( jLink2);
+                    if c1 < c2
+                        idxRm = [ idxRm, jLink2];
+                    elseif c1 > c2
+                        idxRm = [ idxRm, jLink1];
+                    elseif c1 == c2
+                        idxRm = [ idxRm, jLink1*(jLink1<jLink2) + jLink2*(jLink1>jLink2)];
+                    end
+                end
+            end
+        end
+        
+        idxRm = unique(idxRm);
+        % Now remove the duplicate links
+        linkCosts( idxRm ) = [];
+        
+        % We also ensure that at max two links can be made to any linkpoint
+        % irrespective of whether it is in index1 or index2
+        idx1 = [linkCosts.idx1];
+        idx2 = [linkCosts.idx2];
+        cost = [linkCosts.cost];
+        idxRm = [];
+        numKeep = 2;
+        for jLink = 1 : length(idx1)
+            if isempty( idxRm) || any( jLink ~= idxRm)
+                id = idx1( jLink);
+                idDup = find( idx2 == id | idx1 == id);
+                c = cost(idDup);
+                [Csorted, sortIdx] = sort(c);
+                try;idxKeep = sortIdx(1:numKeep); catch; idxKeep = sortIdx(1); end
+%                 [~, idxKeep] = min( c);
+                idxRm = unique([idxRm, setdiff( idDup, idDup(idxKeep) ) ]);
+            end
+        end
+        
+        idxRm = unique(idxRm);
+        % Now remove the duplicate links
+        linkCosts( idxRm ) = [];
+        
     end
 
     function finalNetwork = completeLinks( brokenNetwork, linkCosts)
@@ -492,14 +596,24 @@ disp('Network successfully resinstated')
         % original broken network
         
         finalNetwork = brokenNetwork;
+        if isfield(linkCosts, 'idx1')
+            uniqueEnds = unique([linkCosts.idx1]);
+        else
+            uniqueEnds = [];
+        end
         
-        for jLink = 1 : length( linkCosts)
+        for jLink = 1 : length( uniqueEnds)
             
-           if linkCosts( jLink).completeLink
+            % find possible links for this end
+            linkPossible = find( uniqueEnds( jLink) == [linkCosts.idx1]);
+            
+            [~, minIdx] = min( [linkCosts(linkPossible).cost]);
+            
+           if linkCosts( linkPossible( minIdx) ).completeLink
                
                imLink = 0 * brokenNetwork;
                
-               imLink( [ linkCosts( jLink).idx1, linkCosts( jLink).idx2] ) = 1;
+               imLink( [ uniqueEnds( jLink),  linkCosts( linkPossible( minIdx) ).idx2] ) = 1;
                
                imLink = bwconvhull( imLink);
                
@@ -508,8 +622,13 @@ disp('Network successfully resinstated')
            end
 
         end
-        successLinks = sum( [ linkCosts.completeLink]);
-        rejectLinks = length( linkCosts) - successLinks;
+        if isfield(linkCosts, 'completeLink')
+            successLinks = sum( [ linkCosts.completeLink]);
+            rejectLinks = length( linkCosts) - successLinks;
+        else
+            successLinks = 0;
+            rejectLinks = 0;
+        end
         fprintf('Successful Links = %d , Rejected Links = %d\n', successLinks, rejectLinks) ;
         
     end

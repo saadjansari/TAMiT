@@ -36,7 +36,7 @@ elseif length( varargin) > 1
         set(gca, 'xlim', [1 size(img{jFig}, 1)], 'ylim', [1 size(img{jFig}, 2)], 'xtick',[], 'ytick',[] )
     end
     pos = get(gcf, 'position');
-    set(gcf, 'pos', [10000 pos(2:end)]);
+    set(gcf, 'pos', [-10000 pos(2:end)]);
     set(gcf, 'WindowState', 'maximized');
         
 else

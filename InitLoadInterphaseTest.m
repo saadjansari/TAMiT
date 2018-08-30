@@ -47,7 +47,7 @@ imageForSeg = mat2gray( mean( imTime( :, :, framesForSeg), 3 ) );
 SegmentationInfo = generateSegmentationMask( imageForSeg); % generate segmentation mask
 
 % Isolate cells via segmentation mask:
-cellsToPick = 27; % specify vector of cells or just use 'prompt'
+cellsToPick = 1 : SegmentationInfo.NumCells; % specify vector of cells or just use 'prompt'
 IsolatedCells = useSegmentationMask( imTime, SegmentationInfo.MaskLogical, cellsToPick);
 clear imTime % to clear some memory
 
@@ -63,7 +63,7 @@ for jCell = 1 : length( IsolatedCells)
     
     framesToAnalyze = 1:200; % specify frames to analyze for microtubules
     
-    for jFrame = 1 : 20: length( framesToAnalyze)
+    for jFrame = 1 : 300: length( framesToAnalyze)
         
         currFrame = framesToAnalyze( jFrame); % current frame
         
@@ -112,3 +112,26 @@ for jCell = 1 : length( IsolatedCells)
     end
     
 end
+
+% for jCell = 1 : length( IsolatedCells)
+%     currCell = IsolatedCells(jCell).cellNumber; % current cell number
+%     savePathCell = [ savePath, filesep, 'cell_', num2str(currCell)]; % path to save any/all results in
+% 
+%     % Extract correct cell information
+%     imCellTimeline = IsolatedCells( jCell).cell3D;
+%     imCellTimelineRaw = IsolatedCells( jCell).raw;
+%     currFrame = 1; % current frame
+%     savePathCellFrame = [ savePathCell, filesep, 'frame_' num2str(currFrame) ];
+%     frameRange = 5; % use odd number
+%     if currFrame <= ceil( (frameRange-1) / 2 )
+%         framesforGuess = 1 :  currFrame + ceil( (frameRange-1) / 2 );
+%     elseif currFrame > size( imCellTimeline,3) - ceil( (frameRange-1) / 2 )
+%         framesforGuess = currFrame - ceil( (frameRange-1) / 2 ) : size( imCellTimeline,3);
+%     else
+%         framesforGuess = currFrame - ceil( (frameRange-1) / 2 ) : currFrame + ceil( (frameRange-1) / 2 );
+%     end
+%     imageForGuess = IsolatedCells( jCell).raw(:, :, framesforGuess); % image for guess
+%     maskForCell = logical( IsolatedCells( jCell).cell3D(:, :, currFrame) ); % mask from segmentation
+%     MicrotubuleBank = generateGuessInterphase( imageForGuess, maskForCell, savePathCellFrame);
+%     clear MicrotubuleBank
+% end

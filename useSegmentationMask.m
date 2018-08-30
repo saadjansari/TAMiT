@@ -1,4 +1,4 @@
-function IsolatedCells = useSegmentationMask( image2D, imageMask, method)
+function IsolatedCells = useSegmentationMask( matfile, imageMask, method)
 % useSegmentationMask : applies a segmentation mask on an image and returns
 % an image of a specific cell/cells;
 %
@@ -20,13 +20,12 @@ numCells = max( imLabel(:) );
 
 % if image2D is a 3D image with the third dimension being time, then add up
 % the times
-numTimes = size(image2D, 3);
-if numTimes > 1
-    image3D = image2D;
-    image2D = mat2gray( sum( image2D, 3) );
-elseif numTimes == 1
-    image3D = image2D;
-end
+sizeImg = size( matfile,'imData'); 
+nT = sizeImg( 4);
+nC = sizeImg( 5);
+nZ = sizeImg( 3);
+nX = sizeImg( 2);
+nY = sizeImg( 1);
 
 % We can go one of two routes. If the method is 'prompt', then we'll
 % display an image for the user and ask the user to select cells to
@@ -37,22 +36,22 @@ end
 % with. To do this, we need the centroid of each cell which which
 % dictate the position the number will be placed on the image.
 cc = bwconncomp( imLogic);
-stats = regionprops( cc, 'Centroid');
+stats1 = regionprops( cc, 'Centroid');
 
 % create background image for user
+image2D = mean( matfile.imData( :,:,3,1:5:nT, 1), 4);
 imUser = image2D .* imLogic;
 idx = (1:numCells)';
 pos = zeros( numCells, 2);
 for jObj = 1 : numCells
-    pos(jObj, :) = round( stats(jObj).Centroid );
+    pos(jObj, :) = round( stats1(jObj).Centroid );
 end
 
+imUser = mat2gray( imUser);
 imUser( imUser > 0.3) = 0.3; imUser = mat2gray(imUser);
 T = multithresh( imUser( imUser>0), 2);
-%     imUser( imUser < T(1)) = 0; imUser = mat2gray(imUser);
 % add numbers to the image
 imUserNumbered = insertText( imUser, pos, idx, 'AnchorPoint', 'Center', 'BoxOpacity', 0, 'TextColor', 'red', 'FontSize', 20);
-
 
 if strcmp( method, 'prompt')
        
@@ -104,8 +103,9 @@ cc = bwconncomp( imLogicPad);
 stats = regionprops( cc, 'Centroid', 'MajorAxisLength', 'MinorAxisLength', 'Orientation');
 
 % pad the original image
-image3Dpad = padarray( image3D, [boxSize, boxSize],0 );
-    
+padwid = ceil( boxSize)/2;
+image3Dpad = zeros( nX+boxSize, nY+boxSize, nZ, nT, nC, 'uint8'); 
+ 
 for jCell = 1 : numWanted
     
     % Turn on only the correct cell label
@@ -127,23 +127,50 @@ for jCell = 1 : numWanted
     imMaskPad = 0*imLogicPad;
     imMaskPad( idx) = 1; imMaskPad = imfill( imMaskPad, 'holes');
     
-    % dilate it just a little to ensure any edge features are captured.
-    imMaskPad = imdilate( imMaskPad, strel('disk', 1) );
-    
-    % multiply with the original image to recover intensity information
-    imMask3DPad = repmat( imMaskPad, 1,1, numTimes);
-    imCell3DPad = imMask3DPad .* mat2gray( image3Dpad);
-    
     % get region around cell;
-    ub = round( stats( currCell).Centroid + boxSize/2 );
-    lb = round( stats( currCell).Centroid - boxSize/2 );
+    ub = ceil( stats( currCell).Centroid + boxSize/2 );
+    lb = ceil( stats( currCell).Centroid - boxSize/2 );
+   
+    imMaskPad = imMaskPad(lb(2): ub(2), lb(1): ub(1) ); 
+    imMaskPad = imMaskPad( 1: boxSize, 1 : boxSize); 
+    % dilate it just a little to ensure any edge features are captured.
+    imMaskPad = imdilate( imMaskPad, strel('disk', 2) );
+    imMaskPad = logical( imMaskPad);
+    % multiply with the original image to recover intensity information
+    imMask3DPad = repmat( imMaskPad, 1,1,nZ, nT, nC );
+    imCell3DPad = uint8( 0*imMask3DPad); 
     
+	ubb = ceil( stats1( currCell).Centroid + boxSize/2 );
+    	lbb = ceil( stats1( currCell).Centroid - boxSize/2 );
+	xl = 1; yl = 1; xr = 2*ceil(boxSize/2); yr = xr;
+	if lbb(1) < 1; xl = abs( lbb(1) )+1; end
+        if ubb(1) > nX; xr = ceil(boxSize/2) - abs( ubb(1)-nX ); end
+        if lbb(2) < 1; yl = abs( lbb(2) )+1; end
+        if ubb(2) > nY; yr = ceil(boxSize/2) - abs( ubb(2)-nY ); end
+	lbb( lbb < 1) = 1;
+        ubb( ubb > nX) = nX;
+	if ubb(2)-lbb(2) ~= yr-yl; ubb(2) = lbb(2) + (yr-yl); end
+	if ubb(1)-lbb(1) ~= xr-xl; ubb(1) = lbb(1) + (xr-xl); end
+	
+	try
+		imCell3DPad( yl:yr, xl:xr, :,:, :) = matfile.imData( lbb(2):ubb(2), lbb(1):ubb(1), :, :, :);
+		imCell3DPad = imCell3DPad .* uint8( imMask3DPad);
+	catch
+		disp( [xr-xl, ubb(1)-lbb(1)])
+		disp( [yr-yl, ubb(2)-lbb(2)])
+		disp( size( imCell3DPad))
+		disp( size( imMask3DPad))
+		imCell3DPad( yl:yr, xl:xr, :,:, :) = matfile.imData( lbb(2):ubb(2), lbb(1):ubb(1), :, :, :);
+                disp(class(imCell3DPad)); disp(class(imMask3DPad) )
+		imCell3DPad = imCell3DPad .* uint8( imMask3DPad);
+	end
+
     % obtain cropped regions for both the segmentation version and the
     % field of view region
-    IsolatedCells( jCell).cell3D = imCell3DPad( lb(2): ub(2), lb(1): ub(1), : );
-    IsolatedCells( jCell).cellMIP = max( IsolatedCells( jCell).cell3D, [], 3);
-    IsolatedCells( jCell).raw = mat2gray( image3Dpad( lb(2): ub(2), lb(1): ub(1), : ) );
-    IsolatedCells( jCell).rawMIP = mat2gray( max( IsolatedCells( jCell).raw, [], 3) );
+    IsolatedCells( jCell).cell3D = imCell3DPad;
+%    IsolatedCells( jCell).cellMIP = max( IsolatedCells( jCell).cell3D, [], 3);
+    IsolatedCells( jCell).raw = matfile.imData( lbb(2):ubb(2), lbb(1):ubb(1), :, :, :); 
+%    IsolatedCells( jCell).rawMIP = mat2gray( max( IsolatedCells( jCell).raw, [], 3) );
     IsolatedCells( jCell).cellNumber = currCell;
     IsolatedCells( jCell).locations = imUserNumbered;
     

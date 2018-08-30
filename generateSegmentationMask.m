@@ -12,6 +12,7 @@ function SegmentationInfo = generateSegmentationMask(image2D)
 % cytoplasm signal from the imaging background
 
 % Begin with a wiener filter to reduce the local deviations in noise.
+image2D = mat2gray(image2D);
 [imWiener, ~] = wiener2(image2D, [3 3]);
 
 % Now, we'll try to even out the intensities in the backgroun and within

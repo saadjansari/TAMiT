@@ -6,6 +6,12 @@ function [ imMicrotubules2D, metaData, SavePath] = quickLoad( method)
 % on and storing the useful result.
 % if method = 2, run loadND2file.m
 
+
+% TO-DO: pre-process all the movies and save them in the appropriate format. When running the detection, load from the pre-processed datastore if the file is present in the store, otherwise run the processing function, add the movie information to the data storage and continue.
+
+% Ideas: 
+% For better efficiency save the segmented data as well, and only load it when it is needed. But first i need to be happy with the segmentation procedure. happy is a strong word. lets say i need to be reasonably satisfied. Am i reasonably satisfied? I think its important to store it because segmented 3D movies can practically take up as much space as a 3D 512x512 movie. I need some way of storing that data. Since i process things cell by cell (and frame by frame), it makes sense to load up movies cell by cell, rather than loading up the entire list of cells. This will be crucial when i extrapolate to using 3D information.
+
 if method == 1
     
     % set directory to directory containing stored .mat file

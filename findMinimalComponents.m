@@ -52,11 +52,23 @@ BestConnections = findBestGlobalSequences( imConnections, lineProps);
 
 BestConnections = removeSimilarLines( BestConnections);
 
+% Finally keep any parts of imBombed that are not a part of any of the
+% best connections as they are
+BestImage = cat(3, BestConnections{:}); BestImage = logical(sum(BestImage, 3) );
+cc2 = bwconncomp( heaviside(imBombed-BestImage-0.1) );
+for jPiece = 1 : cc2.NumObjects
+    
+    img = 0*imBombed;
+    img( cc2.PixelIdxList{jPiece} ) = 1;
+    BestConnections = { BestConnections{:}, img};
+    
+end
+
 % all plots
 if plotFlag
     
 %     dispImg( newNetwork, imBombed, [1 2])
-% 
+
 %     imEnd = 0 * imBombed;
 %     imEnd( [endPoints.pixId] ) = 1;
 %     imEnd2 = zeros( [ size(imEnd), 3] );
@@ -66,10 +78,10 @@ if plotFlag
 % 
 %     nR = 2; nC = ceil( length( fullSeq)/2);
 %     dispImg( imConnections{:}, [nR, nC] ); title('All Possible Components');
-    
-%     nR = 1; nC = length( BestConnections);
+%     
+%     nR = 2; nC = ceil( length( BestConnections)/2);
 %     dispImg( BestConnections{:}, [nR, nC] ); title('Best Components');
-%    
+   
     plotFinalComponents( newNetwork, BestConnections);
     
 end
@@ -189,71 +201,121 @@ end
         % side of the object.
         endPoints = [];
         
-        % for each object in the broken network
-        for jObj = 1 : nObj
-            
-            % get all its pixels, and turn on just the object
-            pixList = cc.PixelIdxList{ jObj};
-            imObj = 0 * imBombed;
-            imObj( pixList) = 1;
-            % get cartesian indices of pixel
-            [yList, xList] = ind2sub( size(imObj), pixList );
-            
-            % check if any pixel satisfies our criterion for being an
-            % endpixel.
-            for jPix = 1 : length(pixList)
-                
-                y = yList( jPix); x = xList( jPix);
-                
-                % get the local 3x3 neighborhood
-                nhood = imObj( y-1:y+1, x-1:x+1);
-                
-                % apply criterion for endpoint
-                if sum( nhood( 2:2:end) ) < 2
-                    % if there aren't any horizontal/vertical or L-shaped
-                    % connections, it is an endpoint if there is only one
-                    % turned on pixel in the neighborhood. It is also an
-                    % endpoint if there are 2 turned on pixels but they are
-                    % very close together, indicating that something ends
-                    % at the current pixel.
-                    
-                    if sum( nhood(:) ) - 1 == 1
-                        
-                        endPoints = [ endPoints; pixList( jPix), x, y, jObj];
-                        
-                    elseif sum( nhood(:) ) - 1 == 2
+%         % for each object in the broken network
+%         for jObj = 1 : nObj
+%             
+%             % get all its pixels, and turn on just the object
+%             pixList = cc.PixelIdxList{ jObj};
+%             imObj = 0 * imBombed;
+%             imObj( pixList) = 1;
+%             % get cartesian indices of pixel
+%             [yList, xList] = ind2sub( size(imObj), pixList );
+%             
+%             % check if any pixel satisfies our criterion for being an
+%             % endpixel.
+%             for jPix = 1 : length(pixList)
+%                 
+%                 y = yList( jPix); x = xList( jPix);
+%                 
+%                 % get the local 3x3 neighborhood
+%                 nhood = imObj( y-1:y+1, x-1:x+1);
+%                 
+%                 % apply criterion for endpoint
+%                 if sum( nhood( 2:2:end) ) < 2
+%                     % if there aren't any horizontal/vertical or L-shaped
+%                     % connections, it is an endpoint if there is only one
+%                     % turned on pixel in the neighborhood. It is also an
+%                     % endpoint if there are 2 turned on pixels but they are
+%                     % very close together, indicating that something ends
+%                     % at the current pixel.
+%                     
+%                     if sum( nhood(:) ) - 1 == 1
+%                         
+%                         endPoints = [ endPoints; pixList( jPix), x, y, jObj];
+%                         
+%                     elseif sum( nhood(:) ) - 1 == 2
+% 
+%                         % find the pixels that are turned on
+%                         idx = find( nhood);
+%                         idx = idx( idx ~= 5); % not the current pixel
+%                         [yi, xi] = ind2sub( size(nhood) , idx );
+% 
+%                         % find dist between pixels
+%                         if norm([diff(xi) diff(yi)]) < 2.1
+%                             
+%                             endPoints = [ endPoints; pixList( jPix), x, y, jObj];
+%                             
+%                         end
+%                         
+%                     end
+%                     
+%                 end
+%                 
+%             end
+% 
+%         end
+%         
+%         for jEnd = 1 : size( endPoints, 1)
+%             
+%             endPointsStruct( jEnd).pixId = endPoints( jEnd, 1);
+%             endPointsStruct( jEnd).x = endPoints( jEnd, 2);
+%             endPointsStruct( jEnd).y = endPoints( jEnd, 3);
+%             endPointsStruct( jEnd).objId = endPoints( jEnd, 4);
+%             
+%         end
 
-                        % find the pixels that are turned on
-                        idx = find( nhood);
-                        idx = idx( idx ~= 5); % not the current pixel
-                        [yi, xi] = ind2sub( size(nhood) , idx );
-
-                        % find dist between pixels
-                        if norm([diff(xi) diff(yi)]) < 2.1
-                            
-                            endPoints = [ endPoints; pixList( jPix), x, y, jObj];
-                            
-                        end
-                        
-                    end
-                    
-                end
-                
-            end
-
-        end
+        imEndPoints = bwmorph( imBombed, 'endpoints');
         
-        for jEnd = 1 : size( endPoints, 1)
+        % for every connected pixels, find its centroid and that will be
+        % the endpoint
+        ccc = regionprops( imEndPoints, 'Centroid', 'PixelIdxList');
+        endP = cat( 1, ccc(:).PixelIdxList);
+        for jEnd = 1 : length(endP)
             
-            endPointsStruct( jEnd).pixId = endPoints( jEnd, 1);
-            endPointsStruct( jEnd).x = endPoints( jEnd, 2);
-            endPointsStruct( jEnd).y = endPoints( jEnd, 3);
-            endPointsStruct( jEnd).objId = endPoints( jEnd, 4);
+            endPointsStruct( jEnd).pixId = endP(jEnd);
+            [ endPointsStruct( jEnd).y, endPointsStruct( jEnd).x] = ind2sub( size(imEndPoints), endP(jEnd));
             
+            % get the object number associated with this endpoint
+            objs = cellfun( @(v) any( v(:) == endPointsStruct( jEnd).pixId), cc.PixelIdxList );
+            endPointsStruct( jEnd).objId = find( objs);
+            if isempty( find( objs) )
+                error('Oh why o why wont...you fix me')
+            end
         end
         
         endPoints = endPointsStruct;
-        
+       
+        % ensure that a single object has a maximum of 2 endpoints. bwmorph
+        % has its drawbacks. if more than 2 endpoints, pick the two points
+        % that are the farthest.
+        objId = [endPoints.objId];
+        numObj = max(objId);
+        idxKeep = [];
+        for jObj = 1 : numObj
+            
+            endIdx = find(objId == jObj);
+            x = [endPoints( endIdx).x];
+            y = [endPoints( endIdx).y];
+            
+            distCurr = 0;
+            idx1Keep = endIdx(1);
+            idx2Keep = endIdx(2);
+            for p1 = 1 : length(x)
+                for p2 = 1 : length(x)
+            
+                    dist = norm( [x(p1)-x(p2), y(p1)-y(p2)] );
+                    if dist > distCurr
+                        idx1Keep = p1;
+                        idx2Keep = p2;
+                        distCurr = dist;
+                    end
+                    
+                end
+            end
+            idxKeep = [ idxKeep, endIdx(idx1Keep), endIdx(idx2Keep)];
+        end
+        idxRm = setdiff( 1:length(ccc), idxKeep);
+        endPoints(idxRm) = [];
     end
 
     function endPoints = labelEndPoints( endPoints)
@@ -383,7 +445,7 @@ end
         for jSeq = 1 : size(initSeq, 1)
             
             seq = initSeq( jSeq, :);
-            seq( isnan( seq) ) = [];
+%             seq( isnan( seq) ) = [];
             initSeqCell{ jSeq} = seq;
         end
         initSeq = initSeqCell;
@@ -397,15 +459,18 @@ end
 %         phiSpreadCone = deg2rad( 35);
 %         lengthCone = 10;
 %         maxPhiDiff = deg2rad(80);
-        phiSpreadCone = cost.maxPhiDiff_EE/3;
+        phiSpreadCone = cost.maxPhiDiff_EE/2;
         lengthCone = cost.maxDistLink;
-        maxPhiDiff = cost.maxPhiDiff_EE;
+        maxPhiDiff = deg2rad(20); % this is the minimum bound for difference in phis. max is 3 times this at maximum length
         fullSeq = initSeq;
         extendFlag = 0;
         
         % for each endpoint, find its ideal links
         for jNode = 1 : length( endPoints)
             
+            if jNode == 16
+                stopHe = 1;
+            end
             % get node label, node orientation, node index, x and y
             node1 = endPoints( jNode).label;
             phi1 = endPoints( jNode).phi;
@@ -420,7 +485,9 @@ end
             imCone = 0 * newNetwork; 
             imCone( node1y, node1x) = 1;
             for jPhi = phiSweep
-                imCone( round( node1y + lengthCone * sin( jPhi)), round( node1x + lengthCone * cos( jPhi) ) ) = 1;
+                xV = round( round( node1x + lengthCone * cos( jPhi) ) ); xV(xV < 1) = 1; xV( xV > size(imCone,2) ) = size(imCone,2);
+                yV = round( node1y + lengthCone * sin( jPhi)); yV(yV < 1) = 1; yV( yV > size(imCone,1) ) = size(imCone,1);
+                imCone( yV, xV ) = 1;
             end
             imCone = bwconvhull( imCone);
             
@@ -429,7 +496,9 @@ end
             % one belonging to our endpoint.  
             imOther = imBombed;
             imOther( cc.PixelIdxList{ endPoints( jNode).objId} ) = 0;
-            imSearch = imCone .* imOther;
+            try;imSearch = imCone .* imOther;catch
+                err=1;
+            end
             
             % We will get the pixel Indices of objects in the cone and
             % compare it with pixel indices of the newNetwork image to
@@ -463,18 +532,25 @@ end
                     node2Idx = endPoints( nodeLink).pixId;
                     phi2 = endPoints( nodeLink).phi;
                     node2 = endPoints( nodeLink).label;
-
-                    % find difference of phi values to see if there is a match
-                    phiDiff = min( abs( (phi2 + phi1) + pi*[-3:2:3] ) );
-
+                    
+                    % determine cost of the link by taking two vectors of
+                    % unit unit at phi1 and phi2. In a perfect situation,
+                    % the length of v1+v2 will be 0. If phi1 and phi2 are
+                    % off by 60 degrees, the length of v1+v2 will be equal
+                    % to 1 (equilateral triangle)
+                    v1 = [ cos(phi1), sin(phi1) ];
+                    v2 = [ cos(phi2), sin(phi2) ];
+                    
                     % we need to determine what max linking angle to allow. We
                     % will base this on how far the link point is. 
                     % phiMax( d=1) = 30 degrees, phiMax( d=dMax) = 60 degrees
                     [ linkY, linkX] = ind2sub( size(newNetwork), node2Idx);
                     dist = norm( [ linkY-node1y, linkX-node1x ] );
-                    phiMax = maxPhiDiff * ( 1 + 1/(lengthCone-1) * dist);
+                    phiMax = maxPhiDiff * ( 1 + 2/(lengthCone) * dist);
+                    vMaxAllowed = [ cos(0)+cos( pi/2 + phiMax), sin(0)+sin( pi/2 + phiMax ) ];
+                    vMaxAllowed = norm( vMaxAllowed);
 
-                    if phiDiff < phiMax
+                    if norm( v1+v2) < vMaxAllowed
                         possibleLinks = [possibleLinks, node2];
                     end
                     
@@ -505,11 +581,11 @@ end
                     prependFlag = 0;
                     
                     for jLink = possibleLinks
-                        if cSeq(2) ~= jLink
+                        if length( cSeq) == 1 || cSeq(2) ~= jLink
                             
                             % find link pair
                             pairLink = unique( cellfun( @(v) (v(1)==jLink)*v(2),  initPairs ));
-                            pairLink = pairLink( pairLink ~= 0);
+                            pairLink = pairLink( pairLink ~= 0 & ~isnan( pairLink) );
                             if length(pairLink) > 1
                                 error( 'issue with pairLinklength')
                             elseif isempty( pairLink)
@@ -550,7 +626,7 @@ end
                             
                             % find link pair
                             pairLink = unique( cellfun( @(v) (v(1)==jLink)*v(2),  initPairs ));
-                            pairLink = pairLink( pairLink ~= 0);
+                            pairLink = pairLink( pairLink ~= 0 & ~isnan( pairLink) );
                             if length(pairLink) > 1
                                 error( 'issue with pairLinklength')
                             elseif isempty( pairLink)
@@ -705,6 +781,7 @@ end
 %         numPix = length( boundaryPixels);
 
         % find endpoint of line
+        lineImage = logical( lineImage);
         bw = bwmorph( lineImage, 'endpoints');
         endPtIdx = find(bw == 1);
         [ y1, x1] = ind2sub( size(lineImage), endPtIdx);
@@ -721,7 +798,7 @@ end
         numPix = size( xyList,1);
         % we'll use a moving filter of 5 pixels to find the local
         % orientations
-        filtSize = 5;
+        filtSize = 10;
         filtHalf = (filtSize-1)/2 * mod(filtSize, 2) + filtSize/2 * ~ mod(filtSize, 2);
 
         thetaList = [];
@@ -740,14 +817,25 @@ end
             
             localLine = xyList( startPix : endPix, :)';
             
-            xD = diff(localLine(1,:) );
-            yD = diff(localLine(2,:) );
+%             xD = diff(localLine(1,:) );
+%             yD = diff(localLine(2,:) );
             
-            thetaList = [ thetaList, mean( atan2(yD, xD) ) ];
+            xD = localLine(1, end) - localLine(1, 1);
+            yD = localLine(2, end) - localLine(2, 1);
+            
+            thetaNextPossible = mean( atan2(yD, xD) ) + [-2*pi, 0, +2*pi];
+            if ~isempty( thetaList)
+                [~, thetaNextIdx] = min( abs( thetaNextPossible - thetaList(end) ) );
+            else
+                thetaNextIdx = 2;
+            end
+            thetaList = [ thetaList, thetaNextPossible( thetaNextIdx) ];
+            
+%             thetaList = [ thetaList, mean( atan2(yD, xD) ) ];
             
         end
         
-        filtSize = 15;
+        filtSize = 20;
         filtHalf = (filtSize-1)/2 * mod(filtSize, 2) + filtSize/2 * ~ mod(filtSize, 2);
         contourLengthList = [];
         endLengthList = [];
@@ -764,11 +852,16 @@ end
                 endPix = jPix + filtHalf;
             end
             
-            p1 = xyList( startPix, :);
-            p2 = xyList( endPix, :);
+            s1 = smooth( thetaList(startPix:endPix) , 7); 
 
-            conLen = abs( mat_dist( p1(1), p1(2) ) - mat_dist( p2(1), p2(2) ) );
-            endLen = norm( [ p1(1)-p2(1), p1(2)-p2(2) ] );
+            conLen = sum( sqrt( diff( s1).^2 + 1.^2 ) );
+            endLen = sqrt( diff( s1( [1, end]) ).^2 + (length(s1)-1)^2 );
+            
+%             p1 = xyList( startPix, :);
+%             p2 = xyList( endPix, :);
+% 
+%             conLen = abs( mat_dist( p1(1), p1(2) ) - mat_dist( p2(1), p2(2) ) );
+%             endLen = norm( [ p1(1)-p2(1), p1(2)-p2(2) ] );
             
             contourLengthList = [ contourLengthList, conLen];
             endLengthList = [ endLengthList, endLen];
@@ -779,12 +872,13 @@ end
         endLength = norm( [ xyList(1,1)-xyList(end,1), xyList(1,2)-xyList(end,2) ] );
         
         % store information about line/curve
-        lineProps.length = numPix;
+        lineProps.numPix = numPix;
         lineProps.theta = mean( thetaList);
         lineProps.thetaVar = std( thetaList);
         lineProps.thetaRaw = thetaList;
         lineProps.meanContPerL = mean( contourLengthList./endLengthList);
         lineProps.contPerL = contourLength/endLength;
+        lineProps.length = endLength;
     end
 
     function lineProps = analyzeLineImages( imageCellArray)
@@ -805,11 +899,11 @@ end
         % explains the original image by enforcing decisions on strongly
         % overlapping roads.
         
-        maxOverlap = 25;
+        maxOverlap = 10;
         
         numRoads = length( allRoads);
         
-        winners = [];
+        winners = []; losers = [];
         for jRoad = 1 : numRoads
             
             % get overlaps
@@ -821,6 +915,9 @@ end
             % find conflict Roads
             conflictRoads = find( overlaps);
             
+            if isempty( conflictRoads)
+                winners = [winners, jRoad];
+            end
             % This road has conflicts with other roads, but there may be
             % different regions of overlap. So we need to get the pixel
             % indices of the overlap regions with each other road and try
@@ -848,20 +945,29 @@ end
             for jComp = 1 : length( groups)
                 cGroup = [ jRoad, groups{ jComp}];
                 
-                [~, winnerIdx] = min([lineProps(cGroup).contPerL]);
-                if cGroup(winnerIdx) == 4
-                    stopP = 1;
+                [minVal, winnerIdx] = min([lineProps(cGroup).meanContPerL]);
+                
+                % if cont lenths too close, pick longer road
+                if any([lineProps(cGroup).meanContPerL]-minVal < 1e-4 & [lineProps(cGroup).meanContPerL]-minVal > 0)
+                    
+                    compete = find( [lineProps(cGroup).meanContPerL]-minVal < 1e-4 & [lineProps(cGroup).meanContPerL]-minVal > 0);
+                    competeLabels = cGroup( [ winnerIdx, compete]);
+                    [~, winnerIdx] = max( [lineProps( competeLabels ).length] );
+                    winnerIdx = find( cGroup == competeLabels(winnerIdx) );
+                    
                 end
+                losers = unique([ losers, setdiff( cGroup, cGroup(winnerIdx) )]);
                 winners = unique([ winners, cGroup(winnerIdx)]);
             end
         end
-        BestRoads = { allRoads{ winners} };
+        winnerZ = setdiff( 1:numRoads, losers);
+        BestRoads = { allRoads{ winnerZ} };
     end
 
     function plotFinalComponents( imAll, bestComp)
         
         colors = distinguishable_colors( length(bestComp), {'w', 'k'});
-        imBest = 0*imAll; imBest = repmat( imAll, 1, 1, 3);
+        imBest = 0*imAll; imBest = repmat( imBest, 1, 1, 3);
         
         for jC = 1 : length(bestComp)
             
@@ -876,8 +982,8 @@ end
             end
             
         end
-        dispImg( imAll, imBest, [1 2]);  set( gcf, 'NumberTitle', 'off', 'Name', 'MT network components');      
-        title( sprintf("Network's minimal components = %d", length(bestComp) ) );
+        dispImg( imAll, imBest, [1 2]);  set( gcf, 'Name', 'network_components', 'NumberTitle', 'off');
+%         title( sprintf("Network's minimal components = %d", length(bestComp) ) );
         
     end
 

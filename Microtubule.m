@@ -700,13 +700,6 @@ classdef Microtubule
                 stop = false;
                 switch state
                     case 'init'
-            %             plotBest = plot(optimValues.iteration,optimValues.bestfval, '-b', 'Marker', '*', 'LineWidth', 3, 'MarkerSize', 10);
-            %             set(plotBest,'Tag','psoplotbestf');
-            %             xlabel('Iteration','interp','none');
-            %             ylabel('Function value','interp','none')
-            %             title(sprintf('Best Function Value: %g',optimValues.bestfval),'interp','none');
-            %             set(gca, 'FontSize', 14)
-            %             grid on
 
                         t = linspace(0,1); % paramateric variable
                         startIdx = 4;
@@ -718,10 +711,6 @@ classdef Microtubule
                             xcurr = polyval( optimValues.bestx( startIdx : startIdx+ gap-1), t); % current curve coordinates
                             ycurr = polyval( optimValues.bestx( startIdx+ gap : end), t); % current curve coordinates
                         end
-            %             figure('Name', 'particle swarm best curve')
-            %             imagesc(Image2D); axis equal; colormap gray; hold on;
-            %             plot( xcurr, ycurr, 'Color', 'r', 'LineWidth', 4); 
-            %             set(gca, 'xlim', [1 numPixX], 'ylim', [1 numPixY]);
 
                         figure('Name', 'particle swarm', 'NumberTitle', 'off')
                         posOld = get(gcf, 'Position');
@@ -736,7 +725,7 @@ classdef Microtubule
                         grid minor; grid on
 
                         subplot(122)
-                        imagesc([Image2D; GaussianCurveMaker2D( optimValues.bestx, Image2D, FixedParams) ]); axis equal; colormap gray; hold on;
+                        imagesc([obj.display.image; GaussianCurveMaker2D( optimValues.bestx, Image2D, FixedParams) ]); axis equal; colormap gray; hold on;
                         plot( xcurr, ycurr, 'Color', [1 0 0 0.7], 'LineWidth', 6); hold off
                         set(gca, 'xlim', [1 numPixX], 'ylim', [1 2*numPixY], 'XTick', [], 'YTick', []);
                         title('Best Curve'); set(gca, 'FontSize', 14)
@@ -765,7 +754,7 @@ classdef Microtubule
                         end
 
                         subplot(122)
-                        imagesc([Image2D; GaussianCurveMaker2D( optimValues.bestx, Image2D, FixedParams) ]); axis equal; colormap gray; hold on;
+                        imagesc([obj.display.image; GaussianCurveMaker2D( optimValues.bestx, Image2D, FixedParams) ]); axis equal; colormap gray; hold on;
                         plot( xcurr, ycurr, 'Color', [1 0 0 0.7], 'LineWidth', 6); hold off
                         set(gca, 'xlim', [1 numPixX], 'ylim', [1 2*numPixY], 'XTick', [], 'YTick', []);
                         title('Best Curve'); set(gca, 'FontSize', 14)
@@ -778,8 +767,6 @@ classdef Microtubule
 
 
                 end
-
-
 
                 function stop = LSQNONLINplotbestf_SA(x,optimValues,state)
                 %PSWPLOTBESTF Plot best function value.
@@ -851,7 +838,7 @@ classdef Microtubule
                         grid minor; grid on
 
                         subplot(122)
-                        imagesc([Image2D; GaussianCurveMaker2D( x, Image2D, FixedParams) ]); axis equal; colormap gray; hold on;
+                        imagesc([obj.display.image; GaussianCurveMaker2D( x, Image2D, FixedParams) ]); axis equal; colormap gray; hold on;
                         plot( xcurr, ycurr, 'Color', [1 0 0 0.5], 'LineWidth', 6); hold off
                         set(gca, 'xlim', [1 numPixX], 'ylim', [1 2*numPixY], 'XTick', [], 'YTick', []);
                         title('Best Curve'); set(gca, 'FontSize', 14)
@@ -880,7 +867,7 @@ classdef Microtubule
                         end
 
                         subplot(122)
-                        imagesc([Image2D; GaussianCurveMaker2D( x, Image2D, FixedParams) ]); axis equal; colormap gray; hold on;
+                        imagesc([obj.display.image; GaussianCurveMaker2D( x, Image2D, FixedParams) ]); axis equal; colormap gray; hold on;
                         plot( xcurr, ycurr, 'Color', [1 0 0 0.7], 'LineWidth', 6); hold off
                         set(gca, 'xlim', [1 numPixX], 'ylim', [1 2*numPixY], 'XTick', [], 'YTick', []);
                         title('Best Curve'); set(gca, 'FontSize', 14)
@@ -894,15 +881,7 @@ classdef Microtubule
 
                 end
 
-            
-            
-            
-            
-            
-            
-            
         end
-        
         
         function intensities = measureIntensity( obj, type)
             % used to measure intensity while using estimated coefficients
@@ -1016,9 +995,9 @@ classdef Microtubule
 
             
             if isempty( obj.helperImage)
-                helperImage = obj.source;
+                helperImg = obj.source;
             else
-                helperImage = obj.helperImage;
+                helperImg = obj.helperImage;
             end
             
             % clear out any previously stored estimated points
@@ -1032,7 +1011,7 @@ classdef Microtubule
             % iteratively propagate along microtubule
             while success && iter< max_iter
                 
-                [obj, success, orientationNext] = EstimateNextPoint( obj, orientationOld, stepSize, visibility, fieldOfVision, helperImage);
+                [obj, success, orientationNext] = EstimateNextPoint( obj, orientationOld, stepSize, visibility, fieldOfVision, helperImg);
                 if success
 %                     plotEstimatedPointNext( obj, orientationNext, stepSize, visibility, fieldOfVision, iter)
 %                     drawnow; pause(0.2)
@@ -1049,11 +1028,11 @@ classdef Microtubule
             
             while success && iter < count+5
                 
-                [obj, success, orientationNext] = EstimateNextPoint( obj, orientationOld, stepSize/2, visibility/2, fieldOfVision, helperImage);
+                [obj, success, orientationNext] = EstimateNextPoint( obj, orientationOld, stepSize/2, visibility/2, fieldOfVision, helperImg);
             
                 if success
-                    plotEstimatedPointNext( obj, orientationNext, stepSize, visibility, fieldOfVision, iter)
-                    drawnow; pause(0.2)
+%                     plotEstimatedPointNext( obj, orientationNext, stepSize, visibility, fieldOfVision, iter)
+%                     drawnow; pause(0.2)
                     orientationOld = orientationNext;
 
                 end
@@ -1066,8 +1045,6 @@ classdef Microtubule
                 obj.dead = 1;
             end
         end
-        
-        
         
         function [obj, success, phiFinal] = EstimateNextPoint( obj, orientation, stepSize, visibility, fieldOfVision, helperImage)
             % Given a starting point and some other parameters, this
@@ -1098,7 +1075,7 @@ classdef Microtubule
 
             clear x y xi yi
             
-            angRange = deg2rad( fieldOfVision );
+            angRange = deg2rad( fieldOfVision/2 );
 
             % Define the step sizes to use for the angular sweep in phi. We
             % start at 90 degrees to the proposed orientation of the tube
@@ -1119,11 +1096,11 @@ classdef Microtubule
                 % Find the coordinates of the extreme points on the arc length
                 % of this pizza slice.
                 X1 = x0 + ( visibility * cos( [ phi1, phi2]) );
-                Y1 = y0 + ( visibility *- sin( [ phi1, phi2]) ); % -ve because matlab orientation is reversed( origin is at top left)
+                Y1 = y0 + ( visibility * sin( [ phi1, phi2]) ); % -ve because matlab orientation is reversed( origin is at top left)
 
                 % find minimum points at distance rmin away
                 X2 = x0 + ( rmin * cos( [ phi1, phi2]) );
-                Y2 = y0 + ( rmin * -sin( [ phi1, phi2]) ); % -ve because matlab orientation is reversed( origin is at top left)
+                Y2 = y0 + ( rmin * sin( [ phi1, phi2]) ); 
 
                 X = [ X1, X2];
                 Y = [ Y1, Y2];
@@ -1145,7 +1122,7 @@ classdef Microtubule
                 imMask = bwconvhull( imMask);
 
                 imMasked = imMask .* imSub;
-%                 imshowpair(imSub, imMask);
+%                 imshowpair(imSub, imMask); pause(0.25)
                 
                 % Sum up values and store them
                 IntPhi( jPhi) = sum( imMasked(:) ) / sum(imMask(:));
@@ -1197,52 +1174,52 @@ classdef Microtubule
             end
             phi0 = PhiVec( phi0Loc);
             
-            angLimits = orientation + deg2rad( [1,-1]*fieldOfVision );
-            
-            % re-map phi to lie between - pi to +pi
-            phi0 = phi0 - (phi0 > pi) *2*pi;
-            phi0 = phi0 + (phi0 < -pi) *2*pi;
-            
-            % Check if the angles in phi0 lie between the angle Limits (angles are
-            % periodic so something elaborate is needed here
-            % Angle limits can exceed -pi and +pi
-            if angLimits(2) < -pi
-
-                % check if phi0 lies between -pi and upper angle limit
-                log1 = phi0 > -pi & phi0 < angLimits(1);
-
-                % check if phi0 lies between angle lower limit and +pi (since angles
-                % are modded)
-                log2 = phi0 > angLimits(2)+2*pi & phi0 < pi;
-
-                phiFinal = phi0( log1 | log2);
-                pkIntFinal = pkInt( log1 | log2);
-
-            elseif angLimits(1) > pi
-
-                % check if phi0 lies between -pi and upper angle limit
-                log1 = phi0 > -pi & phi0 < angLimits(1)-2*pi;
-
-                % check if phi0 lies between angle lower limit and +pi (since angles
-                % are modded)
-                log2 = phi0 > angLimits(2) & phi0 < pi;
-
-                phiFinal = phi0( log1 | log2);
-                pkIntFinal = pkInt( log1 | log2);
-            else
-                phiFinal = phi0( (phi0 < angLimits(1) ) & ( phi0 > angLimits(2) ) );
-                pkIntFinal = pkInt(  (phi0 < angLimits(1) ) & ( phi0 > angLimits(2) ) );
-            end
+%             angLimits = orientation + deg2rad( [1,-1]*fieldOfVision );
+%             
+%             % re-map phi to lie between - pi to +pi
+%             phi0 = phi0 - (phi0 > pi) *2*pi;
+%             phi0 = phi0 + (phi0 < -pi) *2*pi;
+%             
+%             % Check if the angles in phi0 lie between the angle Limits (angles are
+%             % periodic so something elaborate is needed here
+%             % Angle limits can exceed -pi and +pi
+%             if angLimits(2) < -pi
+% 
+%                 % check if phi0 lies between -pi and upper angle limit
+%                 log1 = phi0 > -pi & phi0 < angLimits(1);
+% 
+%                 % check if phi0 lies between angle lower limit and +pi (since angles
+%                 % are modded)
+%                 log2 = phi0 > angLimits(2)+2*pi & phi0 < pi;
+% 
+%                 phiFinal = phi0( log1 | log2);
+%                 pkIntFinal = pkInt( log1 | log2);
+% 
+%             elseif angLimits(1) > pi
+% 
+%                 % check if phi0 lies between -pi and upper angle limit
+%                 log1 = phi0 > -pi & phi0 < angLimits(1)-2*pi;
+% 
+%                 % check if phi0 lies between angle lower limit and +pi (since angles
+%                 % are modded)
+%                 log2 = phi0 > angLimits(2) & phi0 < pi;
+% 
+%                 phiFinal = phi0( log1 | log2);
+%                 pkIntFinal = pkInt( log1 | log2);
+%             else
+%                 phiFinal = phi0( (phi0 < angLimits(1) ) & ( phi0 > angLimits(2) ) );
+%                 pkIntFinal = pkInt(  (phi0 < angLimits(1) ) & ( phi0 > angLimits(2) ) );
+%             end
 
             % pick the brightest peak.
-            [~, maxIdx] = max(pkIntFinal);
-            phiFinal = phiFinal( maxIdx);
+            [~, maxIdx] = max(pkInt);
+            phiFinal = phi0( maxIdx);
             
             if ~ isempty(phiFinal)
                 phiFinal = phiFinal';
                 
                 x1 = x0 + ( stepSize * cos( phiFinal ) );
-                y1 = y0 + ( stepSize * -sin( phiFinal ) );
+                y1 = y0 + ( stepSize * sin( phiFinal ) );
 
                 obj.estimatedPoints = [ obj.estimatedPoints(1,:), x1 ; obj.estimatedPoints(2,:), y1];
                 success = 1;
@@ -1364,7 +1341,6 @@ classdef Microtubule
             hold off
             
         end
-        
         
         function outputArg = trackVariableChange(obj,inputArg)
             %METHOD1 Summary of this method goes here
