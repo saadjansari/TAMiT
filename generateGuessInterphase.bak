@@ -8,6 +8,25 @@ function MicrotubuleBank = generateGuessInterphase(imageForGuess, maskForCell, S
 %   smaller than the dynamic time-scale.
 
 
+% plot flags for visual control/debugging
+flagPlotImp = 1;
+flagPlotAll = 0;
+if flagPlotAll
+    flagPlotImp = 1;
+end
+
+% If image2D is a 3D array, take a MIP
+if size( imageForGuess, 3) > 1
+    warning(['generateGuessInterphase: The user provided a 3D array for the first argument. ',...
+        '3rd dimension is assumed as time and an MIP is being taken'])
+    imageFull = max(imageForGuess, [], 3);
+end
+
+% Apply the mask to the full image
+imCell = imageFull .* maskForCell;
+
+% Filter out noise using the wiener2 filter (evens out variations in local
+% standard deviaitons)
 imWiener = wiener2( imageFull, [3 3]);
 
 % We need to get the skeleton of the microtubules.
@@ -37,30 +56,24 @@ T3 = multithresh( SWL( SWL > 0), 4); SWL( SWL < T3(1) ) = 0; SWL = logical(SWL);
 imBombed = bwareafilt( SWL, [10, Inf]); imBombed = bombNetworkJunctions( imBombed);
 imBombed = bwareafilt( imBombed, [10, Inf]);
 
-    cc = bwconncomp( imBombed);
-    for jBone = 1 : cc.NumObjects
-            
-        imBone = 0*imBombed;
-        imBone( cc.PixelIdxList{jBone} ) = 1;
-            
-        skelProps(jBone) = analyzeLineImage( imBone);
-            
-    end
-    % cause breaks in the skeleton whenever there is a sharp orientation change
-    % in an object.
-    xRm = []; yRm = [];
-    for jj = 1 : length(skelProps)
-        signal = smooth( skelProps(jj).thetaRaw, 3 );
+% cause breaks in the skeleton whenever there is a sharp orientation change
+% in an object.
+% We need a function that can help us find local orientations of each
+% object in the skeleton
+skelProps = analyzeSkeleton( imBombed);
+xRm = []; yRm = [];
+for jj = 1 : length(skelProps)
+    signal = smooth( skelProps(jj).thetaRaw, 3 );
     
-        s1 = signal; s2 = signal;
-        s1(end-1:end) = []; s2( 1:2)=[];
-        x = skelProps(jj).orderedPixelList(:, 2); x(1) = []; x(end) = [];
-        y = skelProps(jj).orderedPixelList(:, 1); y(1) = []; y(end) = [];
-        deriv3 = s1-s2;
-        idxKill = find( abs(deriv3) > 0.3);
-        xRm = [xRm; x(idxKill) ];
-        yRm = [yRm; y(idxKill) ];
-    end
+    s1 = signal; s2 = signal;
+    s1(end-1:end) = []; s2( 1:2)=[];
+    x = skelProps(jj).orderedPixelList(:, 2); x(1) = []; x(end) = [];
+    y = skelProps(jj).orderedPixelList(:, 1); y(1) = []; y(end) = [];
+    deriv3 = s1-s2;
+    idxKill = find( abs(deriv3) > 0.3);
+    xRm = [xRm; x(idxKill) ];
+    yRm = [yRm; y(idxKill) ];
+end
 
 idxKill = sub2ind( size(imBombed), yRm, xRm);
 imTemp = imBombed;

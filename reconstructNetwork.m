@@ -59,7 +59,7 @@ if plotFlag
 end
 
 disp('Network successfully reinstated')
-
+%% endPoints = findNetworkEndpoints( networkIn) {{{
     function endPoints = findNetworkEndpoints( networkIn)
         % findNetworkEndpoints: finds the endpoints of a line/curve or any
         % shape composed of lines/curves. endPoints output is an mx4 array
@@ -165,7 +165,9 @@ disp('Network successfully reinstated')
         endPoints = endPointsStruct;
         
     end
+%% }}}
 
+%% endPoints = findEndpointOrientation( endPoints) {{{
     function endPoints = findEndpointOrientation( endPoints)
         % findEndpointOrientation : finds the local orientation of
         % endPoints by looking at the closest pixels connected to the
@@ -250,7 +252,9 @@ disp('Network successfully reinstated')
         end
 
     end
+%% }}}
 
+%% linkPoints = findLinkPoints( endPoints, cost) {{{
     function linkPoints = findLinkPoints( endPoints, cost)
         % findLinkPoints: finds the points that can be linked by drawing a
         % cone at each endpoint in the direction of its local orientation
@@ -457,7 +461,9 @@ disp('Network successfully reinstated')
         end
         
     end
+%% }}}
 
+%% linkCosts = findLinkCosts( linkPoints, imPlane, costs) {{{
     function linkCosts = findLinkCosts( linkPoints, imPlane, costs)
         % findLinkCosts: finds the cost of each link
         
@@ -531,7 +537,9 @@ disp('Network successfully reinstated')
         end
             
     end
+%% }}}
 
+%% linkCosts = removeDuplicateLinks( linkCosts) {{{
     function linkCosts = removeDuplicateLinks( linkCosts)
         
         if isempty(linkCosts)
@@ -588,7 +596,9 @@ disp('Network successfully reinstated')
         linkCosts( idxRm ) = [];
         
     end
+%% }}}
 
+%% finalNetwork = completeLinks( brokenNetwork, linkCosts) {{{
     function finalNetwork = completeLinks( brokenNetwork, linkCosts)
         % completeLinks: completes the Links connecting indices in
         % linkCosts.idx1 and linkCosts.idx2 if linksCosts.completeLinks =
@@ -634,4 +644,4 @@ disp('Network successfully reinstated')
     end
 
 end
-
+%% }}}

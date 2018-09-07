@@ -86,6 +86,7 @@ if plotFlag
     
 end
 
+%% imBombed = bombNetworkJunctions( newNetwork) {{{
     function imBombed = bombNetworkJunctions( newNetwork)
         
         
@@ -182,7 +183,9 @@ end
         end
         
     end
+%% }}}
 
+%%  endPoints = findNetworkEndpoints( imBombed) {{{
     function endPoints = findNetworkEndpoints( imBombed)
         % findNetworkEndpoints: finds the endpoints of a line/curve or any
         % shape composed of lines/curves. endPoints output is an mx4 array
@@ -317,7 +320,9 @@ end
         idxRm = setdiff( 1:length(ccc), idxKeep);
         endPoints(idxRm) = [];
     end
+%% }}}
 
+%% endPoints = labelEndPoints( endPoints) {{{
     function endPoints = labelEndPoints( endPoints)
         
         for j = 1 : length(endPoints)
@@ -325,7 +330,9 @@ end
         end
         
     end
+%% }}}
 
+%% endPoints = findEndpointOrientation( endPoints) {{{
     function endPoints = findEndpointOrientation( endPoints)
         % findEndpointOrientation : finds the local orientation of
         % endPoints by looking at the closest pixels connected to the
@@ -410,7 +417,9 @@ end
         end
 
     end
+%% }}}
 
+%% initSeq = linkObjectEndpoints( endPoints) {{{
     function initSeq = linkObjectEndpoints( endPoints)
         % linkObjectEndpoints: links endpoints that contain the same object
         % label in all double permutations
@@ -451,7 +460,9 @@ end
         initSeq = initSeqCell;
         
     end
+%% }}}
 
+%% [fullSeq, extendFlag] = extendSequences( endPoints, initSeq, initPairs, cost) {{{
     function [fullSeq, extendFlag] = extendSequences( endPoints, initSeq, initPairs, cost)
         % extendSequences : extends sequences by linking endpoints if they
         % are close in space and their orientation matches
@@ -649,7 +660,9 @@ end
         end
         
     end
+%% }}}
 
+%% parentSeq = removeChildrenSequences( allSeq) {{{
     function parentSeq = removeChildrenSequences( allSeq)
         % removeChildrenSequences: looks at sequences and determines if a
         % partial sequence (children) appears in a larger sequence
@@ -702,7 +715,9 @@ end
         
         
     end
+%% }}}
 
+%% imConnections = generateImagesFromSequences( imOriginal, fullSeq, initPairs, endPoints) {{{
     function imConnections = generateImagesFromSequences( imOriginal, fullSeq, initPairs, endPoints)
         % generateImagesFromSequences: generates images from sequences.
         % If a link belongs in initPairs, that means its a connection
@@ -770,7 +785,9 @@ end
         end
                 
     end
+%% }}}
 
+%% lineProps = findLineImageVariance( lineImage) {{{
     function lineProps = findLineImageVariance( lineImage)
         % findCurveVariance: find the variance of the local curvatures of
         % an object as well as some other properties
@@ -880,7 +897,9 @@ end
         lineProps.contPerL = contourLength/endLength;
         lineProps.length = endLength;
     end
+%% }}}
 
+%% lineProps = analyzeLineImages( imageCellArray) {{{
     function lineProps = analyzeLineImages( imageCellArray)
         % analyzeLineImages: runs the findLineImageVariance function on
         % each image inside the imageCellArray and stores in the lineProps
@@ -893,7 +912,9 @@ end
         end
         
     end
+%% }}}
 
+%% BestRoads= findBestGlobalSequences( allRoads, lineProps) {{{ 
     function BestRoads= findBestGlobalSequences( allRoads, lineProps)
         % findBestGlobalSequences: finds the minimal sequences that best
         % explains the original image by enforcing decisions on strongly
@@ -963,7 +984,9 @@ end
         winnerZ = setdiff( 1:numRoads, losers);
         BestRoads = { allRoads{ winnerZ} };
     end
+%% }}}
 
+%% plotFinalComponents( imAll, bestComp) {{{
     function plotFinalComponents( imAll, bestComp)
         
         colors = distinguishable_colors( length(bestComp), {'w', 'k'});
@@ -986,7 +1009,9 @@ end
 %         title( sprintf("Network's minimal components = %d", length(bestComp) ) );
         
     end
+%% }}}
 
+%% BestLines = removeSimilarLines( allLines) {{{
     function BestLines = removeSimilarLines( allLines)
         
         % compare each pair of lines to see if any 2 lines are super close
@@ -1015,4 +1040,4 @@ end
     end
 
 end
-
+%% }}}

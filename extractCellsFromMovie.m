@@ -31,7 +31,6 @@ end
 startPath = '/Users/saadjansari/Documents/Projects/FY Datasets/';
 
 % Step 1
-disp('Step 1')
 %  Identify movies
 if promptUserForMovie
 	
@@ -48,37 +47,34 @@ else
 end
 
 % Step 2
-disp('Step 2')
 matPath = [ pathname, filesep, onlyName, '.mat'];
 % Check if pre-processed movie exists, if not, load the .nd2 movie and store it in a .mat file
 if exist( matPath) ~= 2
+	disp('Importing the .nd2 file...')
 	% pre process this movie
 	importND2( moviePath);
+else
+	disp('Pre-processed file found in system. Importing will not be performed again.')
 end
 
 % Step 3
 % We check if movie has been segmented already. We'll probe the saved file from step 2 to check if segmentation has been already performed. If not performed, we'll perform segmentation on the movie
-disp('Step 3')
 varInfo = who('-file', matPath);
 mov = matfile( matPath, 'Writable', true);
 if ~ismember('segmentationCheck', varInfo) || mov.segmentationCheck==0 
 	% segment this movie
 	mov = matfile( matPath, 'Writable', true);
 	sizeData = size( mov, 'imData');
-tic
 	imXYT = squeeze( mov.imData( :, :, 3, 1:5:sizeData(4), 1) );	
-toc
 	imXY = mean( imXYT, 3);
-tic
+	disp('Generating the segmentation mask for the full-field movie...')
 	maskInfo = generateSegmentationMask( imXY);
-toc
 	mov.MaskLogical = maskInfo.MaskLogical;
 	mov.MaskColored = maskInfo.MaskColored;
 	mov.NumCells = maskInfo.NumCells;
-tic
-	cellsToSegment = [1: maskInfo.NumCells];	
+	cellsToSegment = [1: maskInfo.NumCells];
+	disp('Applying the segmentation mask to the full-field movie...')
 	segCells = useSegmentationMask(mov, maskInfo.MaskLogical , cellsToSegment);
-toc
 	for jCell = 1: length(cellsToSegment)
 		currCell = cellsToSegment( jCell);
 		mov.( ['cell_' num2str(currCell)]) = segCells(jCell).cell3D;
@@ -86,8 +82,10 @@ toc
 	end
 	mov.imageNumbered = segCells(1).locations
 	mov.segmentationCheck = 1;
+	disp(['Segmentation complete. Data stored in location: ', matPath])
+else
+	disp('Segmented Cells found in system. Segmentation will not be performed again.')
 end
-
 
 
 

@@ -38,18 +38,41 @@
 clear; clc; close all;
 addpath( genpath(pwd) )
 
-% Load the Image:
-[ imTime, metaData, savePath] = quickLoad( 1); % 1 means use pre-loaded file, 2 means load from scratch
+% Define the nd2 movie that will be analyzed
+filepath = '/Users/saadjansari/Documents/Projects/FY Datasets/';
+filename = '998_150msR_100G_trig_7Z_001';
 
-% Segment field of view:
-framesForSeg = 1:size( imTime, 3); % use some/all frames for segmentation image
-imageForSeg = mat2gray( mean( imTime( :, :, framesForSeg), 3 ) );
-SegmentationInfo = generateSegmentationMask( imageForSeg); % generate segmentation mask
+% Extract individual cells from an nd2 movie. The cells are saved in segmented form and can be loaded later
+extractCellsFromMovie( [filepath, filename, '.nd2'] );
+cellpath = [filepath, filename, '.mat'];
 
-% Isolate cells via segmentation mask:
-cellsToPick = 1 : SegmentationInfo.NumCells; % specify vector of cells or just use 'prompt'
-IsolatedCells = useSegmentationMask( imTime, SegmentationInfo.MaskLogical, cellsToPick);
-clear imTime % to clear some memory
+% Analysis will be performed by cell and by time (different cells can be run on different cores)
+% for each cell and at given time, a decision will be made on the mitotic state of the cell( interphase or  prophase/metaphase). For now, this can be based on the degree of localization of intensity, i.e how well is intensity distributed inside the cell( highly concentrated or spread out). Also a bias will be added so the state of the cell is most likely whatever the state was at time t-1. Later on, a CNN-based approach could be used to classify the cell phase.
+
+% How is all this laid out? 
+% Cell Loop Begin
+% Detection Step( time loop begin, cellphase find, estimate features, fit features locally, fit features globally, add/remove features, fit globally again, time loop end)
+% in the detection step, all data needed for plotting is saved( say in a csv) and an isolated plotting package is called to generate the plots (so that things can be run on a remote server and plotting can be performed locally after data is pulled down.)
+% Tracking Step( 
+
+% Load posit file defining parameters( interphase, metaphase, anaphase, kc etc)
+params = 1;
+mov = matfile( cellpath, 'Writable', true);
+
+for jCell = 1 : mov.NumCells
+
+	% detect features in all time frames
+	featuresRaw = detectFeaturesCell( mov, jCell, params)
+
+	% track features over time
+	featuresTracked = trackFeaturesCell( featureInfo, jCell, params)
+
+	% run analysis on features
+	featuresAnalyzed = analyzeFeaturesCell( featuresTracked, jCell, params) 
+end
+
+
+
 
 % For each cell, estimate and fit microtubules
 for jCell = 1 : length( IsolatedCells)
@@ -61,9 +84,7 @@ for jCell = 1 : length( IsolatedCells)
     imCellTimeline = IsolatedCells( jCell).cell3D;
     imCellTimelineRaw = IsolatedCells( jCell).raw;
     
-    framesToAnalyze = 1:200; % specify frames to analyze for microtubules
-    
-    for jFrame = 1 : 300: length( framesToAnalyze)
+    for jFrame = 1 : length( framesToAnalyze)
         
         currFrame = framesToAnalyze( jFrame); % current frame
         
