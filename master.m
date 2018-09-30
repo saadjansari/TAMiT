@@ -45,6 +45,7 @@ filename = '998_150msR_100G_trig_7Z_001';
 % Extract individual cells from an nd2 movie. The cells are saved in segmented form and can be loaded later
 extractCellsFromMovie( [filepath, filename, '.nd2'] , 'all');
 cellpath = [filepath, filename, '.mat'];
+savePath = createSaveDirectory( 'results', filename, [], [], 1);
 
 % Analysis will be performed by cell and by time (different cells can be run on different cores)
 % for each cell and at given time, a decision will be made on the mitotic state of the cell( interphase or  prophase/metaphase). For now, this can be based on the degree of localization of intensity, i.e how well is intensity distributed inside the cell( highly concentrated or spread out). Also a bias will be added so the state of the cell is most likely whatever the state was at time t-1. Later on, a CNN-based approach could be used to classify the cell phase.
@@ -56,13 +57,14 @@ cellpath = [filepath, filename, '.mat'];
 % Tracking Step( 
 
 % Load posit file defining parameters( interphase, metaphase, anaphase, kc etc)
-params = 1;
+params = paramsInitialize(); % script for defining non-tunable parameters
+params.savePath = savePath;
 mov = matfile( cellpath, 'Writable', true);
 
-for jCell = 20 :20 
+for jCell = 1 : mov.NumCells  
 
 	% detect features in all time frames
-	featuresRaw = detectFeaturesCell( mov, jCell, params)
+	featuresCell = detectFeaturesCell( mov, jCell, params);
 
 	% track features over time
 %	featuresTracked = trackFeaturesCell( featureInfo, jCell, params)

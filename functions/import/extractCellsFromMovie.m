@@ -87,6 +87,11 @@ else
 	disp('Segmented Cells found in system. Segmentation will not be performed again.')
 end
 
-
+% Step 4
+if ~ismember('cellCentroids', varInfo)
+    imMask = mov.MaskLogical;
+    cc = bwconncomp( imMask); st = regionprops( cc, 'Centroid');
+    mov.cellCentroids = flip( cat( 1, st.Centroid), 2);
+end
 
 end

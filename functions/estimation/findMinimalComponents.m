@@ -1,8 +1,6 @@
-function BestConnections = findMinimalComponents( newNetwork, params)
+function BestConnections = findMinimalComponents( newNetwork, params, plotFlag)
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
-
-plotFlag = 1;
 
 imBombed = bombNetworkJunctions( newNetwork);
 imBombed = bwareafilt( imBombed, [ 4 Inf]);

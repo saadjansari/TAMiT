@@ -4,65 +4,55 @@ function featureInfo = detectFeaturesCell( movData, currentCell, params)
 msg = { ['Analyzing Cell-', num2str(currentCell)] };disp([msg{:}])
 
 % Load metadata
-meta = movData.metaData;
+params.meta = movData.metaData;
+params.movieMatfile = movData;
 
 % cellphase vector will store cellphase info (1 is interphase, 2 is mitosis, 3 is post-anaphase)
-cellphase = zeros( 1, meta.numTimes);
+cellphase = zeros( 1, params.meta.numTimes);
 
-featureBank = 0;
 
-clear params;
-params.Estimation.InitImageFrameRange = 5;
-params.CellPhaseClassification.mitosisSNR = 3;
-params.CellPhaseClassification.mitosisMinPixels = 5;
-
-for jTime = 1 :  meta.numTimes
-for jChannel = 1 : meta.numChannels
+for jTime = 1 : 1 
+for jChannel = 1 : 1 
 
 	% load image for estimation
-	imForEstimate = loadImageForEstimation( movData, jTime, jChannel, params.Estimation.InitImageFrameRange);
-	
+	[ imForEstimate, imForEstimate_mt, mask] = loadImageForEstimation( movData, jTime, jChannel, params.estimation.InitImageFrameRange);
+
 	% classify cell phase
-	cellphase = classifyCellPhase( imForEstimate, cellphase, params.CellPhaseClassification);
+	cellphase = classifyCellPhase( imForEstimate.*mask, cellphase, params.cellPhaseClassification);
 
 	% Initialize feature bank based on cellphase
-	featureBank = initFeatureBank( imForEstimate, cellphase(jTime), params.Estimation)
+	featureBank = initFeatureBank( imForEstimate, mask, currentCell, cellphase(jTime), mean( movData.planeTimes( :, jTime, jChannel) ) ,params);
 
 	% Estimate features
-	featureBank = estimateFeatures( imForEstimate, cellphase(jTime), params.Estimation)
+ 	featureBank = estimateFeatures( featureBank, imForEstimate_mt, cellphase(jTime), params);
 
 	% Fit features
-	featureBank = fitFeatures( movData, cellphase(jTime), params.Fitting)
+% 	featureBank = fitFeatures( movData, cellphase(jTime), params.Fitting)
 
-
+    featureInfo( jTime, jChannel) = featureBank;
 end
 end
 
- CellPhasePlot( movData, cellphase);
-
-featureInfo = 1;
-
-
-
-
-
+% CellPhasePlot( movData, cellphase);
 
 
 % Functions
 
 % imEstXYZ = loadImageForEstimation( movMatFile,currentTime,currentChannel,frameRange) {{{
-function imEstXYZ = loadImageForEstimation( movMatFile,currentTime,currentChannel,frameRange)
+function [imEstXYZ, imEstXYZT, mask] = loadImageForEstimation( movMatFile,currentTime,currentChannel,frameRange)
 
 	if currentTime  <= ceil( (frameRange-1) / 2 )
             framesforGuess = 1 :  currentTime + ceil( (frameRange-1) / 2 );
-        elseif currentTime  > meta.numTimes - ceil( (frameRange-1) / 2 )
+        elseif currentTime  > params.meta.numTimes - ceil( (frameRange-1) / 2 )
             framesforGuess = currentTime - ceil( (frameRange-1) / 2 ) : meta.numTimes;
         else
             framesforGuess = currentTime - ceil( (frameRange-1) / 2 ) : currentTime + ceil( (frameRange-1) / 2 );
         end
 
-	imEstXYZ = mat2gray( movMatFile.(['cell_', num2str(currentCell)] )(:,:,:,framesforGuess, currentChannel) );
-	imEstXYZ = squeeze( mean( imEstXYZ, 4) );
+	imEstXYZT = mat2gray( movMatFile.(['cellRaw_', num2str(currentCell)] )(:,:,:,framesforGuess, currentChannel) );
+	imEstXYZ = squeeze( mean( imEstXYZT, 4) );
+    mask = logical( movMatFile.(['cell_', num2str(currentCell)] )(:,:,:,framesforGuess, currentChannel) );
+    mask = logical( mean( mask, 4) );
 
 end
 % }}}
@@ -88,6 +78,10 @@ function cellphase = classifyCellPhase( imPlane, cellphase, classificationParams
 	else
 		cellphase( jTime) = 1; % interphase
 	end
+    
+    warning('detectFeaturesCell: CellPhase has been set to interphase by admin!')
+    cellphase( jTime) = 1;
+
 
 end 
 % }}}
@@ -113,37 +107,42 @@ end
 % }}}
 
 % featureBank = initFeatureBank( imPlane, currentCellPhase, initParams) {{{
-function featureBank = initFeatureBank( imPlane, currentCellPhase, initParams)
+function featureBank = initFeatureBank( imPlane, mask, currentCell, currentCellPhase, currentTime, initParams)
 	
 
 	switch currentCellPhase
-	case 1 
-		featureBank = feval( initParams.interphase.func.initialize, imPlane, initParams.interphase);
+	case 1
+        initParams = rmfield( initParams, {'mitosis', 'kc'} );
+		featureBank = feval( initParams.interphase.func.initializeBank, imPlane, mask, currentCell, currentTime, initParams);
 	case 2
-		featureBank = feval( initParams.mitosis.func.initialize, imPlane, initParams.mitosis);
+        initParams = rmfield( initParams, {'interphase', 'kc'} );
+		featureBank = feval( initParams.mitosis.func.initializeBank, imPlane, initParams);
 	otherwise
-		featureBank = feval( initParams.interphase.func.initialize, imPlane, initParams.interphase);
+        initParams = rmfield( initParams, {'mitosis', 'kc'} );
+		featureBank = feval( initParams.interphase.func.initializeBank, imPlane, initParams);
 	end
 
 
 end
-% }} }
+% }}}
 
 % obj = estimateFeatures( imPlane, currentCellPhase, estParams) {{{
-function obj = estimateFeatures( imPlane, currentCellPhase, estParams)
+function featureBank = estimateFeatures( featureBank, imXYZT, currentCellPhase, estParams)
 
 	switch currentCellPhase
 	case 1 
-		featureBank = feval( estParams.interphase.func.estimate, imPlane, estParams.interphase);
+        estParams = rmfield( estParams, {'mitosis', 'kc'} );
+		featureBank = feval( estParams.interphase.func.estimateFeatures, featureBank, imXYZT, estParams);
 	case 2
-		featureBank = feval( estParams.mitosis.func.estimate, imPlane, estParams.mitosis);
+        estParams = rmfield( estParams, {'interphase', 'kc'} );
+		featureBank = feval( estParams.mitosis.func.estimateFeatures, featureBank, estParams);
 	otherwise
-		featureBank = feval( estParams.interphase.func.estimate, imPlane, estParams.interphase);
+        estParams = rmfield( estParams, {'mitosis', 'kc'} );
+		featureBank = feval( estParams.interphase.func.estimateFeatures, featureBank, estParams);
 	end
 
 end
  % }}}
-
 
 % obj = fitFeatures( imPlane, currentCellPhase, estParams) {{{
 function obj = fitFeatures( imPlane, currentCellPhase, fitParams)
@@ -159,5 +158,7 @@ function obj = fitFeatures( imPlane, currentCellPhase, fitParams)
 
 end
  % }}}
-end
 
+
+
+end

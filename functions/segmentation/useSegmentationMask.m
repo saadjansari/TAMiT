@@ -40,6 +40,9 @@ stats1 = regionprops( cc, 'Centroid');
 
 % create background image for user
 image2D = mean( matfile.imData( :,:,3,1:5:nT, 1), 4);
+
+% dispImg( image2D);
+
 imUser = image2D .* imLogic;
 idx = (1:numCells)';
 pos = zeros( numCells, 2);
@@ -98,22 +101,23 @@ numWanted = length( CellsSelected);
 
 % We need the centroid of the cells to crop a region right around it.
 % We will also ensure that the isolated cells are elliptical
-imLogicPad = padarray( imLogic, [boxSize, boxSize], 0);
+padwid = ceil( boxSize)/2;
+imLogicPad = padarray( imLogic, [padwid, padwid], 0);
 cc = bwconncomp( imLogicPad);
 stats = regionprops( cc, 'Centroid', 'MajorAxisLength', 'MinorAxisLength', 'Orientation');
 
 % pad the original image
-padwid = ceil( boxSize)/2;
-image3Dpad = zeros( nX+boxSize, nY+boxSize, nZ, nT, nC, 'uint8'); 
+image3Dpad = zeros( nX+2*padwid, nY+2*padwid, nZ, nT, nC, 'uint8'); 
  
-for jCell = 1 : numWanted
+for jCell = 1 : numWanted 
     
     % Turn on only the correct cell label
     currCell = CellsSelected( jCell);
     imMask = imLabel;
     imMask( imMask ~= currCell ) = 0;
     imMask = logical( imMask);
-    
+%   dispImg( imMask); title('Mask for current cell'); drawnow
+
     % Create elliptical mask
     t = linspace(0,2*pi,1000);
     a = stats( currCell).MajorAxisLength/2;
@@ -126,50 +130,73 @@ for jCell = 1 : numWanted
     idx = sub2ind( size( imLogicPad), round(y), round(x) );
     imMaskPad = 0*imLogicPad;
     imMaskPad( idx) = 1; imMaskPad = imfill( imMaskPad, 'holes');
+%   dispImg( imMaskPad); title('Mask 2'); drawnow
     
     % get region around cell;
-    ub = ceil( stats( currCell).Centroid + boxSize/2 );
-    lb = ceil( stats( currCell).Centroid - boxSize/2 );
-   
+    ub = ceil( stats( currCell).Centroid + padwid );
+    
+    lb = ceil( stats( currCell).Centroid - padwid );
+ %   disp( sprintf('ub = %.1f ', ub)) 
+ %    disp( sprintf('lb = %.1f ', lb)) 
+    
     imMaskPad = imMaskPad(lb(2): ub(2), lb(1): ub(1) ); 
     imMaskPad = imMaskPad( 1: boxSize, 1 : boxSize); 
     % dilate it just a little to ensure any edge features are captured.
     imMaskPad = imdilate( imMaskPad, strel('disk', 2) );
     imMaskPad = logical( imMaskPad);
+
+% dispImg( imMaskPad); title('mask'); drawnow
+
     % multiply with the original image to recover intensity information
     imMask3DPad = repmat( imMaskPad, 1,1,nZ, nT, nC );
     imCell3DPad = uint8( 0*imMask3DPad); 
     
-	ubb = ceil( stats1( currCell).Centroid + boxSize/2 );
-    	lbb = ceil( stats1( currCell).Centroid - boxSize/2 );
-	xl = 1; yl = 1; xr = 2*ceil(boxSize/2); yr = xr;
+	ubb = ceil( stats1( currCell).Centroid + padwid );
+    lbb = ceil( stats1( currCell).Centroid - padwid );
+    
+    % disp( sprintf('ub2 =  %.1f ', ubb)) 
+    % disp( sprintf('lb2 =  %.1f ', lbb)) 
+	
+    xl = 1; yl = 1; xr = 2*padwid; yr = xr;
+    
+    % disp( sprintf('xlxr = %.1f ', [xl, xr])) 
+    % disp( sprintf('ylyr = %.1f ', [yl, yr])) 
+
 	if lbb(1) < 1; xl = abs( lbb(1) )+1; end
-        if ubb(1) > nX; xr = ceil(boxSize/2) - abs( ubb(1)-nX ); end
+        if ubb(1) > nX; xr = 2*padwid - abs( ubb(1)-nX ); end
         if lbb(2) < 1; yl = abs( lbb(2) )+1; end
-        if ubb(2) > nY; yr = ceil(boxSize/2) - abs( ubb(2)-nY ); end
+        if ubb(2) > nY; yr = 2*padwid - abs( ubb(2)-nY ); end
 	lbb( lbb < 1) = 1;
         ubb( ubb > nX) = nX;
 	if ubb(2)-lbb(2) ~= yr-yl; ubb(2) = lbb(2) + (yr-yl); end
 	if ubb(1)-lbb(1) ~= xr-xl; ubb(1) = lbb(1) + (xr-xl); end
 	
 	try
+        % disp(lbb), disp(ubb)
+        % disp([yl, yr]), disp( [xl, xr])
 		imCell3DPad( yl:yr, xl:xr, :,:, :) = matfile.imData( lbb(2):ubb(2), lbb(1):ubb(1), :, :, :);
-		imCell3DPad = imCell3DPad .* uint8( imMask3DPad);
+
+		imCellRaw = imCell3DPad;
+%     dispImg( imMask3DPad(:,:,1,1,1) ); title('Mask 4'); drawnow;
+%     dispImg( imCell3DPad(:,:,1,1,1) );
+        imCell3DPad = imCell3DPad .* uint8( imMask3DPad);
+ %    dispImg( imCell3DPad(:,:,1,1,1) ); drawnow;
 	catch
-		disp( [xr-xl, ubb(1)-lbb(1)])
-		disp( [yr-yl, ubb(2)-lbb(2)])
-		disp( size( imCell3DPad))
-		disp( size( imMask3DPad))
+		% disp( [xr-xl, ubb(1)-lbb(1)])
+		% disp( [yr-yl, ubb(2)-lbb(2)])
+		% disp( size( imCell3DPad))
+		% disp( size( imMask3DPad))
 		imCell3DPad( yl:yr, xl:xr, :,:, :) = matfile.imData( lbb(2):ubb(2), lbb(1):ubb(1), :, :, :);
                 disp(class(imCell3DPad)); disp(class(imMask3DPad) )
-		imCell3DPad = imCell3DPad .* uint8( imMask3DPad);
+		imCellRaw = imCell3DPad;
+        imCell3DPad = imCell3DPad .* uint8( imMask3DPad);
 	end
 
     % obtain cropped regions for both the segmentation version and the
     % field of view region
     IsolatedCells( jCell).cell3D = imCell3DPad;
 %    IsolatedCells( jCell).cellMIP = max( IsolatedCells( jCell).cell3D, [], 3);
-    IsolatedCells( jCell).raw = matfile.imData( lbb(2):ubb(2), lbb(1):ubb(1), :, :, :); 
+    IsolatedCells( jCell).raw = imCellRaw;
 %    IsolatedCells( jCell).rawMIP = mat2gray( max( IsolatedCells( jCell).raw, [], 3) );
     IsolatedCells( jCell).cellNumber = currCell;
     IsolatedCells( jCell).locations = imUserNumbered;

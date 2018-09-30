@@ -70,7 +70,7 @@ function importND2( filepath)
 
     metaData = Meta;
     save( saveFile, 'imData', 'planeTimes', 'metaData', '-v7.3')
-
+disp(saveFile)
 	function new = map16to8( old, oldMax, oldMin)
         newMin = 0;
         newMax = 2^8 - 1;
