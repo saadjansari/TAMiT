@@ -1,15 +1,22 @@
-function [coordNew, success, phiFinal] = EstimateNextPoint( coordOld, orientation, stepSize, visibility, fieldOfVision, helperImage, mH)
+function [coordNew,success,phiFinal] = EstimateNextPoint( coordOld, orientation, stepSize, visibility, fieldOfVision, helperImage, threshold_signal_based_on_environment, plotflags)
+
             % Given a starting point and some other parameters, this
             % function will find the next point that is connected by high
             % intensity.
             
-            plotSuccess = 0;
-            plotFail = 0;
+            if nargin < 8
+                plotSuccess = 0;
+                plotFail = 0;
+            else
+                plotSuccess = plotflags.success;
+                plotFail = plotflags.fail;
+            end
+
+            if nargin < 7, threshold_signal_based_on_environment = 1; end
 
             % This is the start point for propagation
             x0 = coordOld(1);
             y0 = coordOld(2);
-            
             
             % We will create a finer image to allow us to use smaller step
             % sizes.
@@ -19,12 +26,13 @@ function [coordNew, success, phiFinal] = EstimateNextPoint( coordOld, orientatio
             imSub = interp2(x,y,helperImage,xi,yi,'linear');
 
             clear x y xi yi
-            
+           
+            % radial integration {{{
             angRange = deg2rad( fieldOfVision/2 );
 
             % Define the step sizes to use for the angular sweep in phi. We
             % start at 90 degrees to the proposed orientation of the tube
-            PhiStep = deg2rad ( 2.5 ); % 2.5 degrees
+            PhiStep = deg2rad ( 5 ); % 2.5 degrees
             PhiVec = orientation - angRange : PhiStep : orientation + angRange;
 
             % Pre-allocate array for storing intensity data with varying phi.
@@ -75,48 +83,53 @@ function [coordNew, success, phiFinal] = EstimateNextPoint( coordOld, orientatio
             end
             % We smooth the angular intensity to enable easy peak finding
             imSmooth = imgaussfilt( IntPhi, 3);
-           
-
+            % }}}
+            
             if min(imSmooth) == max(imSmooth)
                 success = 0; phiFinal = NaN; coordNew = [NaN; NaN];
-                warning('Min Value equal to Max value in radial integration')
-              plotInfo( imSmooth, [x0, y0], PhiVec, helperImage, visibility, stepSize, phiFinal, plotFail)
+%                 disp('Min Value equal to Max value in radial integration')
+                plotInfo( imSmooth, [x0, y0], PhiVec, helperImage, visibility, stepSize, phiFinal, plotFail)
                 return
             end
-            
+           
+            % Signal Modification based on environment{{{
             imSmooth = ( max(IntPhi)-min(IntPhi) ) * mat2gray( imSmooth ) + min( IntPhi);
             
             % Now we need to come up with a threshold for defining what is
             % and what isn't a peak. We'll do local intensity search for
             % this
-            imMask = logical(0*helperImage);
-            for jY = 1 : size(helperImage, 1)
-                for jX = 1 : size(helperImage, 2)
-                    if ( norm( [x0, y0] - [jX, jY] ) < visibility ) && ( norm( [x0, y0] - [jX, jY] ) > rmin )
-                        imMask( jY, jX) = 1;
+            if threshold_signal_based_on_environment
+            
+                imMask = logical(0*helperImage);
+                for jY = 1 : size(helperImage, 1)
+                    for jX = 1 : size(helperImage, 2)
+                        if ( norm( [x0, y0] - [jX, jY] ) < visibility ) && ( norm( [x0, y0] - [jX, jY] ) > rmin )
+                            imMask( jY, jX) = 1;
+                        end
                     end
                 end
-            end
-            imBkg = helperImage(imMask);
-            T = multithresh( imBkg, 1 );
-            imSmooth( imSmooth < mean(imBkg) ) = mean(imBkg);
-            % if T < median(imPosVals); T = median(imPosVals); end
+                imBkg = helperImage(imMask);
+                T = multithresh( imBkg, 1 );
+                imSmooth( imSmooth < mean(imBkg) ) = mean(imBkg);
+                minHeight = mean(imBkg); 
             
+            else
+                minHeight = mean( imSmooth);
+            end
+            % }}} 
             
             if min(imSmooth) == max(imSmooth)
                 success = 0; phiFinal = NaN; coordNew = [NaN, NaN];
-                warning('Min Value equal to Max value in radial integration')
-              plotInfo( imSmooth, [x0, y0], PhiVec, helperImage, visibility, stepSize, phiFinal, plotFail)
+%                 disp('Min Value equal to Max value in radial integration')
+                plotInfo( imSmooth, [x0, y0], PhiVec, helperImage, visibility, stepSize, phiFinal, plotFail)
                 return
             end
             
-
-            
+            % Find the brightest peak {{{ 
             % Find Peaks Properties
             halfwidth = asin( 1/ stepSize);
             if ~isreal(halfwidth); halfwidth=asin(1.5/2); end;
             minProm = 0.0001;
-            minHeight = mean(imBkg); if nargin ==7; minHeight=mH; end
             props = {'SortStr', 'descend', 'MinPeakProminence', minProm, 'MinPeakWidth', halfwidth, 'MinPeakHeight', minHeight};
 
             % Find the angle corresponding to the peaks in this region
@@ -124,7 +137,7 @@ function [coordNew, success, phiFinal] = EstimateNextPoint( coordOld, orientatio
                 [pkInt, phi0Loc, ~, ~] = findpeaks( imSmooth, props{:} );
             catch
                 success = 0; phiFinal=NaN; coordNew = [NaN; NaN];
-              plotInfo( imSmooth, [x0, y0], PhiVec, helperImage, visibility, stepSize, phiFinal, plotFail)
+                plotInfo( imSmooth, [x0, y0], PhiVec, helperImage, visibility, stepSize, phiFinal, plotFail)
                 return
             end
             phi0 = PhiVec( phi0Loc);
@@ -133,21 +146,39 @@ function [coordNew, success, phiFinal] = EstimateNextPoint( coordOld, orientatio
             [~, maxIdx] = max(pkInt);
             phiFinal = phi0( maxIdx);
             
-            if ~ isempty(phiFinal)
+            if ~isempty(phiFinal)
                 phiFinal = phiFinal';
-                
                 x1 = x0 + ( stepSize * cos( phiFinal ) );
                 y1 = y0 + ( stepSize * sin( phiFinal ) );
+            else
+                x1 = NaN; y1 = NaN;
+            end
+            
+            % ensure this point is connected via intensity (disallow jumps)
+            if ~isnan(x1) && ~isnan(y1)
+                imJumps = 0*helperImage;
+                imJumps( round(y1), round(x1) ) = 1; imJumps( round(y0), round(x0) ) = 1; imJumps = bwconvhull( imJumps);
+                
+                % if (x1, y1) has intensity, then there cannot be more than 1 zero pixels in the conv hull
+                if helperImage( round(y1), round(x1) ) ~= 0 && sum(imJumps(:))-sum( imJumps(:).*helperImage(:) ~= 0 ) > 2
+                    x1 = NaN; y1 = NaN;
+                end
+                % if (x1, y1) has no intensity, then atleast 50% of the hull better have intensity.
+                if sum( imJumps(:).*helperImage(:) ~= 0) < 0.5*sum( imJumps(:) )
+                    x1 = NaN; y1 = NaN;
+                end
+            end 
 
+            if ~isnan( x1) && ~isnan(y1)
                 coordNew = [x1; y1]; 
                 success = 1;
-
             else
                 coordNew = [NaN, NaN];
                 success = 0;
             end
-                        
-               plotInfo( imSmooth, [x0, y0], PhiVec, helperImage, visibility, stepSize, phiFinal, plotSuccess)
+            % }}} 
+            
+            plotInfo( imSmooth, [x0, y0], PhiVec, helperImage, visibility, stepSize, phiFinal, plotSuccess)
 
             % plotInfo {{{
             function plotInfo( angInt, coord, phiInfo, sourceImage, vis, step, phiFinal, plotflag)

@@ -1,4 +1,4 @@
-function coordsMT  = estimateMicrotubulePoints( startPt, startOrient, imageMT, stepSize, visibility, fieldOfVision)
+function coordsMT  = estimateMicrotubulePoints( startPt, startOrient, imageMT, stepSize, visibility, fieldOfVision, bkg_thresholding, plotflags)
             % EstimateMicrotubulePoints: estimates points along
             % microtubule.
             % We take the following approach:
@@ -17,75 +17,41 @@ function coordsMT  = estimateMicrotubulePoints( startPt, startOrient, imageMT, s
             %    distance forward.
             % 5) This will conclude our initial estimation phase.
 
-            % clear out any previously stored estimated points
+            if nargin < 7, bkg_thresholding = 1; end
+            if nargin < 8, plotflags.success = 0; plotflags.fail=0; end
             
+            % clear out any previously stored estimated points
+             
             success = 1; iter = 1;
-            max_mt_length = 80; % max MT length approx
+            max_mt_length = 100; % max MT length approx
             max_iter = round(max_mt_length/stepSize);
             orientationOld = startOrient;
             coordCurr = startPt;
             coordsMT = coordCurr; 
             orientBank = [orientationOld];
+            totalImprovedCones = 2;
+            currImproveCones = 0;
             % iteratively propagate along microtubule
-            while success && iter< max_iter
+            while success && iter< max_iter && currImproveCones <= totalImprovedCones
                 
                 if iter <= 2, fov = 1.5*fieldOfVision; else, fov = fieldOfVision; end
 
-                [coordNext, success, orientationNext] = estimateNextPoint( coordCurr, orientationOld, stepSize, visibility, fov, imageMT);
+                [coordNext, success, orientationNext] = estimateNextPoint( coordCurr, orientationOld, stepSize, visibility, fov, imageMT, bkg_thresholding, plotflags);
+                if ~success % try again for a limited number of times with an improved search cone
+                    [coordNext, success, orientationNext] = estimateNextPoint( coordCurr, orientationOld, stepSize, visibility/2, 1.5*fov, imageMT, bkg_thresholding, plotflags);
+                    currImproveCones = currImproveCones+1;
+                end
+
                 if success
-%                     plotEstimatedPointNext( obj, orientationNext, stepSize, visibility, fieldOfVision, iter)
-%                     drawnow; pause(0.2)
                     orientBank = [ orientBank, orientationNext];
                     try, orientationOld = orientBank(end-2:end); end, try, orientationOld = orientBank(end-1:end); end
                     coordCurr = coordNext;
                     coordsMT = [ coordsMT , coordNext];
 
                 end
-                
-                iter = iter+1;
-                
-            end
-            
-            % try continuing with increased visibility (when there is an lateral overlap of two MTS, bigger visibility can help decide the best path 
-            success = 1; count=iter;
-            
-            while success && iter < count+2 
-                
-                if iter <= 2, fov = 1.5*fieldOfVision; else, fov = fieldOfVision; end
 
-                [coordNext, success, orientationNext] = estimateNextPoint( coordCurr, orientationOld, stepSize, visibility*1.5, fov, imageMT);
-            
-                if success
-%                     plotEstimatedPointNext( obj, orientationNext, stepSize, visibility, fieldOfVision, iter)
-%                     drawnow; pause(0.2)
-                    orientBank = [ orientBank, orientationNext];
-                    try, orientationOld = orientBank(end-2:end); end, try, orientationOld = orientBank(end-1:end); end
-                    coordCurr = coordNext;
-                    coordsMT = [ coordsMT, coordNext];
-                end
                 iter = iter+1;
                 
             end
             
-            
-            % try continuing with half the stepSize, fine ending (ensuring the maximum possible length is reached)
-            success = 1; count=iter;
-            
-            while success && iter < count+2 
-                
-                if iter <= 2, fov = 1.5*fieldOfVision; else, fov = fieldOfVision; end
-
-                [coordNext, success, orientationNext] = estimateNextPoint( coordCurr, orientationOld, stepSize, visibility/2, fov, imageMT);
-            
-                if success
-%                     plotEstimatedPointNext( obj, orientationNext, stepSize, visibility, fieldOfVision, iter)
-%                     drawnow; pause(0.2)
-                    orientBank = [ orientBank, orientationNext];
-                    try, orientationOld = orientBank(end-2:end); end, try, orientationOld = orientBank(end-1:end); end
-                    coordCurr = coordNext;
-                    coordsMT = [ coordsMT, coordNext];
-                end
-                iter = iter+1;
-                
-            end
 end

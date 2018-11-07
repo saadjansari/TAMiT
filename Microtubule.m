@@ -1,22 +1,27 @@
 classdef Microtubule
     % This defines a Microtubule    
     properties
+        % properties {{{
         mtoc % nucleation point
         orientationInit % approx orientation (in radians)
+        source2D % 2D source image
         source % source image containing the microtubule
+        mask % mask for microtubule
+        mask2D % mask in 2D
         helperImage % helper image containing just the microtubule intensity
         display % display features specific to this microtubule (color, linewidth, markersize, markerstyle, etc...)
         estimatedCoords % the estimated points through which the microtubule passes
         polyOrder % polynomial order( 2=quadratic, 3=cubic)
         estimatedCoef % estimated polynomial coefficients
         amplitude % gaussian amplitude
-        stdev % gaussian standard deviation
+        std % gaussian standard deviation
         background % background intensity
         fitCoef % fitted polynomial coefficients
         id % identification
         fitProps % properties related to fitting
         dead % is the microtubule alive or dead. dead microtubules are discarded and data is lost.
         dim % dimensionality of the microtubule
+        % }}}
     end
     
     % Main Methods
@@ -24,7 +29,7 @@ classdef Microtubule
         
         % Initialization
         % Microtubule {{{
-        function obj = Microtubule( sourceImage, displayImage, coords, orient)
+        function obj = Microtubule( sourceImage, mask, displayImage, coords, orient)
             % To create a microtubule, all you need is a source image and a
             % nucleation point (x and y)
             obj.dim = size( coords, 1);
@@ -34,6 +39,9 @@ classdef Microtubule
             if obj.dim==3; obj.estimatedCoords.z = coords(3,:); end
             obj.orientationInit = orient;
             obj.source = sourceImage;
+            obj.source2D = max( sourceImage, [], 3);
+            obj.mask = mask;
+            obj.mask2D = max( mask, [], 3);
             obj.display.MarkerSize = 12;
             obj.display.LineWidth = 4;
             obj.dead = 0;
@@ -69,8 +77,8 @@ classdef Microtubule
             end
 
             coord(:, idxRm) = [];
-            idx = sub2ind( size(obj.source), coord(2, :), coord(1, :) );
-            intensities = obj.source( idx);
+            idx = sub2ind( size(obj.source2), coord(2, :), coord(1, :) );
+            intensities = obj.source2( idx);
             
         end
         % }}}
@@ -105,14 +113,9 @@ classdef Microtubule
         % EstimateGaussianParameters {{{        
         function obj = EstimateGaussianParameters( obj, params)
 
-            obj.amplitude = measureIntensity( obj, 'estimate')
-            if nargin < 2
-                obj.stdev = params.sigma;
-            else
-                obj.stdev = [1.2, 1.2, 1.0];
-            end
-            obj.background = median( obj.source( obj.source > 0) );
-
+            obj.amplitude = mean( measureIntensity( obj, 'estimate') );
+            obj.std = params.structInit.std;;
+            obj.background = median( obj.source2( obj.mask2D) );
 
         end
         % }}}
@@ -120,123 +123,156 @@ classdef Microtubule
         % Fitting
         % fitInitialization {{{
         function obj = fitInitialization(obj, params) 
-            
-            params.fitfunc = 'GaussianCurveMaker2D';
-            params.maxFunEvals = 1e4;
-            params.optTol = 1e-7;
-            params.maxIter = 25;
-            params.tolFun = 1e-6;
-            params.finDifStepSize = 1e-5;
-            params.stepTol = 1e-8;
-            params.display = 'iter';
 
-            coefbounds = determinePolyBounds( obj.estimatedCoefs, params);
-            optimvectors = createOptimizationVectors( coefbounds, params.init, params.ub, params.lb);
+            params.initialization.initVals(1:4) = [ obj.background, obj.amplitude, obj.stdev ];
+            params.initialization.ub = params.initialization.initVals(1:4) + params.initialization.vecRange;
+            params.initialization.lb = params.initialization.initVals(1:4) - params.initialization.vecRange;
+            
+            params.initialization = initializeParameterStructures( obj, params.initialization);
+            [vec, vecUb, vecLb] = convertStruct2Vec_MT( params.initialization, params.fixMTOC);
 
             % create optimization options and the problem for lsqnonlin
             opts = optimoptions( @lsqnonlin, 'MaxFunEvals', params.maxFunEvals, 'OptimalityTolerance', params.optTol, 'MaxIter', params.maxIter, ...
             'TolFun', params.tolFun, 'FiniteDifferenceStepSize', params.finDifStepSize, 'FiniteDifferenceType', 'central', 'StepTolerance', params.stepTol, ...
             'display', params.display, 'OutputFcn', @plotOptimStatus);
-            prob = problem( 'objective', @ErrorFcn, 'x0', optimvectors.init, 'ub', optimvectors.ub, 'lb', optimvectors.lb, 'solver', 'lsqnonlin', 'options', opts);
+    
+            % parameters for fitting function
+            FixedParams.PolyOrder = params.polyOrder;
+            FixedParams.StartingPointFixed = params.fixMTOC;
+            FixedParams.XCoefEnd = obj.estimatedCoef(1,end);
+            FixedParams.YCoefEnd = obj.estimatedCoef(2,end);
+            FixedParams.Mask2D = obj.mask2D;
+            FixedParams.Mask = obj.mask;
+            FixedParams.dim = params.fitDim;
+            FixedParams.numberOfMicrotubules = 1; % local fitting
 
+            if params.fitDim == 2
+                FixedParams.Mask = 1.0 * logical(obj.source2);
+                ImageFit = obj.source2.*obj.mask2D;
+            elseif params.fitDim == 3
+                FixedParams.Mask = 1.0 * logical( obj.source);
+                ImageFit = obj.source.*obj.mask;
+            end
+
+            % make the error function for lsqnonlin
+            f = makeErrorFcn( ImageFit, FixedParams, params);
+
+            % Crate Optimization Problem
+            prob = createOptimProblem( 'lsqnonlin', 'objective', f, 'x0', vec, 'ub', vecUb, 'lb', vecLb, 'options', opts);
+            
+            % Save problem to object for easy access
             obj.fitProps.problem = prob;
 
-            % determinePolyBounds {{{
-            function bounds = determinePolyBounds( coefs, params) 
+            % initializeParameterStructures {{{
+            function params = initializeParameterStructures( obj, params) 
                 % we will allow the curve length to be altered between 0.5 and 2 (and use the coef rang eas upper and lower bounds (which will give it some freedom)
 
                 % we can do this easily by parameterizing our curve values to be representative of values from t=0 to t = t_max (where t_max is 1 by default). Then we just allow t_max to lie between 0.5 and 2.5 and we fit curves again through it using the default t-range and we end up with a range of coeficients.
-
-                lenMin = 0.5;
-                lenMax = 2.0;
+                fitdim = params.structInit.dim;
+                polyOrder = params.structInit.polyOrder;
+                lenMin = params.lengthMin;
+                lenMax = params.lengthMax;
                 sigKeep = 0.5;
                 tRange = linspace( lenMin, lenMax, 100);
-                
+             
+                coefs = obj.estimatedCoef;
                 tDef = linspace( 0, 1);
-                xcfs = []; ycfs = [];
+                xcfs = []; ycfs = []; zcfs = [];
                 for jj = 1 : length(tRange)
                     tNew = linspace( 0, tRange(jj) );
-                    xNew = polyval( coef( 1, :), tNew);
-                    yNew = polyval( coef( 2, :), tNew);
+                    xNew = polyval( coefs( 1, :), tNew);
+                    yNew = polyval( coefs( 2, :), tNew);
+                    if fitdim==3, zNew = polyval( coefs( 3, :), tNew); end
 
-                    xcfs = [xcfs ; polyfit( tDef, xNew, obj.polyOrder) ];
-                    ycfs = [ycfs ; polyfit( tOld, yNew, obj.polyOrder) ];
-
+                    xcfs = [xcfs ; polyfit( tDef, xNew, polyOrder) ];
+                    ycfs = [ycfs ; polyfit( tDef, yNew, polyOrder) ];
+                    if fitdim==3, zcfs = [zcfs ; polyfit( tDef, zNew, polyOrder) ]; end
                 end
 
                 % find the range of these coefs ( model with a gaussian and keep up to a certain number of standard deviations)
-                sigX = std( xcfs, w, 1);
-                sigY = std( ycfs, w, 1);
+                sigX = std( xcfs, 0, 1);
+                sigY = std( ycfs, 0, 1);
+                if fitdim==3, sigZ = std( zcfs, 0, 1); end
 
                 % We will keep half a standard deviation above the max coeff val and half a std below the min coeff value
-                ubX = max( xcfs, 1) + sigKeep * sigX;
-                ubY = max( ycfs, 1) + sigKeep * sigY;
-                lbX = min( xcfs, 1) - sigKeep * sigX;
-                lbY = min( ycfs, 1) - sigKeep * sigY;
-                
-                bounds(1).init = coefs(1,:);
-                bounds(2).init = coefs(2,:);
-                bounds(1).ub = ubX;
-                bounds(2).ub = ubY;
-                bounds(1).lb = lbX;
-                bounds(2).lb = lbY;
+                ubX = max( xcfs, [], 1) + sigKeep * sigX;
+                ubY = max( ycfs, [], 1) + sigKeep * sigY;
+                lbX = min( xcfs, [], 1) - sigKeep * sigX;
+                lbY = min( ycfs, [], 1) - sigKeep * sigY;
+                if fitdim==3, 
+                    ubZ = max( zcfs, [], 1) + sigKeep * sigZ;
+                    lbZ = min( zcfs, [], 1) - sigKeep * sigZ;
+                end 
 
+                params.structInit.coefX{1} = coefs(1,:);
+                params.structInit.coefY{1} = coefs(2,;);
+                if fitdim==3, bounds.structInit.coefZ{1} = coefs(3,:); end
+                
+                params.structUb.coefX{1} = ubX;
+                params.structUb.coefY{1} = ubY;
+                params.structLb.coefX{1} = lbX;
+                params.structLb.coefY{1} = lbY;
+                if fitdim==3, params.structUb.coefZ{1} = ubZ; params.structLb.coefZ{1} = lbZ; end
+                
+                params.structInit.background = obj.background;
+                params.structUb.background = obj.background + params.structUb.background;
+                params.structLb.background = obj.background + params.structLb.background;
+
+                params.structInit.amplitude= obj.amplitude;
+                params.structUb.amplitude = obj.amplitude + params.structUb.amplitude;
+                params.structLb.amplitude= obj.amplitude + params.structLb.amplitude;
+                
             end
             % }}}
 
-            % createOptimizationVectors {{{
-            function bounds = createOptimizationVectors( coefBounds, parInit, parUB, parLB)
+            % makeErrorFcn {{{    
+            function errVal = makeErrorFcn( ImageFit, FixedParams, params)
 
-                % This currently assumes the polynomials are in dimension 2.
-                
-                % create initial vector
-                bounds.init = [ parInit.bkg, parInit.amp, parInit.sig, coefBounds(1).init, coefBounds(2).init ];
-            
-                % create ub and lb vector
-                bounds.ub = [ parUB.bkg, parUB.amp, parUB.sig, coefBounds(1).ub, coefBounds(2).ub ];
-                bounds.lb = [ parLB.bkg, parLB.amp, parLB.sig, coefBounds(1).lb, coefBounds(2).lb ];
+                errVal = @ErrorFcn;
 
-            end
-            % }}}
-            
-            % ErrorFcn {{{    
-            function err = ErrorFcn( p)
-                    
-                err = feval( params.fitfunc, p, Image2D, FixedParams) - Image2D;
-                % err = GaussianCurveMaker2D( p, Image2D, FixedParams) - Image2D;
-                err = err(:);
+                function err = ErrorFcn( p)
+                        
+                    err = feval( params.fitfunc, p, ImageFit, FixedParams) - ImageFit;
+                    % err = GaussianCurveMaker2D( p, Image2D, FixedParams) - Image2D;
+                    err = err(:);
+
+                end
 
             end
+
             % }}}
 
                 % plotOptimStatus{{{
                 function stop = plotOptimStatus( x, optimValues, state)
                 % plotOptimStatus: updates a plot at every optim iteration showing optimization in real-time
-                %
                 %   OPTIMVALUES: Information after the current local solver call.
                 %          funccount: number of function evaluations
                 %          iteration: iteration number
-                % 
                 %   STATE: Current state in which plot function is called. 
                 %          Possible values are:
                 %             init: initialization state 
                 %             iter: iteration state 
                 %             done: final state
-                %
                 %   STOP: A boolean to stop the algorithm.
-                %
                 %   Copyright 2014 The MathWorks, Inc.
 
                 % Initialize stop boolean to false.
                 stop = false;
                 numPixX = size(FixedParams.Mask,1);
                 numPixY = size(FixedParams.Mask,2);
+
+                if length( size(ImageFit) ) == 3
+                    Image2D = max( ImageFit, [], 3);
+                elseif length( size(ImageFit) ) == 2
+                    Image2D = ImageFit;
+                end
+
                 switch state
                     case 'init'
-
+                        % init {{{
                         t = linspace(0,1); % paramateric variable
-                        startIdx = 4;
-                        gap = ( length( x) - startIdx+1)/2;
+                        startIdx = 5;
+                        gap = FixedParams.PolyOrder;
                         if FixedParams.StartingPointFixed
                             xcurr = polyval( [ x( startIdx : startIdx+ gap-1), FixedParams.XCoefEnd], t); % current curve coordinates
                             ycurr = polyval( [ x( startIdx+ gap : end), FixedParams.YCoefEnd], t); % current curve coordinates
@@ -264,9 +300,9 @@ classdef Microtubule
                         title('Best Curve'); set(gca, 'FontSize', 14)
 
                         drawnow
-
+                        % }}}
                     case 'iter'
-
+                        %  iter {{{
                         subplot(121)
                         plotBest = findobj(get(gca,'Children'),'Tag','psoplotbestf');
                         newX = [get(plotBest,'Xdata') optimValues.iteration];
@@ -276,8 +312,8 @@ classdef Microtubule
                         grid minor; grid on
 
                         t = linspace(0,1); % paramateric variable
-                        startIdx = 4;
-                        gap = ( length( x) - startIdx+1)/2;
+                        startIdx = 5;
+                        gap = FixedParams.PolyOrder;
                         if FixedParams.StartingPointFixed
                             xcurr = polyval( [ x( startIdx : startIdx+ gap-1), FixedParams.XCoefEnd], t); % current curve coordinates
                             ycurr = polyval( [ x( startIdx+ gap : end), FixedParams.YCoefEnd], t); % current curve coordinates
@@ -293,11 +329,10 @@ classdef Microtubule
                         title('Best Curve'); set(gca, 'FontSize', 14)
 
                         drawnow
-
+                        % }}}
                     case 'done'
                         % No clean up tasks required for this plot function.        
                 end    
-
 
                 end
                 % }}}
@@ -331,26 +366,28 @@ classdef Microtubule
         end
         % }}}
         
-        % fitMTCurves {{{
-        function obj = fitMicrotubule( obj)
+        % fitMicrotubule{{{
+        function obj = fitMicrotubule( obj, params)
             
-            FixedParams.PolyOrder = obj.polyOrder;
-            FixedParams.StartingPointFixed = obj.fitProps.fixStartPoint;
-            FixedParams.XCoefEnd = obj.estimatedCoef(1,end);
-            FixedParams.YCoefEnd = obj.estimatedCoef(2,end);
-            FixedParams.Mask = 1.0 * logical(obj.source);
-            Image2D = obj.source;
             
             [vfit,resnorm,residual,exitflag,~,~,~] = lsqnonlin( obj.fitProps.problem); 
-                
+
             pStructFin.bkg = vfit(1);
             pStructFin.amp = vfit(2);
             pStructFin.sigma = vfit(3);
-            pStructFin.XCoef = [ vfit( 4: 4+obj.polyOrder-1), obj.estimatedCoef(1,end)];
-            pStructFin.YCoef = [ vfit( 4+obj.polyOrder :end), obj.estimatedCoef(2,end)];
+
+            startIdx = 5;
+            if params.fixMTOC
+                pStructFin.XCoef = [ vfit( startIdx: startIdx+obj.polyOrder-1), obj.estimatedCoef(1,end)];
+                pStructFin.YCoef = [ vfit( startIdx+obj.polyOrder :end), obj.estimatedCoef(2,end)];
+            else
+                pStructFin.XCoef = [ vfit( startIdx: startIdx+obj.polyOrder-1) ]; 
+                pStructFin.YCoef = [ vfit( startIdx+obj.polyOrder :end) ];
+            end
             
             obj.fitProps.vfit = vfit;
-            obj.fitProps.structFit = pStructFin;
+            obj.fitProps.structFit = pStructFin
+            obj.fitCoef = [pStructFin.XCoef ; pStructFin.yCoef];
             
         end
         % }}}

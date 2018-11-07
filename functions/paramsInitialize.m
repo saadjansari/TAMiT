@@ -6,7 +6,7 @@ cellPhaseClassification.mitosisSNR = 3;
 cellPhaseClassification.mitosisMinPixels = 5;
 
 % General Estimation
-estimation.InitImageFrameRange = 5;
+estimation.InitImageFrameRange = 3;
 estimation.usePreviousFitAsEstimate = 1;
 
 % General Fitting
@@ -16,7 +16,7 @@ fitting.doFitting = 0;
 tracking.doTracking = 0;
 
 % Interphase (Curved Microtubules) :
-paramsIntMT = 'paramsMicrotubulesInterphase';
+paramsIntMT = 'paramsInterphase';
 params.interphase = paramsMicrotubulesInterphase(); 
 
 paramsMitMT = 'paramsMicrotubulesMitosis';
@@ -37,55 +37,6 @@ flagValue = 0;
 if doToggle
     [params.interphase.plotflag, params.mitosis.plotflag, params.kc.plotflag] = togglePlotFlags( params.interphase.plotflag, params.mitosis.plotflag, params.kc.plotflag, flagValue);
 end
-
-    % paramsMicrotubulesInterphase {{{
-    function params = paramsMicrotubulesInterphase()
-        
-        % define className (refered to as bank)
-        bankName = 'InterphaseMicrotubuleBank';
-       
-        % define class functions to be used for processing
-        func.initializeBank = [ bankName ]; 
-        func.estimateFeatures = [ 'EstimateMicrotubules'];
-        func.fitFeatures = [ 'FitMicrotubules'];
-        func.trackFeatures = [ 'trackMicrotubules'];
-        func.analyzeFeatures = [ 'analyzeMicrotubules' ];
-        func.sim = 'GaussianCurveMaker2D';
-        params.func = func;
-        
-        % estimation-specific parameters
-        params.estimation.visibility = 8;
-        params.estimation.fieldOfView = 40;
-        params.estimation.stepSize = 3;
-        params.estimation.minMTlength = 10;
-        params.estimation.maxMTsearchIterations = 7; % each iteration involves searching for 2 microtubules starting from the same point but with opposite orientations.
-        
-        % MT model features
-        params.polyOrder = 3; % order of polynomial to estimate mt curves
-
-
-        % fit-specific parameters
-        params.fitting.something = 1;
-
-
-        % track-specific parameters
-        params.tracking.something = 1;
-
-
-        % analysis-specific parameters
-        params.analysis.something = 1;
-
-
-        % display-specific parameters
-        params.plotflag.estimation_networkCleaning= 1;
-        params.plotflag.estimation_mtoc = 1;
-        params.plotflag.estimation_mtIsolation = 1;
-
-
-        params.display.something = 1;
-        
-    end
-    % }}}
 
     % paramsMicrotubulesMitosis {{{
     function params = paramsMicrotubulesMitosis()

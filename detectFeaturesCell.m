@@ -13,7 +13,8 @@ cellphase = zeros( 1, params.meta.numTimes);
 
 for jTime = 1 : 1 
 for jChannel = 1 : 1 
-
+    
+    if ~exist( 'tempSave.mat')
 	% load image for estimation
 	[ imForEstimate, imForEstimate_mt, mask] = loadImageForEstimation( movData, jTime, jChannel, params.estimation.InitImageFrameRange);
 
@@ -25,11 +26,16 @@ for jChannel = 1 : 1
 
 	% Estimate features
  	featureBank = estimateFeatures( featureBank, imForEstimate_mt, cellphase(jTime), params);
-
+    save( 'tempSave.mat', 'featureBank', 'cellphase', 'params'); 
+    else
+    load('tempSave.mat')
+    end
 	% Fit features
-% 	featureBank = fitFeatures( movData, cellphase(jTime), params.Fitting)
+  	featureBank = fitFeatures( featureBank, cellphase(jTime), params)
+    save('tempSaveFit.mat', 'featureBank', 'cellphase', 'params');
 
     featureInfo( jTime, jChannel) = featureBank;
+
 end
 end
 
@@ -124,7 +130,7 @@ function featureBank = initFeatureBank( imPlane, mask, currentCell, currentCellP
 
 
 end
-% }}}
+%j }}}
 
 % obj = estimateFeatures( imPlane, currentCellPhase, estParams) {{{
 function featureBank = estimateFeatures( featureBank, imXYZT, currentCellPhase, estParams)
@@ -144,21 +150,20 @@ function featureBank = estimateFeatures( featureBank, imXYZT, currentCellPhase, 
 end
  % }}}
 
-% obj = fitFeatures( imPlane, currentCellPhase, estParams) {{{
-function obj = fitFeatures( imPlane, currentCellPhase, fitParams)
+% obj = fitFeatures( imPlane, currentCellPhase, fitParams) {{{
+function featureBank = fitFeatures( featureBank, currentCellPhase, fitParams)
 
 	switch currentCellPhase
 	case 1 
-		featureBank = feval( estParams.interphase.func.estimate, imPlane, fitParams.interphase);
+		featureBank = feval( fitParams.interphase.func.fitFeatures, featureBank, fitParams.interphase);
 	case 2
-		featureBank = feval( estParams.mitosis.func.estimate, imPlane, fitParams.mitosis);
+		featureBank = feval( fitParams.mitosis.func.fitFeatures, featureBank, fitParams.mitosis);
 	otherwise
-		featureBank = feval( estParams.interphase.func.estimate, imPlane, fitParams.interphase);
+		featureBank = feval( fitParams.interphase.func.fitFeatures, featureBank, fitParams.interphase);
 	end
 
 end
  % }}}
-
 
 
 end

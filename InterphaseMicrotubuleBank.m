@@ -9,8 +9,8 @@ properties
     display
     featureBank
     deadMicrotubules
-
-end
+    mask2D
+    end
 
 % Main Methods
 methods
@@ -37,78 +37,6 @@ methods
     % }}}
 
     % Estimation
-    % EstimateMicrotubulesOld {{{
-    function obj = EstimateMicrotubulesOld(obj, estParams)
-        % EstimateMicrotubulePositions: estimates mt positions in a 2D/3D image.
-
-        if obj.dim == 2               
-            disp( 'Estimating microtubule locations...' )
-        elseif obj.dim == 3
-            disp( 'Estimating microtubule locations using a 2D MIP in the 3rd-dimension...' )
-        end
-        
-        % extract the full cell image, and the segmented cell image
-        imRegion = max( obj.sourceImage, [], 3);
-        imCell = max( obj.sourceImage .* obj.mask, [], 3);
-        imMask = logical( max( obj.mask, [], 3) );
-
-        % Image Editing
-        [imNetwork, imageGaussian] = EditMicrotubuleImageForEstimation( obj, imRegion, imMask);
-
-        % Parse the image to separate out microtubules
-        imMicrotubulesCell = ParseMicrotubulesFromNetwork( obj, imNetwork, imageGaussian, imMask, estParams);
-         
-        % find microtubule nucleation point by looking for the brightest intensity point along the microtubule.
-        mtoc = findMTOC( obj, imMicrotubulesCell, imageGaussian, estParams);
-        obj = obj;
-        return
-        % To estimate the lines, we'll take the following approach:
-        % 1) Start at the MTOC (allow 2 nucleations on either side)
-        % 2) For each nucleation, we'll find the angle that gives the maximum in a
-        %    radially integrated signal, up to some max radius( which we will call
-        %    the visibility)                                                                                                                                                        
-        % 3) We'll propagate from the MTOC to a new point along the optimum angle,
-        %    which a defined distance away from the MTOC (this we will call the
-        %    step size). Throughout this process, we might look for optimum angles
-        %    within a certain range related to the orientation of the Tube (this we
-        %    will refer to as the field of vision).
-        % 4) We will continue propagating until we can't find an optimum angle
-        %    anymore (all our surroudings appear the same. This will be based on
-        %    some optimality condition. At this point we will change our step size
-        %    to half its original value and see if we can propogate a smaller
-        %    distance forward.
-        % 5) This will conclude our initial estimation phase.
-        % 6) We will fit a polynomial through each initial estimate (quadratic or
-        %    cubic). This will be our final estimate for the microtubules.
-        
-        mtBank = initializeMicrotubules( imMicrotubulesCell, imCell, mtoc)        
-
-        % parameters
-        polyOrder = 3;
-        step = 2; vis = 8; fov = 60; % Step Size, Visibility, FieldOfVision
-        
-        % Estimate MT locations
-        for jTube = 1 : numTubes
-            mtBank(jTube) = Microtubule.EstimateMicrotubulePoints(mtBank( jTube),step,vis,fov);
-            %     plotEstimatedPointsAll( mtBank( jTube) )
-        end
-
-        % Estimate polynomial curve coefficients
-        for jTube = 1 : numTubes
-            mtBank( jTube) = Microtubule.EstimateMicrotubuleCurve( mtBank( jTube), polyOrder);
-            % PlotMicrotubuleCurve( mtBank( jTube), 'estimate')
-        end
-        
-        % Estimate gaussian parameters
-        for jTube = 1 : numTubes
-            mtBank( jTube) = Microtubule.EstimateGaussianParameters( mtBank(jTube), gaussParams)
-        end
-
-        obj.featureBank = mtBank;
-
-    end
-    % }}}
-
     % EstimateMicrotubules {{{
     function obj = EstimateMicrotubules(obj, imXYZT, estParams)
         % EstimateMicrotubulePositions: estimates mt positions in a 2D/3D image.
@@ -125,53 +53,53 @@ methods
         imMask = logical( max( obj.mask, [], 3) );
 
         % Image Editing
-        [imBP, imEst, imDisp] = EditMicrotubuleImageForEstimation( obj, imXYZT, imRegion, imMask);
+        [imFilt3, imSteer3, imDisp] = EditMicrotubuleImageForEstimationZZZ( obj, imXYZT, imRegion, imMask);
         
-        % Search for high intensity lines
-        [coords, orients] = searchForHighIntensityLines3( imBP, imEst, imMask, estParams.interphase.estimation);
+        [coords, orients] = searchForHighIntensityLines3( imFilt3, imSteer3, imMask, estParams.interphase.estimation);
+
         obj.numberOfMicrotubules = length( coords);
-        
-        % Initialize microtubules with coordinate information
-        obj = initializeMicrotubules( obj, coords, orients, imCell, imBP.*imMask);        
         obj.display.image = imDisp;
+        obj.mask2D = imMask; 
 
-        % Estimate polynomial curve coefficients
-        for jTube = 1 : obj.numberOfMicrotubules
-            obj.featureBank( jTube) = EstimateMicrotubuleCurve( obj.featureBank( jTube), estParams.interphase.polyOrder);
-        end
-       
+        obj = CreateMicrotubules(obj, coords, orients);
         PlotMicrotubuleBank( obj, 'estimatedCoords')
-%         PlotMicrotubuleBank( obj, 'estimatedCoefs')
-        return
-
-        % Estimate gaussian parameters
-        for jTube = 1 : numTubes
-            obj.featureBank( jTube) = obj.featureBank( jTube).EstimateGaussianParameters( obj.featureBank(jTube) )
-        end
 
     end
     % }}}
 
-    % Fitting
+    % Feature Fitting
     % fitMicrotubules {{{
-    function obj = fitMicrotubules( obj, fitParams)
-
-        % The microtubules are prepared for fitting
-        % params( init, ub, lb) are passed, the problem is created, plotting function is defined, output function is created to add new parameters to file
+    function obj = FitMicrotubules( obj, fitParams)
+        
+        % Find polynomial curve coefficients
         for jTube = 1 : obj.numberOfMicrotubules
-            
-            obj.featureBank( jTube) = Microtubule.fitInitialization( obj, fitParams.initialization)
-            obj.featureBank( jTube) = Microtubule.fitMicrotubule( obj, fitParams.fitting)
+            obj.featureBank( jTube) = obj.featureBank( jTube).EstimateMicrotubuleCurve( fitParams.fitting.polyOrder);
+        end
+        PlotMicrotubuleBank( obj, 'estimatedCoefs')
 
+        % Estimate gaussian parameters
+        for jTube = 1 : obj.numberOfMicrotubules 
+            obj.featureBank( jTube) = obj.featureBank( jTube).EstimateGaussianParameters( fitParams.fitting.initialization );
         end
 
-        % 
+        for jTube = 1 : obj.numberOfMicrotubules
+            
+            % Fitting prep
+            obj.featureBank( jTube) = obj.featureBank( jTube).fitInitialization( fitParams.fitting);
+            
+            % Fitting local
+            obj.featureBank( jTube) = obj.featureBank( jTube).fitMicrotubule( fitParams.fitting);
+
+        end
+        PlotMicrotubuleBank( obj, 'fitCoefs')
+    
+       % Fitting flobal
+       obj = fitMicrotubulesGlobal( obj, fitParams); 
 
     end
     % }}}
 
 end
-
 
 % Secondary Methods
 methods
@@ -234,6 +162,93 @@ methods
         set(gcf, 'Name', ['cell_' num2str(obj.sourceInfo.cellNumber) '_ImgEnh'], 'NumberTitle', 'off')
         
     end
+    % }}}
+
+    % [SWL, imGaussianMasked] = EditMicrotubuleImageForEstimationZZZ(imRegion) {{{
+    function [imFilt3, imSteer3, imDisp] = EditMicrotubuleImageForEstimationZZZ(obj, imXYZT, imXY, imMask)
+
+        disp('Enhancing the image...')
+
+        % We will enhance the image differently for use in:
+        % 1) Estimation/Detection process
+        % 2) Display process
+
+        %  Start by setting any pixels that are equal to 0 to the median value. This takes care of cells that have 0-padding on their edges.
+        imXY( imXY == 0) = median( imXY(imXY ~= 0) );
+        imXYZT( imXYZT == 0) = median( imXYZT(imXYZT ~= 0) );
+        
+        % Enhancement
+        % We use a bandpass filter to only allow features of standard deviation between 1 and 4 (it removes noise variations and large scale changes in the cytoplasm background)
+        sig_highpass = 1;
+        sig_lowpass = 4;
+        imFilt3 = zeros( [ size(imXYZT, 1), size(imXYZT, 2), size(imXYZT, 3) ] );
+        imXYZ = mean(imXYZT, 4);
+        for jZ = 1 : size(imXYZT, 3)
+            
+            imFilt3(:,:, jZ) = filter_gauss_bandpass( imXYZ(:,:,jZ), sig_lowpass, sig_highpass);
+
+        end
+
+        % Estimation Process
+        imSteer3 = 0*imFilt3;
+
+        for jZ = 1 : size(imFilt3, 3)
+
+            [~, ~, imSteer3(:,:,jZ)] = steerableDetector( imXYZ(:,:,jZ), 4, sqrt(2)*1.3 );
+
+        end
+
+        % Display
+        imFilt = 0.0*imMask;
+        imFilt = filter_gauss_bandpass( imXY, sig_lowpass, sig_highpass);
+
+        imDisp = imXY.*imMask; 
+
+        T = multithresh(imDisp( imMask), 2); 
+        imDisp( imDisp < T(1)) = 0;
+        imDisp = imadjust( mat2gray(imDisp), [T(1), 1 ] );
+        imDisp = mat2gray( imgaussfilt( imDisp, 1) ).*imMask;
+        
+        [res3, ~, imSteer3_2] = steerableDetector3D( imXYZ, 1, 1.5, 1.5);
+
+        dispImg( sum(imSteer3,3).*imMask, sum(imSteer3_2, 3).*imMask, [1 2])
+        dispImg( sum(res3,3).*imMask )
+    end
+    % }}}
+
+    % Create Microtubules {{{
+    function obj = CreateMicrotubules(obj, coords, orients) 
+        
+        % Initialize microtubules with coordinate information
+        colors = distinguishable_colors( obj.numberOfMicrotubules, {'w', 'k'} );
+        for jMT = 1 : obj.numberOfMicrotubules
+            mtBank( jMT) = Microtubule( obj.sourceImage, obj.mask, obj.display.image, coords{jMT}, orients( jMT) );
+            mtBank( jMT).id = jMT;
+            mtBank( jMT).display.color = colors( jMT, :);
+        end
+        if obj.numberOfMicrotubules == 0, mtBank = []; end
+        obj.featureBank = mtBank;
+
+    end
+    %  }}}
+
+    % Fit Microtubules Global {{{
+    function obj = fitMicrotubulesGlobal( obj, fitParams)
+
+    % global fitting if parameter turned on
+    if fitParams.fitting.global = 0
+        return
+    end
+
+    % Need a way to convert from parameter vector to parameter structure
+    % vec = [Bkg, [ ], [ ], ... numMT ...  [ ] ] 
+    %  length = 1 + numMT * ( numParMT )
+    %  numParMT = ( amp + 2-3 stdev + polyorder/polyorder-1 ) = 6-10 vars
+    %  length of vec ~ 1 + 10*N
+    
+
+
+
     % }}}
 
     % imMicrotubulesCell = ParseMicrotubulesFromNetwork( imNetwork, imageIntensity, plotflag) {{{
@@ -339,75 +354,6 @@ methods
     end
 % }}}
 
-% mtoc = findMTOC( logicalImageCell, intensityImage, plotflag) {{{
-    function mtoc = findMTOC( obj, logicalImageCell, imDisplay, estParams)
-        % intensity image could be a single image or a cell containing multiple images
-        
-        % stop if no MTOCs found.
-        if length( logicalImageCell ) == 0
-            mtoc = [];
-            disp('No Tracks and no MTOCs were found! No microtubules can exist for this cell.')
-        return
-        end
-        
-        % It is also possible that the widest point along the line is an MTOC,
-        % and it has an overlap of tubes going different ways. We'll look for the
-        % brightest pixel in a convolved image.
-        if ~iscell( logicalImageCell)
-            logicalImageCell = {logicalImageCell};
-        end
-        
-        im2D = max( obj.sourceImage, [], 3);
-        imMask = max( obj.mask, [], 3);
-
-        imGauss = mat2gray( imgaussfilt( im2D .* imMask, 2) );
-        for jLine = 1 : length( logicalImageCell)
-            
-            
-            cLine = logicalImageCell{ jLine };
-
-            [ ~, mtoc( jLine ).idx ] = max(imGauss(:) .* cLine(:) );
-  
-            [ mtoc( jLine ).y , mtoc( jLine ).x ] = ind2sub( size(im2D), mtoc(jLine).idx ); % note y and x are reversed because first index refers to row number, i.e the vertical axis
-    
-            % Lets also find the direction of nucleation
-            boneProps = analyzeLineImage( cLine);
-            mtoc( jLine ).phi = boneProps.thetaRaw( boneProps.orderedIdxList == mtoc( jLine).idx );
-    
-        end
-
-        % plot MTOCs on top of masked image
-        if estParams.interphase.plotflag.estimation_mtoc 
-            imRGB = mat2gray(repmat( imDisplay, 1, 1, 3)); imRGB( :,:, 2:3) = 0;
-            dispImg( imRGB); hold on
-            plot( [mtoc.x], [mtoc.y], 'w*', 'MarkerSize', 12, 'LineWidth', 3); hold off;
-            title('MTOC locations')
-            set(gcf, 'Name', 'mtoc_locations', 'NumberTitle', 'off')
-        end
-
-    end
-
-% }}}
-
-% mtBank = initializeMicrotubules( imMicrotubulesCell, imCell, mtoc) {{{
-    function obj = initializeMicrotubules( obj, coordsMT, orients, imOriginal, imDisplay)
-        
-        colors = distinguishable_colors( obj.numberOfMicrotubules, {'w', 'k'} );
-        for jMT = 1 : obj.numberOfMicrotubules
-            
-            mtBank( jMT) = Microtubule( imOriginal, imDisplay, coordsMT{jMT}, orients( jMT) );
-            mtBank( jMT).id = jMT;
-            mtBank( jMT).display.color = colors( jMT, :);
-
-        end
-        if obj.numberOfMicrotubules == 0
-                mtBank = [];
-        end
-        obj.featureBank = mtBank;
-
-    end
-% }}}
-
 % idxDead = removeDeadMicrotubules( mtBank) {{{
     function idxDead  = flagDeadMicrotubules( mtBank)
 
@@ -505,11 +451,11 @@ end
 
 % add microtubules to this organizing center
 
-% assign unique identification to each mi9crotubule
+% assign unique identification to each microtubule
 
-% fitting for each microtubuel
+% fitting for each microtubule
 
-% global optmization of mnicrotubules
+% global optmization of microtubules
 
 % tracks microtubules by linking detections over time
 

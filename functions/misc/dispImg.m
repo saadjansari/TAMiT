@@ -11,7 +11,7 @@ if length(varargin) == 1 && ( isa( varargin{1}, 'double') || isa( varargin{1}, '
     pos = get(gcf, 'position');
     set(gcf, 'pos', [-10000 pos(2:end)]);
     set(gcf, 'WindowState', 'maximized');
-    set(gca, 'xlim', [1 size(img, 1)], 'ylim', [1 size(img, 2)], 'xtick',[], 'ytick',[] )
+    set(gca, 'xlim', [1 size(img, 2)], 'ylim', [1 size(img, 1)], 'xtick',[], 'ytick',[] )
     
 elseif length( varargin) > 1
     % there are multiple images for comparison. The display order is
@@ -33,7 +33,7 @@ elseif length( varargin) > 1
         if size( img{jFig}, 3) == 1
             colormap gray
         end
-        set(gca, 'xlim', [1 size(img{jFig}, 1)], 'ylim', [1 size(img{jFig}, 2)], 'xtick',[], 'ytick',[] )
+        set(gca, 'xlim', [1 size(img{jFig}, 2)], 'ylim', [1 size(img{jFig}, 1)], 'xtick',[], 'ytick',[] )
     end
     pos = get(gcf, 'position');
     set(gcf, 'pos', [-10000 pos(2:end)]);
