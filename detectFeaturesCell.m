@@ -26,7 +26,7 @@ for jChannel = 1 : 1
 
 	% Estimate features
  	featureBank = estimateFeatures( featureBank, imForEstimate_mt, cellphase(jTime), params);
-    save( 'tempSave.mat', 'featureBank', 'cellphase', 'params'); 
+    save( 'tempSave.mat', 'featureBank', 'cellphase'); 
     else
     load('tempSave.mat')
     end

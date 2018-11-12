@@ -17,10 +17,10 @@ tracking.doTracking = 0;
 
 % Interphase (Curved Microtubules) :
 paramsIntMT = 'paramsInterphase';
-params.interphase = paramsMicrotubulesInterphase(); 
+params.interphase = paramsInterphase(); 
 
-paramsMitMT = 'paramsMicrotubulesMitosis';
-params.mitosis = paramsMicrotubulesMitosis();
+paramsMitMT = 'paramsMitosis';
+params.mitosis = paramsMitosis();
 
 paramsMitKC = 'paramsKinetochoresMitosis';
 params.kc = paramsKinetochoresMitosis();
@@ -39,7 +39,7 @@ if doToggle
 end
 
     % paramsMicrotubulesMitosis {{{
-    function params = paramsMicrotubulesMitosis()
+    function params = paramsMitosis()
         
         % define className (refered to as bank)
         bankName = 'MitosisMicrotubuleBank';

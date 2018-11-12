@@ -10,6 +10,7 @@ vecUb = stmt_ub.background;
 vecLb = stmt_lb.background;
 
 if fixedMTOC, cRge = 1:length(stmt.coefX{1})-1; else cRge = 1:length(stmt.coefX{1}); end
+if stmt.dim==3 && fixedMTOC, cRgeZ = 1:length(stmt.coefZ{1})-1; elseif stmt.dim==3 && ~fixedMTOC, cRgeZ = 1:length(stmt.coefZ{1}); end
 
 switch stmt.dim
     case 2
@@ -20,10 +21,12 @@ switch stmt.dim
         end 
     case 3
         for jmt = 1 : stmt.numberOfMicrotubules
-            vec = [vec, stmt.amplitude(jmt), stmt.std{jmt}, stmt.coefX{jmt}(cRge), stmt.coefY{jmt}(cRge), stmt.coefZ{jmt}(cRge) ];
-            vecUb = [vecUb, stmt_ub.amplitude(jmt), stmt_ub.std{jmt}, stmt_ub.coefX{jmt}(cRge), stmt_ub.coefY{jmt}(cRge), stmt_ub.coefZ{jmt}(cRge) ];
-            vecLb = [vecLb, stmt_lb.amplitude(jmt), stmt_lb.std{jmt}, stmt_lb.coefX{jmt}(cRge), stmt_lb.coefY{jmt}(cRge), stmt_lb.coefZ{jmt}(cRge) ];
+            vec = [vec, stmt.amplitude(jmt), stmt.std{jmt}, stmt.coefX{jmt}(cRge), stmt.coefY{jmt}(cRge), stmt.coefZ{jmt}(cRgeZ) ];
+            vecUb = [vecUb, stmt_ub.amplitude(jmt), stmt_ub.std{jmt}, stmt_ub.coefX{jmt}(cRge), stmt_ub.coefY{jmt}(cRge), stmt_ub.coefZ{jmt}(cRgeZ) ];
+            vecLb = [vecLb, stmt_lb.amplitude(jmt), stmt_lb.std{jmt}, stmt_lb.coefX{jmt}(cRge), stmt_lb.coefY{jmt}(cRge), stmt_lb.coefZ{jmt}(cRgeZ) ];
         end 
     otherwise
         error('Microtubules must exist in either 2D or 3D images')
+end
+
 end

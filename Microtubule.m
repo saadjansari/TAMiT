@@ -12,6 +12,7 @@ classdef Microtubule
         display % display features specific to this microtubule (color, linewidth, markersize, markerstyle, etc...)
         estimatedCoords % the estimated points through which the microtubule passes
         polyOrder % polynomial order( 2=quadratic, 3=cubic)
+        polyOrderZ
         estimatedCoef % estimated polynomial coefficients
         amplitude % gaussian amplitude
         std % gaussian standard deviation
@@ -50,19 +51,55 @@ classdef Microtubule
         % }}} 
         
         % Estimation
+        % EstimateMicrotubuleCurve {{{
+        function obj = EstimateMicrotubuleCurve(obj, fitParams)
+            % fits a polynomial of order 'polyOrder' to obj.estimatedPoints
+            
+            obj.polyOrder = fitParams.polyOrder;
+            if obj.dim==3, obj.polyOrderZ = fitParams.polyOrderZ; end
+
+            % Get data to fit
+            x = obj.estimatedCoords.x;
+            y = obj.estimatedCoords.y;
+            
+            t = linspace(0,1);
+            % interpolate for better accuracy
+            xi = interp1( linspace(0,1,length(x) ), x, t);
+            yi = interp1( linspace(0,1,length(y) ), y, t);
+            
+            % fit polynomial of order polyOrder
+            if obj.dim == 2
+                obj.estimatedCoef = { polyfit( t, xi, obj.polyOrder), polyfit( t, yi, obj.polyOrder) };
+            elseif obj.dim == 3
+                z = obj.estimatedCoords.z;
+                zi = interp1( linspace(0,1, length(z) ), z, t);
+                obj.estimatedCoef = { polyfit( t, xi, obj.polyOrder), polyfit( t, yi, obj.polyOrder) , polyfit( t, zi, obj.polyOrderZ) };
+            end
+
+        end
+        % }}}
+
+        % EstimateGaussianParameters {{{        
+        function obj = EstimateGaussianParameters( obj, params)
+
+            obj.amplitude = mean( measureIntensity( obj, 'estimate') );
+            obj.std = params.structInit.std;
+            obj.background = median( obj.source2D( obj.mask2D) );
+
+        end
+        % }}}
+
         % measureIntensity {{{
         function intensities = measureIntensity( obj, type)
             % used to measure intensity while using estimated coefficients
             t = linspace(0,1);
             
             if strcmp(type, 'estimate')
-                px = obj.estimatedCoef(1,:);
-                py = obj.estimatedCoef(2,:);
-                
+                px = obj.estimatedCoef{1};
+                py = obj.estimatedCoef{2};
             elseif strcmp(type, 'fit')
-                px = obj.fitCoef(1,:);
-                py = obj.fitCoef(2,:);
-                
+                px = obj.fitCoef{1};
+                py = obj.fitCoef{2};
             end
             x = polyval(px, t);
             y = polyval(py, t);
@@ -77,46 +114,9 @@ classdef Microtubule
             end
 
             coord(:, idxRm) = [];
-            idx = sub2ind( size(obj.source2), coord(2, :), coord(1, :) );
-            intensities = obj.source2( idx);
+            idx = sub2ind( size(obj.source2D), coord(2, :), coord(1, :) );
+            intensities = obj.source2D( idx);
             
-        end
-        % }}}
-
-        % EstimateMicrotubuleCurve {{{
-        function obj = EstimateMicrotubuleCurve(obj, polyOrder)
-            % fits a polynomial of order 'polyOrder' to obj.estimatedPoints
-            
-            obj.polyOrder = polyOrder;
-            
-            % Get data to fit
-            x = obj.estimatedCoords.x;
-            y = obj.estimatedCoords.y;
-            
-            t = linspace(0,1);
-            % interpolate for better accuracy
-            xi = interp1( linspace(0,1,length(x) ), x, t);
-            yi = interp1( linspace(0,1,length(y) ), y, t);
-            
-            % fit polynomial of order polyOrder
-            if obj.dim == 2
-                obj.estimatedCoef = [ polyfit( t, xi, polyOrder); polyfit( t, yi, polyOrder) ];
-            elseif obj.dim == 3
-                z = obj.estimatedCoords.z;
-                zi = interp1( linspace(0,1, length(z) ), z, t);
-                obj.estimatedCoef = [ polyfit( t, xi, polyOrder); polyfit( t, yi, polyOrder) ; plotfit( t, zi, polyOrder) ];
-            end
-
-        end
-        % }}}
-
-        % EstimateGaussianParameters {{{        
-        function obj = EstimateGaussianParameters( obj, params)
-
-            obj.amplitude = mean( measureIntensity( obj, 'estimate') );
-            obj.std = params.structInit.std;;
-            obj.background = median( obj.source2( obj.mask2D) );
-
         end
         % }}}
 
@@ -124,12 +124,9 @@ classdef Microtubule
         % fitInitialization {{{
         function obj = fitInitialization(obj, params) 
 
-            params.initialization.initVals(1:4) = [ obj.background, obj.amplitude, obj.stdev ];
-            params.initialization.ub = params.initialization.initVals(1:4) + params.initialization.vecRange;
-            params.initialization.lb = params.initialization.initVals(1:4) - params.initialization.vecRange;
-            
             params.initialization = initializeParameterStructures( obj, params.initialization);
-            [vec, vecUb, vecLb] = convertStruct2Vec_MT( params.initialization, params.fixMTOC);
+            params.initialization.structInit.numberOfMicrotubules = 1; % local fitting
+            [vec, vecUb, vecLb] = convertStruct2Vec_MT( params.initialization.structInit, params.initialization.structUb, params.initialization.structLb, params.fixMTOC);
 
             % create optimization options and the problem for lsqnonlin
             opts = optimoptions( @lsqnonlin, 'MaxFunEvals', params.maxFunEvals, 'OptimalityTolerance', params.optTol, 'MaxIter', params.maxIter, ...
@@ -139,16 +136,17 @@ classdef Microtubule
             % parameters for fitting function
             FixedParams.PolyOrder = params.polyOrder;
             FixedParams.StartingPointFixed = params.fixMTOC;
-            FixedParams.XCoefEnd = obj.estimatedCoef(1,end);
-            FixedParams.YCoefEnd = obj.estimatedCoef(2,end);
+            FixedParams.XCoefEnd = obj.estimatedCoef{1}(end);
+            FixedParams.YCoefEnd = obj.estimatedCoef{2}(end);
+            if params.fitDim==3, FixedParams.PolyOrderZ = params.polyOrderZ; FixedParams.ZCoefEnd = obj.estimatedCoef{3}(end); end
             FixedParams.Mask2D = obj.mask2D;
             FixedParams.Mask = obj.mask;
             FixedParams.dim = params.fitDim;
             FixedParams.numberOfMicrotubules = 1; % local fitting
 
             if params.fitDim == 2
-                FixedParams.Mask = 1.0 * logical(obj.source2);
-                ImageFit = obj.source2.*obj.mask2D;
+                FixedParams.Mask = 1.0 * logical(obj.source2D);
+                ImageFit = obj.source2D.*obj.mask2D;
             elseif params.fitDim == 3
                 FixedParams.Mask = 1.0 * logical( obj.source);
                 ImageFit = obj.source.*obj.mask;
@@ -162,7 +160,13 @@ classdef Microtubule
             
             % Save problem to object for easy access
             obj.fitProps.problem = prob;
+            obj.fitProps.FixedParams = FixedParams;
 
+            if params.makeMovieOptimStatus
+                obj.fitProps.movieOptimStatus = VideoWriter( ['optim_lsqnonlin_', num2str( obj.id), '.avi'], 'Motion JPEG AVI');
+                obj.fitProps.movieOptimStatus.FrameRate = 2;
+            end
+            
             % initializeParameterStructures {{{
             function params = initializeParameterStructures( obj, params) 
                 % we will allow the curve length to be altered between 0.5 and 2 (and use the coef rang eas upper and lower bounds (which will give it some freedom)
@@ -170,6 +174,7 @@ classdef Microtubule
                 % we can do this easily by parameterizing our curve values to be representative of values from t=0 to t = t_max (where t_max is 1 by default). Then we just allow t_max to lie between 0.5 and 2.5 and we fit curves again through it using the default t-range and we end up with a range of coeficients.
                 fitdim = params.structInit.dim;
                 polyOrder = params.structInit.polyOrder;
+                polyOrderZ = params.structInit.polyOrderZ;
                 lenMin = params.lengthMin;
                 lenMax = params.lengthMax;
                 sigKeep = 0.5;
@@ -180,13 +185,13 @@ classdef Microtubule
                 xcfs = []; ycfs = []; zcfs = [];
                 for jj = 1 : length(tRange)
                     tNew = linspace( 0, tRange(jj) );
-                    xNew = polyval( coefs( 1, :), tNew);
-                    yNew = polyval( coefs( 2, :), tNew);
-                    if fitdim==3, zNew = polyval( coefs( 3, :), tNew); end
+                    xNew = polyval( coefs{1}, tNew);
+                    yNew = polyval( coefs{2}, tNew);
+                    if fitdim==3, zNew = polyval( coefs{3}, tNew); end
 
                     xcfs = [xcfs ; polyfit( tDef, xNew, polyOrder) ];
                     ycfs = [ycfs ; polyfit( tDef, yNew, polyOrder) ];
-                    if fitdim==3, zcfs = [zcfs ; polyfit( tDef, zNew, polyOrder) ]; end
+                    if fitdim==3, zcfs = [zcfs ; polyfit( tDef, zNew, polyOrderZ) ]; end
                 end
 
                 % find the range of these coefs ( model with a gaussian and keep up to a certain number of standard deviations)
@@ -204,9 +209,9 @@ classdef Microtubule
                     lbZ = min( zcfs, [], 1) - sigKeep * sigZ;
                 end 
 
-                params.structInit.coefX{1} = coefs(1,:);
-                params.structInit.coefY{1} = coefs(2,;);
-                if fitdim==3, bounds.structInit.coefZ{1} = coefs(3,:); end
+                params.structInit.coefX{1} = coefs{1};
+                params.structInit.coefY{1} = coefs{2};
+                if fitdim==3, params.structInit.coefZ{1} = coefs{3}; end
                 
                 params.structUb.coefX{1} = ubX;
                 params.structUb.coefY{1} = ubY;
@@ -266,21 +271,14 @@ classdef Microtubule
                 elseif length( size(ImageFit) ) == 2
                     Image2D = ImageFit;
                 end
+                
+                structFit = convertVec2Struct_MT( x, FixedParams);
 
                 switch state
                     case 'init'
                         % init {{{
                         t = linspace(0,1); % paramateric variable
-                        startIdx = 5;
-                        gap = FixedParams.PolyOrder;
-                        if FixedParams.StartingPointFixed
-                            xcurr = polyval( [ x( startIdx : startIdx+ gap-1), FixedParams.XCoefEnd], t); % current curve coordinates
-                            ycurr = polyval( [ x( startIdx+ gap : end), FixedParams.YCoefEnd], t); % current curve coordinates
-                        else
-                            xcurr = polyval( x( startIdx : startIdx+ gap-1), t); % current curve coordinates
-                            ycurr = polyval( x( startIdx+ gap : end), t); % current curve coordinates
-                        end
-
+                        fName = ['lsqnonlin_', num2str(obj.id)];
                         figure('Name', ['lsqnonlin_', num2str(obj.id)], 'NumberTitle', 'off');
                         posOld = get(gcf, 'Position');
                         set(gcf, 'position', [-10000 posOld(2:end)], 'WindowState', 'maximized');
@@ -295,16 +293,39 @@ classdef Microtubule
 
                         subplot(122)
                         imagesc([Image2D]); axis equal; colormap gray; hold on;
-                        plot( xcurr, ycurr, 'Color', [1 0 0 0.5], 'LineWidth', 6); hold off
+                        for jmt = 1: structFit.numberOfMicrotubules
+                            xcurr = polyval( structFit.coefX{jmt}, t);
+                            ycurr = polyval( structFit.coefY{jmt}, t);
+                            plot( xcurr, ycurr, 'Color', [1 0 0 0.7], 'LineWidth', 6); hold off
+                        end
                         set(gca, 'xlim', [1 numPixX], 'ylim', [1 numPixY], 'XTick', [], 'YTick', []);
+                        set(gcf, 'WindowState', 'maximized')
                         title('Best Curve'); set(gca, 'FontSize', 14)
 
+                        if structFit.numberOfMicrotubules == 1
+                            subplot(121)
+                            if structFit.dim==3, 
+                                textStr = sprintf('Bkg = %.3f \nAmp = %.3f \nStd = [%.3f, %.3f, %.3f]', structFit.background, structFit.amplitude, structFit.std{1} );
+                            elseif structFit.dim==2,
+                                textStr = sprintf('Bkg = %.3f \nAmp = %.3f \nStd = [%.3f, %.3f]', structFit.background, structFit.amplitude, structFit.std{1} );
+                            end
+                            textBox = text( gca, 0.6, 0.8, textStr, 'HorizontalAlignment', 'left', 'Units', 'normalized', 'FontSize', 20);
+                            set(textBox, 'Tag', 'textbox_paramDetails')
+                        end
+
                         drawnow
+                        
+                        v = obj.fitProps.movieOptimStatus;
+                        open(v)
+                        cFrame = getframe(gcf);
+                        writeVideo(v, cFrame );
+
                         % }}}
                     case 'iter'
                         %  iter {{{
                         subplot(121)
                         plotBest = findobj(get(gca,'Children'),'Tag','psoplotbestf');
+                        textBox = findobj(get(gca,'Children'),'Tag','textbox_paramDetails');
                         newX = [get(plotBest,'Xdata') optimValues.iteration];
                         newY = [get(plotBest,'Ydata') optimValues.resnorm ];
                         set(plotBest,'Xdata',newX, 'Ydata',newY);
@@ -312,26 +333,38 @@ classdef Microtubule
                         grid minor; grid on
 
                         t = linspace(0,1); % paramateric variable
-                        startIdx = 5;
-                        gap = FixedParams.PolyOrder;
-                        if FixedParams.StartingPointFixed
-                            xcurr = polyval( [ x( startIdx : startIdx+ gap-1), FixedParams.XCoefEnd], t); % current curve coordinates
-                            ycurr = polyval( [ x( startIdx+ gap : end), FixedParams.YCoefEnd], t); % current curve coordinates
-                        else
-                            xcurr = polyval( x( startIdx : startIdx+ gap-1), t); % current curve coordinates
-                            ycurr = polyval( x( startIdx+ gap : end), t); % current curve coordinates
-                        end
-
                         subplot(122)
                         imagesc([Image2D]); axis equal; colormap gray; hold on;
-                        plot( xcurr, ycurr, 'Color', [1 0 0 0.7], 'LineWidth', 6); hold off
-                        set(gca, 'xlim', [1 numPixX], 'ylim', [1 numPixY], 'XTick', [], 'YTick', []);
+                        for jmt = 1: structFit.numberOfMicrotubules
+                            xcurr = polyval( structFit.coefX{jmt}, t);
+                            ycurr = polyval( structFit.coefY{jmt}, t);
+                            plot( xcurr, ycurr, 'Color', [1 0 0 0.7], 'LineWidth', 6); hold off
+                        end
+                        set(gca, 'xlim', [1 numPixX], 'ylim', [1 numPixY], 'XTick', [], 'YTick', [])
+                        set(gcf, 'WindowState', 'maximized')
                         title('Best Curve'); set(gca, 'FontSize', 14)
 
+                        if structFit.numberOfMicrotubules == 1
+                            subplot(121)
+                            if structFit.dim==3, 
+                                textStr = sprintf('Bkg = %.3f \nAmp = %.3f \nStd = [%.3f, %.3f, %.3f]', structFit.background, structFit.amplitude, structFit.std{1} );
+                            elseif structFit.dim==2,
+                                textStr = sprintf('Bkg = %.3f \nAmp = %.3f \nStd = [%.3f, %.3f]', structFit.background, structFit.amplitude, structFit.std{1} );
+                            end
+                            textBox.String = textStr;
+                        end
+
                         drawnow
+                        
+                        v = obj.fitProps.movieOptimStatus;
+                        cFrame = getframe(gcf);
+                        writeVideo(v, cFrame);
+
                         % }}}
                     case 'done'
                         % No clean up tasks required for this plot function.        
+                        v = obj.fitProps.movieOptimStatus;
+                        close(v)
                 end    
 
                 end
@@ -369,26 +402,14 @@ classdef Microtubule
         % fitMicrotubule{{{
         function obj = fitMicrotubule( obj, params)
             
-            
-            [vfit,resnorm,residual,exitflag,~,~,~] = lsqnonlin( obj.fitProps.problem); 
-
-            pStructFin.bkg = vfit(1);
-            pStructFin.amp = vfit(2);
-            pStructFin.sigma = vfit(3);
-
-            startIdx = 5;
-            if params.fixMTOC
-                pStructFin.XCoef = [ vfit( startIdx: startIdx+obj.polyOrder-1), obj.estimatedCoef(1,end)];
-                pStructFin.YCoef = [ vfit( startIdx+obj.polyOrder :end), obj.estimatedCoef(2,end)];
-            else
-                pStructFin.XCoef = [ vfit( startIdx: startIdx+obj.polyOrder-1) ]; 
-                pStructFin.YCoef = [ vfit( startIdx+obj.polyOrder :end) ];
-            end
-            
-            obj.fitProps.vfit = vfit;
-            obj.fitProps.structFit = pStructFin
-            obj.fitCoef = [pStructFin.XCoef ; pStructFin.yCoef];
-            
+                [vfit,resnorm,residual,exitflag,~,~,~] = lsqnonlin( obj.fitProps.problem); 
+                structFit = convertVec2Struct_MT( vfit, obj.fitProps.FixedParams);
+                obj.fitProps.structFit = structFit;
+                obj.fitProps.vfit = vfit;
+                obj.fitProps.resnorm = resnorm;
+                obj.fitProps.exitflag = exitflag;
+                if obj.fitProps.FixedParams.dim == 2, obj.fitCoef = {structFit.coefX{1} , structFit.coefY{1} };
+                elseif obj.fitProps.FixedParams.dim == 3, obj.fitCoef = {structFit.coefX{1} , structFit.coefY{1} , structFit.coefZ{1} }; end
         end
         % }}}
 

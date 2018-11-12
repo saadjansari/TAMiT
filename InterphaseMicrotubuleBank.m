@@ -61,19 +61,19 @@ methods
         obj.display.image = imDisp;
         obj.mask2D = imMask; 
 
-        obj = CreateMicrotubules(obj, coords, orients);
+        obj = CreateMicrotubules(obj, coords, orients, estParams.interphase.fitting.fitDim);
         PlotMicrotubuleBank( obj, 'estimatedCoords')
 
     end
     % }}}
 
     % Feature Fitting
-    % fitMicrotubules {{{
+    % FitMicrotubules {{{
     function obj = FitMicrotubules( obj, fitParams)
         
         % Find polynomial curve coefficients
         for jTube = 1 : obj.numberOfMicrotubules
-            obj.featureBank( jTube) = obj.featureBank( jTube).EstimateMicrotubuleCurve( fitParams.fitting.polyOrder);
+            obj.featureBank( jTube) = obj.featureBank( jTube).EstimateMicrotubuleCurve( fitParams.fitting);
         end
         PlotMicrotubuleBank( obj, 'estimatedCoefs')
 
@@ -81,16 +81,21 @@ methods
         for jTube = 1 : obj.numberOfMicrotubules 
             obj.featureBank( jTube) = obj.featureBank( jTube).EstimateGaussianParameters( fitParams.fitting.initialization );
         end
-
-        for jTube = 1 : obj.numberOfMicrotubules
-            
-            % Fitting prep
-            obj.featureBank( jTube) = obj.featureBank( jTube).fitInitialization( fitParams.fitting);
-            
-            % Fitting local
-            obj.featureBank( jTube) = obj.featureBank( jTube).fitMicrotubule( fitParams.fitting);
-
-        end
+        
+        
+%         if ~exist('tempLocalFit.mat') 
+            for jTube = 1 : obj.numberOfMicrotubules
+                
+                % Fitting prep
+                obj.featureBank( jTube) = obj.featureBank( jTube).fitInitialization( fitParams.fitting);
+                
+                % Fitting local
+                obj.featureBank( jTube) = obj.featureBank( jTube).fitMicrotubule( fitParams.fitting);
+            end
+%             save('tempLocalFit.mat')
+%         else
+%             load('tempLocalFit.mat')
+%         end
         PlotMicrotubuleBank( obj, 'fitCoefs')
     
        % Fitting flobal
@@ -217,12 +222,21 @@ methods
     % }}}
 
     % Create Microtubules {{{
-    function obj = CreateMicrotubules(obj, coords, orients) 
+    function obj = CreateMicrotubules(obj, coords, orients, fitDim) 
         
         % Initialize microtubules with coordinate information
         colors = distinguishable_colors( obj.numberOfMicrotubules, {'w', 'k'} );
         for jMT = 1 : obj.numberOfMicrotubules
-            mtBank( jMT) = Microtubule( obj.sourceImage, obj.mask, obj.display.image, coords{jMT}, orients( jMT) );
+            if fitDim == 3
+                % find the pixel in z corresponding to the max intensity value at the xy coordinate
+                [~, zIndex] = max( imgaussfilt(obj.sourceImage, 2), [], 3);
+                idxXY = sub2ind( size(obj.mask2D), round( coords{jMT}(2,:)) , round(coords{jMT}(1,:) ) );
+                cZ = zIndex( idxXY);
+                coordsAll = [ coords{jMT}(1,:) ; coords{jMT}(2,:) ; cZ ];
+            else
+                coordsAll = coords{jMT};
+            end
+            mtBank( jMT) = Microtubule( obj.sourceImage, obj.mask, obj.display.image, coordsAll, orients( jMT) );
             mtBank( jMT).id = jMT;
             mtBank( jMT).display.color = colors( jMT, :);
         end
@@ -236,7 +250,7 @@ methods
     function obj = fitMicrotubulesGlobal( obj, fitParams)
 
     % global fitting if parameter turned on
-    if fitParams.fitting.global = 0
+    if fitParams.fitting.global == 0
         return
     end
 
@@ -248,7 +262,7 @@ methods
     
 
 
-
+    end
     % }}}
 
     % imMicrotubulesCell = ParseMicrotubulesFromNetwork( imNetwork, imageIntensity, plotflag) {{{
@@ -399,19 +413,19 @@ methods
 
             for jTube = 1 : obj.numberOfMicrotubules 
                 
-                if strcmp( type, 'estimatedCoef')
+                if strcmp( type, 'estimatedCoefs')
 
                 t = linspace(0,1);
-                px = obj.featureBank( jTube).estimatedCoef(1,:);
-                py = obj.featureBank( jTube).estimatedCoef(2,:);
+                px = obj.featureBank( jTube).estimatedCoef{1};
+                py = obj.featureBank( jTube).estimatedCoef{2};
                 x = polyval( px, t );
                 y = polyval( py, t );
                 
-                elseif strcmp( type, 'fitCoef')
+                elseif strcmp( type, 'fitCoefs')
 
                 t = linspace(0,1);
-                px = obj.featureBank( jTube).fitCoef(1,:);
-                py = obj.featureBank( jTube).fitCoef(2,:);
+                px = obj.featureBank( jTube).fitCoef{1};
+                py = obj.featureBank( jTube).fitCoef{2};
                 x = polyval( px, t );
                 y = polyval( py, t );
 
