@@ -6,7 +6,8 @@ function params = paramsInterphase()
     % function names {{{
     % define class functions to be used for processing
     func.initializeBank = [ bankName ]; 
-    func.estimateFeatures = [ 'EstimateMicrotubules'];
+    func.estimateFeaturesDeNovo = [ 'EstimateMicrotubulesDeNovo'];
+    func.estimateFeaturesFromPrior = [ 'EstimateMicrotubulesFromPrior'];
     func.fitFeatures = [ 'FitMicrotubules'];
     func.trackFeatures = [ 'trackMicrotubules'];
     func.analyzeFeatures = [ 'analyzeMicrotubules' ];

@@ -5,9 +5,9 @@ properties
     mask
     dim
     sourceInfo
+    featureBank
     numberOfMicrotubules
     display
-    featureBank
     deadMicrotubules
     mask2D
     end
@@ -20,10 +20,10 @@ methods
     function obj = InterphaseMicrotubuleBank( image3D, mask, cellNumber, currentTime, params)
     
         % All that is needed to initialize a bank is a source image( could be 2D or 3D).         
+        whos
         dim = length( size(image3D));
         giveError( {dim, dim}, {'~=', '~='}, {2,3}, 'and', 'InterphaseMicrotubuleBank: 1st argument must be a 2D or a 3D image.')
         
-        disp( 'Interphase Microtubule Bank created. ' )
         obj.sourceImage = image3D;
         obj.mask = mask;
         obj.dim = length( size(image3D) );
@@ -32,14 +32,17 @@ methods
         obj.sourceInfo.time = currentTime;
         obj.sourceInfo.cellCentroidInMovie = params.movieMatfile.cellCentroids( cellNumber, :);
         obj.sourceInfo.cellLocationImage = params.movieMatfile.imageNumbered;
-
+        obj.sourceInfo.savePath = params.savePath;
+        disp( 'Interphase Microtubule Bank created.yes its this statement!' )
     end
     % }}}
 
     % Estimation
-    % EstimateMicrotubules {{{
-    function obj = EstimateMicrotubules(obj, imXYZT, estParams)
+    % EstimateMicrotubulesDeNovo {{{
+    function obj = EstimateMicrotubulesDeNovo(obj, imXYZT, estParams)
         % EstimateMicrotubulePositions: estimates mt positions in a 2D/3D image.
+
+        estimation_figure_flag = 1;
 
         if obj.dim == 2               
             disp( 'Estimating microtubule locations...' )
@@ -53,16 +56,50 @@ methods
         imMask = logical( max( obj.mask, [], 3) );
 
         % Image Editing
-        [imFilt3, imSteer3, imDisp] = EditMicrotubuleImageForEstimationZZZ( obj, imXYZT, imRegion, imMask);
-        
+        [imOrig, imFilt3, imSteer3, imDisp] = EditMicrotubuleImageForEstimationZZZ( obj, imXYZT, imRegion, imMask);
+       
+        if estimation_figure_flag
+            estParams.interphase.estimation.figureFlag = 1;
+        end
         [coords, orients] = searchForHighIntensityLines3( imFilt3, imSteer3, imMask, estParams.interphase.estimation);
+
+        if estimation_figure_flag
+            sP = [pwd, filesep, 'PaperFigures/Estimation/'];
+            save( [sP, 'imOriginal.mat'], 'imOrig')
+            save( [sP, 'imDisplay2D.mat'], 'imDisp')
+            save( [sP, 'imSteer.mat'], 'imSteer3')
+            save( [sP, 'coordsAllZ.mat'], 'coords')
+            save( [sP, 'imMask2D.mat'], 'imMask')
+        end
 
         obj.numberOfMicrotubules = length( coords);
         obj.display.image = imDisp;
         obj.mask2D = imMask; 
 
-        obj = CreateMicrotubules(obj, coords, orients, estParams.interphase.fitting.fitDim);
+        obj = CreateMicrotubules(obj, coords, orients, estParams.interphase.fitting);
         PlotMicrotubuleBank( obj, 'estimatedCoords')
+
+    end
+    % }}}
+
+    % EstimateMicrotubulesFromPrior {{{
+    function obj = EstimateMicrotubulesFromPrior(obj, objOld, imXYZT, estParams)
+        % EstimateMicrotubulePositions: estimates mt positions in a 2D/3D image.
+
+        disp( 'Microtubules from previous time-frame being used as estimates for current time-frame...' )
+        
+        % extract the full cell image, and the segmented cell image
+        imRegion = max( obj.sourceImage, [], 3);
+        imCell = max( obj.sourceImage .* obj.mask, [], 3);
+        imMask = logical( max( obj.mask, [], 3) );
+
+        % Image Editing
+        [imOrig, imFilt3, imSteer3, imDisp] = EditMicrotubuleImageForEstimationZZZ( obj, imXYZT, imRegion, imMask);
+        obj.display.image = imDisp;
+        obj.mask2D = imMask; 
+        obj.numberOfMicrotubules = objOld.numberOfMicrotubules;
+        obj.featureBank = objOld.featureBank;
+        obj = UpdateMicrotubules(obj, objOld, estParams.interphase.fitting);
 
     end
     % }}}
@@ -71,12 +108,6 @@ methods
     % FitMicrotubules {{{
     function obj = FitMicrotubules( obj, fitParams)
         
-        % Find polynomial curve coefficients
-        for jTube = 1 : obj.numberOfMicrotubules
-            obj.featureBank( jTube) = obj.featureBank( jTube).EstimateMicrotubuleCurve( fitParams.fitting);
-        end
-        PlotMicrotubuleBank( obj, 'estimatedCoefs')
-
         % Estimate gaussian parameters
         for jTube = 1 : obj.numberOfMicrotubules 
             obj.featureBank( jTube) = obj.featureBank( jTube).EstimateGaussianParameters( fitParams.fitting.initialization );
@@ -98,9 +129,10 @@ methods
 %         end
         PlotMicrotubuleBank( obj, 'fitCoefs')
     
-       % Fitting flobal
-       obj = fitMicrotubulesGlobal( obj, fitParams); 
-
+        % Fitting flobal
+        obj = fitMicrotubulesGlobal( obj, fitParams); 
+        
+        SaveOpenFigsToFolder( obj.sourceInfo.savePath, 'png', 1)
     end
     % }}}
 
@@ -170,7 +202,7 @@ methods
     % }}}
 
     % [SWL, imGaussianMasked] = EditMicrotubuleImageForEstimationZZZ(imRegion) {{{
-    function [imFilt3, imSteer3, imDisp] = EditMicrotubuleImageForEstimationZZZ(obj, imXYZT, imXY, imMask)
+    function [imOrig, imFilt3, imSteer3, imDisp] = EditMicrotubuleImageForEstimationZZZ(obj, imXYZT, imXY, imMask)
 
         disp('Enhancing the image...')
 
@@ -188,6 +220,7 @@ methods
         sig_lowpass = 4;
         imFilt3 = zeros( [ size(imXYZT, 1), size(imXYZT, 2), size(imXYZT, 3) ] );
         imXYZ = mean(imXYZT, 4);
+        imOrig = imXYZ;
         for jZ = 1 : size(imXYZT, 3)
             
             imFilt3(:,:, jZ) = filter_gauss_bandpass( imXYZ(:,:,jZ), sig_lowpass, sig_highpass);
@@ -216,14 +249,15 @@ methods
         
         [res3, ~, imSteer3_2] = steerableDetector3D( imXYZ, 1, 1.5, 1.5);
 
-        dispImg( sum(imSteer3,3).*imMask, sum(imSteer3_2, 3).*imMask, [1 2])
-        dispImg( sum(res3,3).*imMask )
+%         dispImg( sum(imSteer3,3).*imMask, sum(imSteer3_2, 3).*imMask, [1 2])
+%         dispImg( sum(res3,3).*imMask )
     end
     % }}}
 
     % Create Microtubules {{{
-    function obj = CreateMicrotubules(obj, coords, orients, fitDim) 
+    function obj = CreateMicrotubules(obj, coords, orients, fitParams) 
         
+        fitDim = fitParams.fitDim;
         % Initialize microtubules with coordinate information
         colors = distinguishable_colors( obj.numberOfMicrotubules, {'w', 'k'} );
         for jMT = 1 : obj.numberOfMicrotubules
@@ -236,12 +270,45 @@ methods
             else
                 coordsAll = coords{jMT};
             end
-            mtBank( jMT) = Microtubule( obj.sourceImage, obj.mask, obj.display.image, coordsAll, orients( jMT) );
+            mtBank( jMT) = Microtubule( obj.sourceImage, obj.sourceInfo, obj.mask, obj.display.image, coordsAll, orients( jMT) );
             mtBank( jMT).id = jMT;
             mtBank( jMT).display.color = colors( jMT, :);
         end
         if obj.numberOfMicrotubules == 0, mtBank = []; end
         obj.featureBank = mtBank;
+
+        % Find polynomial curve coefficients
+        for jTube = 1 : obj.numberOfMicrotubules
+            obj.featureBank( jTube) = obj.featureBank( jTube).EstimateMicrotubuleCurve( fitParams);
+        end
+        PlotMicrotubuleBank( obj, 'estimatedCoefs')
+
+    end
+    %  }}}
+
+    % Update Microtubules {{{
+    function obj = UpdateMicrotubules(obj, objOld, fitParams)
+        
+        fitDim = fitParams.fitDim;
+        % Initialize microtubules with coordinate information
+        for jMT = 1 : objOld.numberOfMicrotubules
+            obj.featureBank( jMT).mtoc = []; 
+            obj.featureBank( jMT).estimatedCoords = [];
+            obj.featureBank( jMT).source = obj.sourceImage;
+            obj.featureBank( jMT).source2D = max( obj.sourceImage, [], 3);
+            obj.featureBank( jMT).savePath = obj.sourceInfo.savePath;
+        end
+        if obj.numberOfMicrotubules == 0, obj.featureBank = []; end
+
+        % Update polynomial curve coefficients
+        for jTube = 1 : obj.numberOfMicrotubules
+            obj.featureBank( jTube).estimatedCoef = objOld.featureBank( jTube).estimatedCoef;
+            obj.featureBank( jTube).polyOrder = objOld.featureBank( jTube).polyOrder;
+            if fitDim == 3
+                obj.featureBank( jTube).polyOrderZ= objOld.featureBank( jTube).polyOrderZ;
+            end
+        end
+%         PlotMicrotubuleBank( obj, 'estimatedCoefs')
 
     end
     %  }}}

@@ -21,6 +21,7 @@ elseif dimmt==3
     numParMT_also = 1 + 3 + 2*(pOrder+1) + 1*(pOrderZ+1); if fixmtoc, numParMT_also = numParMT_also-dimmt; end
 end
 
+
 if numParMT ~= numParMT_also, error('Issue with the parameters supplied in the struct. MT param vec length is inconsistent with them.'), end
 
 % figure out number of parameters for coef per dimension of a microtubule

@@ -1,3 +1,6 @@
 # ignore these files
 Pictures
 Results
+PaperFigures
+PaperMeth
+script_figure_estimation.m

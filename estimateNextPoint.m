@@ -3,7 +3,7 @@ function [coordNew,success,phiFinal] = EstimateNextPoint( coordOld, orientation,
             % Given a starting point and some other parameters, this
             % function will find the next point that is connected by high
             % intensity.
-            
+
             if nargin < 8
                 plotSuccess = 0;
                 plotFail = 0;
@@ -84,7 +84,7 @@ function [coordNew,success,phiFinal] = EstimateNextPoint( coordOld, orientation,
             % We smooth the angular intensity to enable easy peak finding
             imSmooth = imgaussfilt( IntPhi, 3);
             % }}}
-            
+           
             if min(imSmooth) == max(imSmooth)
                 success = 0; phiFinal = NaN; coordNew = [NaN; NaN];
 %                 disp('Min Value equal to Max value in radial integration')

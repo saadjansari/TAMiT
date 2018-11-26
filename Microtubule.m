@@ -22,6 +22,7 @@ classdef Microtubule
         fitProps % properties related to fitting
         dead % is the microtubule alive or dead. dead microtubules are discarded and data is lost.
         dim % dimensionality of the microtubule
+        savePath
         % }}}
     end
     
@@ -30,7 +31,7 @@ classdef Microtubule
         
         % Initialization
         % Microtubule {{{
-        function obj = Microtubule( sourceImage, mask, displayImage, coords, orient)
+        function obj = Microtubule( sourceImage, sourceInfo, mask, displayImage, coords, orient)
             % To create a microtubule, all you need is a source image and a
             % nucleation point (x and y)
             obj.dim = size( coords, 1);
@@ -47,6 +48,7 @@ classdef Microtubule
             obj.display.LineWidth = 4;
             obj.dead = 0;
             obj.display.image = displayImage;
+            obj.savePath = sourceInfo.savePath;
         end
         % }}} 
         
@@ -124,47 +126,156 @@ classdef Microtubule
         % fitInitialization {{{
         function obj = fitInitialization(obj, params) 
 
-            params.initialization = initializeParameterStructures( obj, params.initialization);
-            params.initialization.structInit.numberOfMicrotubules = 1; % local fitting
-            [vec, vecUb, vecLb] = convertStruct2Vec_MT( params.initialization.structInit, params.initialization.structUb, params.initialization.structLb, params.fixMTOC);
-
             % create optimization options and the problem for lsqnonlin
             opts = optimoptions( @lsqnonlin, 'MaxFunEvals', params.maxFunEvals, 'OptimalityTolerance', params.optTol, 'MaxIter', params.maxIter, ...
             'TolFun', params.tolFun, 'FiniteDifferenceStepSize', params.finDifStepSize, 'FiniteDifferenceType', 'central', 'StepTolerance', params.stepTol, ...
             'display', params.display, 'OutputFcn', @plotOptimStatus);
-    
+            
             % parameters for fitting function
             FixedParams.PolyOrder = params.polyOrder;
             FixedParams.StartingPointFixed = params.fixMTOC;
             FixedParams.XCoefEnd = obj.estimatedCoef{1}(end);
             FixedParams.YCoefEnd = obj.estimatedCoef{2}(end);
-            if params.fitDim==3, FixedParams.PolyOrderZ = params.polyOrderZ; FixedParams.ZCoefEnd = obj.estimatedCoef{3}(end); end
             FixedParams.Mask2D = obj.mask2D;
             FixedParams.Mask = obj.mask;
             FixedParams.dim = params.fitDim;
             FixedParams.numberOfMicrotubules = 1; % local fitting
-
+            FixedParams.fitCoupling = params.fitType;
+            
+            % 2 Dimensional Fitting ( x and y coefficients) {{{
             if params.fitDim == 2
+
+                % initialize structures
+                params.initialization.initCoef = obj.estimatedCoef;
+                params.initialization = initializeParameterStructures( obj, params.initialization);
+                params.initialization.structInit.numberOfMicrotubules = 1; % local fitting
+            
+                FixedParams.fitCoupling = 'uncoupled';
+                [vec, vecUb, vecLb] = convertStruct2Vec_MT( params.initialization.structInit, params.initialization.structUb, params.initialization.structLb, params.fixMTOC);
+
                 FixedParams.Mask = 1.0 * logical(obj.source2D);
                 ImageFit = obj.source2D.*obj.mask2D;
-            elseif params.fitDim == 3
+
+                % make the error function for lsqnonlin
+                f = makeErrorFcn( ImageFit, FixedParams, params);
+
+                % Crate Optimization Problem
+                prob = createOptimProblem( 'lsqnonlin', 'objective', f, 'x0', vec, 'ub', vecUb, 'lb', vecLb, 'options', opts);
+                    
+                % Save problem to object for easy access
+                obj.fitProps.problem = prob;
+                obj.fitProps.FixedParams = FixedParams;
+
+                % movie name
+                movName = sprintf('optim_lsqnonlin_2D_%d.avi', obj.id);
+                        
+                % figure name
+                fName = sprintf('optim_lsqnonlin_2D_%d', obj.id);
+            % }}}
+
+            % 3 Dimensional Fitting ( x, y and z coefficients) {{{
+            elseif params.fitDim == 3 && strcmp( FixedParams.fitCoupling, 'uncoupled')
+
+                % initialize structures
+                params.initialization.initCoef = obj.estimatedCoef;
+                params.initialization = initializeParameterStructures( obj, params.initialization);
+                params.initialization.structInit.numberOfMicrotubules = 1; % local fitting
+            
+                FixedParams.PolyOrderZ = params.polyOrderZ; 
+                FixedParams.ZCoefEnd = obj.estimatedCoef{3}(end); 
+
+                [vec, vecUb, vecLb] = convertStruct2Vec_MT( params.initialization.structInit, params.initialization.structUb, params.initialization.structLb, params.fixMTOC);
+
                 FixedParams.Mask = 1.0 * logical( obj.source);
                 ImageFit = obj.source.*obj.mask;
-            end
 
-            % make the error function for lsqnonlin
-            f = makeErrorFcn( ImageFit, FixedParams, params);
+                % make the error function for lsqnonlin
+                f = makeErrorFcn( ImageFit, FixedParams, params);
 
-            % Crate Optimization Problem
-            prob = createOptimProblem( 'lsqnonlin', 'objective', f, 'x0', vec, 'ub', vecUb, 'lb', vecLb, 'options', opts);
+                % Crate Optimization Problem
+                prob = createOptimProblem( 'lsqnonlin', 'objective', f, 'x0', vec, 'ub', vecUb, 'lb', vecLb, 'options', opts);
+
+                % Save problem to object for easy access
+                obj.fitProps.problem = prob;
+                obj.fitProps.FixedParams = FixedParams;
+                
+                % movie name
+                movName = sprintf('optim_lsqnonlin_3D_%d.avi', obj.id);
+                
+                % figure name
+                fName = sprintf('optim_lsqnonlin_3D_%d', obj.id);
+            % }}}
             
-            % Save problem to object for easy access
-            obj.fitProps.problem = prob;
-            obj.fitProps.FixedParams = FixedParams;
+            % 2D + 1D fitting ( x and y optimization, followed by z optimization) {{{
+            elseif params.fitDim == 3 && strcmp( FixedParams.fitCoupling, 'coupled') 
+                
+                if ~isfield( obj.fitProps, 'fitXYcomplete') || obj.fitProps.fitXYcomplete==0 
+                   
+                    % initialize structures
+                    params.initialization.initCoef = obj.estimatedCoef;
+                    params.initialization.structInit.dim = 2;
+                    params.initialization = initializeParameterStructures( obj, params.initialization);
+                    params.initialization.structInit.numberOfMicrotubules = 1; % local fitting
+            
+                    [vec, vecUb, vecLb] = convertStruct2Vec_MT( params.initialization.structInit, params.initialization.structUb, params.initialization.structLb, params.fixMTOC);
+                    FixedParams.Mask = 1.0 * logical(obj.source2D);
+                    ImageFit = obj.source2D.*obj.mask2D;
+                    FixedParams.dim = 2;
+                    % make the error function for lsqnonlin
+                    f = makeErrorFcn( ImageFit, FixedParams, params);
+                    % Crate Optimization Problem
+                    prob = createOptimProblem( 'lsqnonlin', 'objective', f, 'x0', vec, 'ub', vecUb, 'lb', vecLb, 'options', opts);
+
+                    % Save problem to object for easy access
+                    obj.fitProps.problem = prob;
+                    obj.fitProps.FixedParams = FixedParams;
+                
+                    % movie name
+                    movName = sprintf('optim_lsqnonlin_2D_%d.avi', obj.id);
+                
+                    % figure name
+                    fName = sprintf('optim_lsqnonlin_2D_%d', obj.id);
+
+                elseif isfield( obj.fitProps, 'fitXYcomplete') && obj.fitProps.fitXYcomplete==1 
+
+                    % initialize structures
+                    params.initialization.initCoef = { obj.fitCoef{:}, obj.estimatedCoef{3} };
+                    params.initialization.structInit.dim = 3;
+                    params.initialization = initializeParameterStructures( obj, params.initialization);
+                    params.initialization.structInit.numberOfMicrotubules = 1; % local fitting
+            
+                    FixedParams.Mask = 1.0 * logical( obj.source);
+                    ImageFit = obj.source.*obj.mask;
+                    FixedParams.dim = 3;
+                    FixedParams.PolyOrderZ = params.polyOrderZ; 
+                    FixedParams.ZCoefEnd = obj.estimatedCoef{3}(end); 
+                    [vec, vecUb, vecLb] = convertStruct2Vec_MT( params.initialization.structInit, params.initialization.structUb, params.initialization.structLb, params.fixMTOC, 'fixXY');
+
+                    % make the error function for lsqnonlin
+                    f = makeErrorFcn( ImageFit, FixedParams, params);
+                    % Crate Optimization Problem
+                    prob = createOptimProblem( 'lsqnonlin', 'objective', f, 'x0', vec, 'ub', vecUb, 'lb', vecLb, 'options', opts);
+            
+                    % Save problem to object for easy access
+                    obj.fitProps.problem = prob;
+                    obj.fitProps.FixedParams = FixedParams;
+                
+                    % movie name
+                    movName = sprintf('optim_lsqnonlin_3D_%d.avi', obj.id);
+                    
+                    % figure name
+                    fName = sprintf('optim_lsqnonlin_3D_%d', obj.id);
+
+                end
+            end
+            % }}}
+
+            figure('Name', fName, 'NumberTitle', 'off');
 
             if params.makeMovieOptimStatus
-                obj.fitProps.movieOptimStatus = VideoWriter( ['optim_lsqnonlin_', num2str( obj.id), '.avi'], 'Motion JPEG AVI');
+                obj.fitProps.movieOptimStatus = VideoWriter( [obj.savePath, filesep, movName], 'Motion JPEG AVI');
                 obj.fitProps.movieOptimStatus.FrameRate = 2;
+%                 obj.fitProps.movieOptimStatus
             end
             
             % initializeParameterStructures {{{
@@ -174,13 +285,13 @@ classdef Microtubule
                 % we can do this easily by parameterizing our curve values to be representative of values from t=0 to t = t_max (where t_max is 1 by default). Then we just allow t_max to lie between 0.5 and 2.5 and we fit curves again through it using the default t-range and we end up with a range of coeficients.
                 fitdim = params.structInit.dim;
                 polyOrder = params.structInit.polyOrder;
-                polyOrderZ = params.structInit.polyOrderZ;
+                if fitdim==3, polyOrderZ = params.structInit.polyOrderZ; end
                 lenMin = params.lengthMin;
                 lenMax = params.lengthMax;
                 sigKeep = 0.5;
                 tRange = linspace( lenMin, lenMax, 100);
              
-                coefs = obj.estimatedCoef;
+                coefs = params.initCoef;
                 tDef = linspace( 0, 1);
                 xcfs = []; ycfs = []; zcfs = [];
                 for jj = 1 : length(tRange)
@@ -226,6 +337,12 @@ classdef Microtubule
                 params.structInit.amplitude= obj.amplitude;
                 params.structUb.amplitude = obj.amplitude + params.structUb.amplitude;
                 params.structLb.amplitude= obj.amplitude + params.structLb.amplitude;
+
+                if fitdim == 2
+                    params.structInit.std{1} = params.structInit.std{1}(1:2);
+                    params.structUb.std{1} = params.structUb.std{1}(1:2);
+                    params.structLb.std{1} = params.structLb.std{1}(1:2);
+                end
                 
             end
             % }}}
@@ -267,8 +384,10 @@ classdef Microtubule
                 numPixY = size(FixedParams.Mask,2);
 
                 if length( size(ImageFit) ) == 3
+                    dimmt = 3;
                     Image2D = max( ImageFit, [], 3);
                 elseif length( size(ImageFit) ) == 2
+                    dimmt = 2;
                     Image2D = ImageFit;
                 end
                 
@@ -278,10 +397,15 @@ classdef Microtubule
                     case 'init'
                         % init {{{
                         t = linspace(0,1); % paramateric variable
-                        fName = ['lsqnonlin_', num2str(obj.id)];
-                        figure('Name', ['lsqnonlin_', num2str(obj.id)], 'NumberTitle', 'off');
                         posOld = get(gcf, 'Position');
                         set(gcf, 'position', [-10000 posOld(2:end)], 'WindowState', 'maximized');
+
+                        drawnow
+                        pause(0.5)                        
+                        v = obj.fitProps.movieOptimStatus;
+                        open(v)
+                        writeVideo(v, getframe(gcf) )
+
                         subplot(121)
                         plotBest = plot(optimValues.iteration,optimValues.resnorm, '--b', 'Marker', '*', 'LineWidth', 3, 'MarkerSize', 10);
                         set(plotBest,'Tag','psoplotbestf');
@@ -296,12 +420,19 @@ classdef Microtubule
                         for jmt = 1: structFit.numberOfMicrotubules
                             xcurr = polyval( structFit.coefX{jmt}, t);
                             ycurr = polyval( structFit.coefY{jmt}, t);
-                            plot( xcurr, ycurr, 'Color', [1 0 0 0.7], 'LineWidth', 6); hold off
+                            p = plot( xcurr, ycurr, 'LineWidth', 6); hold off
+                            if dimmt == 3
+                                zcurr = polyval( structFit.coefZ{jmt}, t);
+                                zCol = findZCoordColor( zcurr, 1, 7, 'jet');
+                                drawnow
+                                set(p.Edge, 'ColorBinding', 'interpolated', 'ColorData', zCol);
+                            else
+                                p.Color = [1 0 0 0.7];
+                            end
                         end
                         set(gca, 'xlim', [1 numPixX], 'ylim', [1 numPixY], 'XTick', [], 'YTick', []);
                         set(gcf, 'WindowState', 'maximized')
                         title('Best Curve'); set(gca, 'FontSize', 14)
-
                         if structFit.numberOfMicrotubules == 1
                             subplot(121)
                             if structFit.dim==3, 
@@ -312,11 +443,6 @@ classdef Microtubule
                             textBox = text( gca, 0.6, 0.8, textStr, 'HorizontalAlignment', 'left', 'Units', 'normalized', 'FontSize', 20);
                             set(textBox, 'Tag', 'textbox_paramDetails')
                         end
-
-                        drawnow
-                        
-                        v = obj.fitProps.movieOptimStatus;
-                        open(v)
                         cFrame = getframe(gcf);
                         writeVideo(v, cFrame );
 
@@ -338,7 +464,15 @@ classdef Microtubule
                         for jmt = 1: structFit.numberOfMicrotubules
                             xcurr = polyval( structFit.coefX{jmt}, t);
                             ycurr = polyval( structFit.coefY{jmt}, t);
-                            plot( xcurr, ycurr, 'Color', [1 0 0 0.7], 'LineWidth', 6); hold off
+                            p = plot( xcurr, ycurr, 'LineWidth', 6); hold off
+                            if dimmt == 3
+                                zcurr = polyval( structFit.coefZ{jmt}, t);
+                                zCol = findZCoordColor( zcurr, 1, 7, 'jet');
+                                drawnow
+                                set(p.Edge, 'ColorBinding', 'interpolated', 'ColorData', zCol);
+                            else
+                                p.Color = [1 0 0 0.7];
+                            end
                         end
                         set(gca, 'xlim', [1 numPixX], 'ylim', [1 numPixY], 'XTick', [], 'YTick', [])
                         set(gcf, 'WindowState', 'maximized')
@@ -353,9 +487,7 @@ classdef Microtubule
                             end
                             textBox.String = textStr;
                         end
-
                         drawnow
-                        
                         v = obj.fitProps.movieOptimStatus;
                         cFrame = getframe(gcf);
                         writeVideo(v, cFrame);
@@ -401,15 +533,35 @@ classdef Microtubule
         
         % fitMicrotubule{{{
         function obj = fitMicrotubule( obj, params)
-            
+    
                 [vfit,resnorm,residual,exitflag,~,~,~] = lsqnonlin( obj.fitProps.problem); 
                 structFit = convertVec2Struct_MT( vfit, obj.fitProps.FixedParams);
                 obj.fitProps.structFit = structFit;
                 obj.fitProps.vfit = vfit;
+                disp( sprintf('length1 = %d', length(vfit)))
                 obj.fitProps.resnorm = resnorm;
                 obj.fitProps.exitflag = exitflag;
                 if obj.fitProps.FixedParams.dim == 2, obj.fitCoef = {structFit.coefX{1} , structFit.coefY{1} };
                 elseif obj.fitProps.FixedParams.dim == 3, obj.fitCoef = {structFit.coefX{1} , structFit.coefY{1} , structFit.coefZ{1} }; end
+
+                % if z-fitting is performed after XY {{{
+                if strcmp(params.fitType, 'coupled') && params.fitDim == 3
+                    obj.fitProps.fitXYcomplete = 1;
+                    structFit.polyOrderZ = params.initialization.structInit.polyOrderZ;
+                    structFit.dim = 3;
+                    structFit.std{1} = [ structFit.std{1} , params.initialization.structInit.std{1}(3) ];
+                    params.initialization.structInit = structFit;
+                    obj = fitInitialization(obj, params);
+                    [vfit,resnorm,residual,exitflag,~,~,~] = lsqnonlin( obj.fitProps.problem); 
+                    structFit = convertVec2Struct_MT( vfit, obj.fitProps.FixedParams);
+                    obj.fitProps.structFit = structFit;
+                    obj.fitProps.vfit = vfit;
+                    obj.fitProps.resnorm = resnorm;
+                    obj.fitProps.exitflag = exitflag;
+                    obj.fitCoef = {structFit.coefX{1} , structFit.coefY{1} , structFit.coefZ{1} };
+                end
+                % }}}
+
         end
         % }}}
 

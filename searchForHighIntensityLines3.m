@@ -8,6 +8,7 @@ function [coords, orients] = searchForHighIntensityLines3( imGauss, imLines, imM
     % 5) We will fit a polynomial through each initial estimate (quadratic or
     %    cubic). This will be our final estimate for the microtubules.
 
+
     % plotflags {{{
     plotflag_iter = 0;
     plotflag_zslice = 0;
@@ -167,6 +168,7 @@ function [coords, orients] = searchForHighIntensityLines3( imGauss, imLines, imM
 
     end
     
+
     % All Z-plot {{{
     displayAllZplot( mean(imGauss, 3), mts, plotflag_allZ);
     if plotflag_allZ && exist( 'obj', 'var')
@@ -184,6 +186,10 @@ function [coords, orients] = searchForHighIntensityLines3( imGauss, imLines, imM
     
     [coords, orients] = findFinalMT( imagesMT, imagesID, mts, imGauss, minMTlength, plotflag_finalLinkedFilaments);
 
+    if isfield(estParams, 'figureFlag') && estParams.figureFlag == 1
+        sP = [pwd, filesep, 'PaperFigures/Estimation/'];
+        save( [sP, 'mts&imgs.mat'], 'mts', 'imagesMT')
+    end
     
     % findRealMTOCViaIntensityImage {{{
     function [coordMT, orients, intMTOC, mtoc] = findRealMTOCViaIntensityImage( coordMT, imInt);
