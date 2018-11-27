@@ -4,6 +4,9 @@
 % ------------------------------------------------------------------------
 % ------------------------------------------------------------------------
 
+clear; clc; close all;
+addpath( genpath(pwd) )
+
 % Description:
 % This script can be used to segment a 2D field of view .nd2 movie of fission
 % yeast cells with mCherry-atb2 tubulin and segment them. For one or more
@@ -35,17 +38,26 @@
 % ------------------------------------------------------------------------
 % ------------------------------------------------------------------------
 
-clear; clc; close all;
-addpath( genpath(pwd) )
+% define if this is a run on the supercomputer
+summitRun = 1;
 
 % Define the nd2 movie that will be analyzed
-filepath = '/Users/saadjansari/Documents/Projects/FY Datasets/';
 filename = '998_150msR_100G_trig_7Z_001';
+
+if summitRun
+    runpath = '/projects/saan8193/Curved_Microtubule_Detector';
+    filepath = '/projects/saan8193/FY Datasets/';
+    savepath = '/scratch/summit/saan8193/Curved_Microtubule_Detector/results';
+else
+    runpath = '/Users/saadjansari/Documents/Projects/Curved_Microtubule_Detector';
+    filepath = '/Users/saadjansari/Documents/Projects/FY Datasets/';
+    savepath = '/Users/saadjansari/Documents/Projects/Curved_Microtubule_Detector/results';
+end
+savePath = createSaveDirectory( savepath, filename, 1);
+cellpath = [filepath, filename, '.mat'];
 
 % Extract individual cells from an nd2 movie. The cells are saved in segmented form and can be loaded later
 extractCellsFromMovie( [filepath, filename, '.nd2'] , 'all');
-cellpath = [filepath, filename, '.mat'];
-savePath = createSaveDirectory( 'results', filename, [], [], 1);
 
 % Analysis will be performed by cell and by time (different cells can be run on different cores)
 % for each cell and at given time, a decision will be made on the mitotic state of the cell( interphase or  prophase/metaphase). For now, this can be based on the degree of localization of intensity, i.e how well is intensity distributed inside the cell( highly concentrated or spread out). Also a bias will be added so the state of the cell is most likely whatever the state was at time t-1. Later on, a CNN-based approach could be used to classify the cell phase.
