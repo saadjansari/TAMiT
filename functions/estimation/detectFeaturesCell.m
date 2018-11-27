@@ -25,7 +25,7 @@ size( featureInfo)
 for jTime = times 
 for jChannel = channels 
   
-    params.savepath = [savepath, filesep, sprintf('cell_%d',currentcell), filesep, sprintf('channel_%d', jchannel), filesep, sprintf('frame_%d', jtime) ]; 
+    params.savePath = [savePath, filesep, sprintf('cell_%d',currentCell), filesep, sprintf('channel_%d', jChannel), filesep, sprintf('frame_%d', jTime) ]; 
     params.currTime  = jTime;
     params.currChannel = jChannel;
     mkdir( params.savePath)

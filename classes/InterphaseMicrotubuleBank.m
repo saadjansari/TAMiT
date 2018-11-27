@@ -42,7 +42,7 @@ methods
     function obj = EstimateMicrotubulesDeNovo(obj, imXYZT, estParams)
         % EstimateMicrotubulePositions: estimates mt positions in a 2D/3D image.
 
-        estimation_figure_flag = 1;
+        estimation_figure_flag = 0;
 
         if obj.dim == 2               
             disp( 'Estimating microtubule locations...' )
