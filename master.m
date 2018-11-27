@@ -7,6 +7,9 @@
 clear; clc; close all;
 addpath( genpath(pwd) )
 
+% run config file (runpath, filepath, savepath)
+config_file
+
 % Description:
 % This script can be used to segment a 2D field of view .nd2 movie of fission
 % yeast cells with mCherry-atb2 tubulin and segment them. For one or more
@@ -38,21 +41,9 @@ addpath( genpath(pwd) )
 % ------------------------------------------------------------------------
 % ------------------------------------------------------------------------
 
-% define if this is a run on the supercomputer
-summitRun = 1;
-
 % Define the nd2 movie that will be analyzed
 filename = '998_150msR_100G_trig_7Z_001';
 
-if summitRun
-    runpath = '/projects/saan8193/Curved_Microtubule_Detector';
-    filepath = '/projects/saan8193/FY Datasets/';
-    savepath = '/scratch/summit/saan8193/Curved_Microtubule_Detector/results';
-else
-    runpath = '/Users/saadjansari/Documents/Projects/Curved_Microtubule_Detector';
-    filepath = '/Users/saadjansari/Documents/Projects/FY Datasets/';
-    savepath = '/Users/saadjansari/Documents/Projects/Curved_Microtubule_Detector/results';
-end
 savePath = createSaveDirectory( savepath, filename, 1);
 cellpath = [filepath, filename, '.mat'];
 
