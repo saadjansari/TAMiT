@@ -1,4 +1,4 @@
-runLocal = 1; % 1 for local, 0 for remote (i.e. Summit Supercomputer)
+runLocal = 0; % 1 for local, 0 for remote (i.e. Summit Supercomputer)
 
 % define paths for running the code, loading the file, and saving all information
 if runLocal == 0 
