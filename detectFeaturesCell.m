@@ -10,7 +10,7 @@ savePath = params.savePath;
 % cellphase vector will store cellphase info (1 is interphase, 2 is mitosis, 3 is post-anaphase)
 cellphase = zeros( 1, params.meta.numTimes);
 
-times = [1, 5];
+times = 1:25;
 channels = 1;
 
 % Pre-allocate featureBank {{{
