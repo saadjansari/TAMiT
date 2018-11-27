@@ -141,7 +141,9 @@ classdef Microtubule
             FixedParams.dim = params.fitDim;
             FixedParams.numberOfMicrotubules = 1; % local fitting
             FixedParams.fitCoupling = params.fitType;
-            
+            config_file
+            FixedParams.config = config;
+
             % 2 Dimensional Fitting ( x and y coefficients) {{{
             if params.fitDim == 2
 
@@ -393,7 +395,7 @@ classdef Microtubule
                 
                 structFit = convertVec2Struct_MT( x, FixedParams);
 
-                config_file
+                props = FixedParams.config.props;
 
                 switch state
                     case 'init'
