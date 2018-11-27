@@ -393,12 +393,14 @@ classdef Microtubule
                 
                 structFit = convertVec2Struct_MT( x, FixedParams);
 
+                config_file
+
                 switch state
                     case 'init'
                         % init {{{
                         t = linspace(0,1); % paramateric variable
                         posOld = get(gcf, 'Position');
-                        set(gcf, 'position', [-10000 posOld(2:end)], 'WindowState', 'maximized');
+                        set(gcf, props{:} ); 
 
                         drawnow
                         pause(0.5)                        
@@ -475,7 +477,7 @@ classdef Microtubule
                             end
                         end
                         set(gca, 'xlim', [1 numPixX], 'ylim', [1 numPixY], 'XTick', [], 'YTick', [])
-                        set(gcf, 'WindowState', 'maximized')
+                        set(gcf, props{:} )
                         title('Best Curve'); set(gca, 'FontSize', 14)
 
                         if structFit.numberOfMicrotubules == 1
