@@ -62,6 +62,8 @@ extractCellsFromMovie( [filepath, filename, '.nd2'] , 'all');
 % Load posit file defining parameters( interphase, metaphase, anaphase, kc etc)
 params = paramsInitialize(); % script for defining non-tunable parameters
 params.savePath = savePath;
+params.config = config;
+
 mov = matfile( cellpath, 'Writable', true);
 
 goodCells = sort([10, 11, 12, 15, 16 18, 19, 23, 24, 25, 27, 29, 31, 33, 35, 36, 37, 39, 4, 5, 7, 8]);

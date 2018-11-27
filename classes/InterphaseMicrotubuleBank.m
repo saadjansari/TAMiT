@@ -455,7 +455,9 @@ methods
             if ~strcmp( type, 'estimatedCoords') && ~strcmp( type, 'estimatedCoefs') && ~strcmp( type, 'fitCoefs')
                 error( 'InterphaseMicrotubuleBank.PlotMicrotubuleBank : 2nd argument doesnt match possible strings allowed.' )
             end
-            
+           
+            config_file
+
             preT = [ 'Cell ' num2str(obj.sourceInfo.cellNumber) ': '];
             postT = ['_' num2str(obj.sourceInfo.cellNumber)]; 
             if strcmp( type, 'estimatedCoords')
@@ -471,7 +473,7 @@ methods
 
             figure('Name', figName, 'NumberTitle', 'off')
             pos = get(gcf, 'position');
-            set(gcf, 'pos', [-10000 pos(2:end)], 'WindowState', 'maximized');
+            set(gcf, props{:} ) 
             subplot(121); imagesc( max(obj.sourceImage.*obj.mask,[],3)); axis equal; colormap gray; title([preT, 'Original Image'])
             set(gca, 'xlim', [1 size( obj.display.image ,1)], 'ylim', [1 size( obj.display.image ,2)]); set(gca, 'FontSize', 15);
             subplot(122); imagesc( obj.display.image); axis equal; colormap gray;
