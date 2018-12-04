@@ -42,7 +42,7 @@ methods
     function obj = EstimateMicrotubulesDeNovo(obj, imXYZT, estParams)
         % EstimateMicrotubulePositions: estimates mt positions in a 2D/3D image.
 
-        estimation_figure_flag = 1;
+        estimation_figure_flag = 0;
 
         if obj.dim == 2               
             disp( 'Estimating microtubule locations...' )
@@ -113,7 +113,7 @@ methods
             obj.featureBank( jTube) = obj.featureBank( jTube).EstimateGaussianParameters( fitParams.fitting.initialization );
         end
         
-        
+        fitParams.fitting.savepath = fitParams.savePath;
 %         if ~exist('tempLocalFit.mat') 
             for jTube = 1 : obj.numberOfMicrotubules
                 
@@ -448,15 +448,30 @@ end
 % Display/Plotting Methods
 methods
         % PlotMicrotubuleBank {{{
-        function PlotMicrotubuleBank( obj, type)
+        function PlotMicrotubuleBank( obj, type, params)
         % PlotMicrotubuleBank: used for all kinds of bank plots ( i.e combining all Microtubules into a single plot)
         %  type = { 'estimatedCoords', 'estimatedCoefs', 'fitCoefs'}
-            
+          
+            config = config_file();
+            % Save data and skip plotting if interactive flag off {{{
+            if config.interactive == 0
+                spath = [obj.sourceInfo.savePath, filesep, 'figureData'];
+                if ~exist( spath ), mkdir( spath); end
+                % check existing data files and create name of file to save by appending 1 to the latest number
+                D = dir( [spath, filesep, 'data*']);
+                fname = sprintf( 'data%d.mat', length(D)+1);
+                % find name of parent function
+                funcName = mfilename;
+                save([spath, filesep, fname], 'obj', 'type', 'funcName');
+                return
+            end
+            %  }}}
+
             if ~strcmp( type, 'estimatedCoords') && ~strcmp( type, 'estimatedCoefs') && ~strcmp( type, 'fitCoefs')
                 error( 'InterphaseMicrotubuleBank.PlotMicrotubuleBank : 2nd argument doesnt match possible strings allowed.' )
             end
            
-            config_file
+            props = config.props;
 
             preT = [ 'Cell ' num2str(obj.sourceInfo.cellNumber) ': '];
             postT = ['_' num2str(obj.sourceInfo.cellNumber)]; 

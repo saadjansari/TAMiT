@@ -22,6 +22,8 @@ else, error('incorrect channels specification in paramsInitialize'), end
 % Pre-allocate cellphase vector
 % It will store cellphase info (1 is interphase, 2 is mitosis, 3 is post-anaphase)
 cellphase = zeros( 1, params.meta.numTimes);
+times = 1:300;
+channels = 1;
 
 % Pre-allocate featureBank
 paramsInit = params; paramsInit.savePath = pwd; paramsInit.currTime = 1; paramsInit.currChannel = 1;
@@ -212,12 +214,15 @@ function featureBank = fitFeatures( featureBank, currentCellPhase, fitParams)
 	switch currentCellPhase
 	case 1 
         fitParams.interphase.savePath = fitParams.savePath;
+        fitParams.interphase.config = fitParams.config;
 		featureBank = feval( fitParams.interphase.func.fitFeatures, featureBank, fitParams.interphase);
 	case 2
         fitParams.mitosis.savePath = fitParams.savePath;
+        fitParams.mitosis.config = fitParams.config;
 		featureBank = feval( fitParams.mitosis.func.fitFeatures, featureBank, fitParams.mitosis);
 	otherwise
         fitParams.interphase.savePath = fitParams.savePath;
+        fitParams.interphase.config = fitParams.config;
 		featureBank = feval( fitParams.interphase.func.fitFeatures, featureBank, fitParams.interphase);
 	end
 

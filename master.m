@@ -8,7 +8,7 @@ clear; clc; close all;
 addpath( genpath(pwd) )
 
 % run config file (runpath, filepath, savepath)
-config_file
+config = config_file();
 
 % Description:
 % This script can be used to segment a 2D field of view .nd2 movie of fission
@@ -44,11 +44,11 @@ config_file
 % Define the nd2 movie that will be analyzed
 filename = '998_150msR_100G_trig_7Z_001';
 
-savePath = createSaveDirectory( savepath, filename, 1);
-cellpath = [filepath, filename, '.mat'];
+savePath = createSaveDirectory( config.savepath, filename, 1);
+cellpath = [config.filepath, filename, '.mat'];
 
 % Extract individual cells from an nd2 movie. The cells are saved in segmented form and can be loaded later
-extractCellsFromMovie( [filepath, filename, '.nd2'] , 'all');
+extractCellsFromMovie( [config.filepath, filename, '.nd2'] , 'all');
 
 % Analysis will be performed by cell and by time (different cells can be run on different cores)
 % for each cell and at given time, a decision will be made on the mitotic state of the cell( interphase or  prophase/metaphase). For now, this can be based on the degree of localization of intensity, i.e how well is intensity distributed inside the cell( highly concentrated or spread out). Also a bias will be added so the state of the cell is most likely whatever the state was at time t-1. Later on, a CNN-based approach could be used to classify the cell phase.

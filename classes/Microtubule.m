@@ -141,8 +141,7 @@ classdef Microtubule
             FixedParams.dim = params.fitDim;
             FixedParams.numberOfMicrotubules = 1; % local fitting
             FixedParams.fitCoupling = params.fitType;
-            config_file
-            FixedParams.config = config;
+            FixedParams.config = config_file();
 
             % 2 Dimensional Fitting ( x and y coefficients) {{{
             if params.fitDim == 2
@@ -272,14 +271,28 @@ classdef Microtubule
             end
             % }}}
 
-            figure('Name', fName, 'NumberTitle', 'off');
-
+            % Interactive or Non-interactive setup for lsqnonlin plotting and video {{{
+            if FixedParams.config.interactive == 0
+                spath = [obj.savePath, filesep, 'figureData'];
+                if ~exist( spath ), mkdir( spath); end
+                % check existing data files and create name of file to save by appending 1 to the latest number
+                D = dir( [spath, filesep, 'data*']);
+                fname = sprintf( 'data%d.mat', length(D)+1);
+                FixedParams.config.savename = fname;
+                FixedParams.figName = fName;
+                FixedParams.savepath = spath;
+                save( [spath, filesep, fname], 'fName')
+            else
+                figure('Name', fName, 'NumberTitle', 'off');
+            end
             if params.makeMovieOptimStatus
                 obj.fitProps.movieOptimStatus = VideoWriter( [obj.savePath, filesep, movName], 'Motion JPEG AVI');
                 obj.fitProps.movieOptimStatus.FrameRate = 2;
-%                 obj.fitProps.movieOptimStatus
             end
-            
+            %  }}}
+           
+           % FUNCTIONS
+
             % initializeParameterStructures {{{
             function params = initializeParameterStructures( obj, params) 
                 % we will allow the curve length to be altered between 0.5 and 2 (and use the coef rang eas upper and lower bounds (which will give it some freedom)
@@ -394,114 +407,143 @@ classdef Microtubule
                 end
                 
                 structFit = convertVec2Struct_MT( x, FixedParams);
-
                 props = FixedParams.config.props;
+                interactive = FixedParams.config.interactive;
 
-                switch state
-                    case 'init'
-                        % init {{{
-                        t = linspace(0,1); % paramateric variable
-                        posOld = get(gcf, 'Position');
-                        set(gcf, props{:} ); 
+                if interactive
+                    %  Interactive Plotting {{{
+                    switch state
+                        case 'init'
+                            % init {{{
+                            t = linspace(0,1); % paramateric variable
+                            posOld = get(gcf, 'Position');
+                            set(gcf, props{:} ); 
 
-                        drawnow
-                        pause(0.5)                        
-                        v = obj.fitProps.movieOptimStatus;
-                        open(v)
-                        writeVideo(v, getframe(gcf) )
+                            drawnow
+                            pause(0.5)                        
+                            v = obj.fitProps.movieOptimStatus;
+                            open(v)
+                            writeVideo(v, getframe(gcf) )
 
-                        subplot(121)
-                        plotBest = plot(optimValues.iteration,optimValues.resnorm, '--b', 'Marker', '*', 'LineWidth', 3, 'MarkerSize', 10);
-                        set(plotBest,'Tag','psoplotbestf');
-                        xlabel('Iteration','interp','none');
-                        ylabel('Function value','interp','none')
-                        title(sprintf('Best Function Value: %g',optimValues.resnorm ),'interp','none');
-                        set(gca, 'FontSize', 14)
-                        grid minor; grid on
-
-                        subplot(122)
-                        imagesc([Image2D]); axis equal; colormap gray; hold on;
-                        for jmt = 1: structFit.numberOfMicrotubules
-                            xcurr = polyval( structFit.coefX{jmt}, t);
-                            ycurr = polyval( structFit.coefY{jmt}, t);
-                            p = plot( xcurr, ycurr, 'LineWidth', 6); hold off
-                            if dimmt == 3
-                                zcurr = polyval( structFit.coefZ{jmt}, t);
-                                zCol = findZCoordColor( zcurr, 1, 7, 'jet');
-                                drawnow
-                                set(p.Edge, 'ColorBinding', 'interpolated', 'ColorData', zCol);
-                            else
-                                p.Color = [1 0 0 0.7];
-                            end
-                        end
-                        set(gca, 'xlim', [1 numPixX], 'ylim', [1 numPixY], 'XTick', [], 'YTick', []);
-                        set(gcf, 'WindowState', 'maximized')
-                        title('Best Curve'); set(gca, 'FontSize', 14)
-                        if structFit.numberOfMicrotubules == 1
                             subplot(121)
-                            if structFit.dim==3, 
-                                textStr = sprintf('Bkg = %.3f \nAmp = %.3f \nStd = [%.3f, %.3f, %.3f]', structFit.background, structFit.amplitude, structFit.std{1} );
-                            elseif structFit.dim==2,
-                                textStr = sprintf('Bkg = %.3f \nAmp = %.3f \nStd = [%.3f, %.3f]', structFit.background, structFit.amplitude, structFit.std{1} );
+                            plotBest = plot(optimValues.iteration,optimValues.resnorm, '--b', 'Marker', '*', 'LineWidth', 3, 'MarkerSize', 10);
+                            set(plotBest,'Tag','psoplotbestf');
+                            xlabel('Iteration','interp','none');
+                            ylabel('Function value','interp','none')
+                            title(sprintf('Best Function Value: %g',optimValues.resnorm ),'interp','none');
+                            set(gca, 'FontSize', 14)
+                            grid minor; grid on
+
+                            subplot(122)
+                            imagesc([Image2D]); axis equal; colormap gray; hold on;
+                            for jmt = 1: structFit.numberOfMicrotubules
+                                xcurr = polyval( structFit.coefX{jmt}, t);
+                                ycurr = polyval( structFit.coefY{jmt}, t);
+                                p = plot( xcurr, ycurr, 'LineWidth', 6); hold off
+                                if dimmt == 3
+                                    zcurr = polyval( structFit.coefZ{jmt}, t);
+                                    zCol = findZCoordColor( zcurr, 1, 7, 'jet');
+                                    drawnow
+                                    set(p.Edge, 'ColorBinding', 'interpolated', 'ColorData', zCol);
+                                else
+                                    p.Color = [1 0 0 0.7];
+                                end
                             end
-                            textBox = text( gca, 0.6, 0.8, textStr, 'HorizontalAlignment', 'left', 'Units', 'normalized', 'FontSize', 20);
-                            set(textBox, 'Tag', 'textbox_paramDetails')
-                        end
-                        cFrame = getframe(gcf);
-                        writeVideo(v, cFrame );
-
-                        % }}}
-                    case 'iter'
-                        %  iter {{{
-                        subplot(121)
-                        plotBest = findobj(get(gca,'Children'),'Tag','psoplotbestf');
-                        textBox = findobj(get(gca,'Children'),'Tag','textbox_paramDetails');
-                        newX = [get(plotBest,'Xdata') optimValues.iteration];
-                        newY = [get(plotBest,'Ydata') optimValues.resnorm ];
-                        set(plotBest,'Xdata',newX, 'Ydata',newY);
-                        set(get(gca,'Title'),'String',sprintf('Best Function Value: %g',optimValues.resnorm) );
-                        grid minor; grid on
-
-                        t = linspace(0,1); % paramateric variable
-                        subplot(122)
-                        imagesc([Image2D]); axis equal; colormap gray; hold on;
-                        for jmt = 1: structFit.numberOfMicrotubules
-                            xcurr = polyval( structFit.coefX{jmt}, t);
-                            ycurr = polyval( structFit.coefY{jmt}, t);
-                            p = plot( xcurr, ycurr, 'LineWidth', 6); hold off
-                            if dimmt == 3
-                                zcurr = polyval( structFit.coefZ{jmt}, t);
-                                zCol = findZCoordColor( zcurr, 1, 7, 'jet');
-                                drawnow
-                                set(p.Edge, 'ColorBinding', 'interpolated', 'ColorData', zCol);
-                            else
-                                p.Color = [1 0 0 0.7];
+                            set(gca, 'xlim', [1 numPixX], 'ylim', [1 numPixY], 'XTick', [], 'YTick', []);
+                            set(gcf, props{:} );
+                            title('Best Curve'); set(gca, 'FontSize', 14)
+                            if structFit.numberOfMicrotubules == 1
+                                subplot(121)
+                                if structFit.dim==3, 
+                                    textStr = sprintf('Bkg = %.3f \nAmp = %.3f \nStd = [%.3f, %.3f, %.3f]', structFit.background, structFit.amplitude, structFit.std{1} );
+                                elseif structFit.dim==2,
+                                    textStr = sprintf('Bkg = %.3f \nAmp = %.3f \nStd = [%.3f, %.3f]', structFit.background, structFit.amplitude, structFit.std{1} );
+                                end
+                                textBox = text( gca, 0.6, 0.8, textStr, 'HorizontalAlignment', 'left', 'Units', 'normalized', 'FontSize', 20);
+                                set(textBox, 'Tag', 'textbox_paramDetails')
                             end
-                        end
-                        set(gca, 'xlim', [1 numPixX], 'ylim', [1 numPixY], 'XTick', [], 'YTick', [])
-                        set(gcf, props{:} )
-                        title('Best Curve'); set(gca, 'FontSize', 14)
+                            cFrame = getframe(gcf);
+                            writeVideo(v, cFrame );
 
-                        if structFit.numberOfMicrotubules == 1
+                            % }}}
+                        case 'iter'
+                            %  iter {{{
                             subplot(121)
-                            if structFit.dim==3, 
-                                textStr = sprintf('Bkg = %.3f \nAmp = %.3f \nStd = [%.3f, %.3f, %.3f]', structFit.background, structFit.amplitude, structFit.std{1} );
-                            elseif structFit.dim==2,
-                                textStr = sprintf('Bkg = %.3f \nAmp = %.3f \nStd = [%.3f, %.3f]', structFit.background, structFit.amplitude, structFit.std{1} );
-                            end
-                            textBox.String = textStr;
-                        end
-                        drawnow
-                        v = obj.fitProps.movieOptimStatus;
-                        cFrame = getframe(gcf);
-                        writeVideo(v, cFrame);
+                            plotBest = findobj(get(gca,'Children'),'Tag','psoplotbestf');
+                            textBox = findobj(get(gca,'Children'),'Tag','textbox_paramDetails');
+                            newX = [get(plotBest,'Xdata') optimValues.iteration];
+                            newY = [get(plotBest,'Ydata') optimValues.resnorm ];
+                            set(plotBest,'Xdata',newX, 'Ydata',newY);
+                            set(get(gca,'Title'),'String',sprintf('Best Function Value: %g',optimValues.resnorm) );
+                            grid minor; grid on
 
-                        % }}}
-                    case 'done'
-                        % No clean up tasks required for this plot function.        
-                        v = obj.fitProps.movieOptimStatus;
-                        close(v)
-                end    
+                            t = linspace(0,1); % paramateric variable
+                            subplot(122)
+                            imagesc([Image2D]); axis equal; colormap gray; hold on;
+                            for jmt = 1: structFit.numberOfMicrotubules
+                                xcurr = polyval( structFit.coefX{jmt}, t);
+                                ycurr = polyval( structFit.coefY{jmt}, t);
+                                p = plot( xcurr, ycurr, 'LineWidth', 6); hold off
+                                if dimmt == 3
+                                    zcurr = polyval( structFit.coefZ{jmt}, t);
+                                    zCol = findZCoordColor( zcurr, 1, 7, 'jet');
+                                    drawnow
+                                    set(p.Edge, 'ColorBinding', 'interpolated', 'ColorData', zCol);
+                                else
+                                    p.Color = [1 0 0 0.7];
+                                end
+                            end
+                            set(gca, 'xlim', [1 numPixX], 'ylim', [1 numPixY], 'XTick', [], 'YTick', []);
+                            set(gcf, props{:} );
+                            title('Best Curve'); set(gca, 'FontSize', 14);
+
+                            if structFit.numberOfMicrotubules == 1
+                                subplot(121)
+                                if structFit.dim==3, 
+                                    textStr = sprintf('Bkg = %.3f \nAmp = %.3f \nStd = [%.3f, %.3f, %.3f]', structFit.background, structFit.amplitude, structFit.std{1} );
+                                elseif structFit.dim==2,
+                                    textStr = sprintf('Bkg = %.3f \nAmp = %.3f \nStd = [%.3f, %.3f]', structFit.background, structFit.amplitude, structFit.std{1} );
+                                end
+                                textBox.String = textStr;
+                            end
+                            drawnow
+                            v = obj.fitProps.movieOptimStatus;
+                            cFrame = getframe(gcf);
+                            writeVideo(v, cFrame);
+
+                            % }}}
+                        case 'done'
+                            % No clean up tasks required for this plot function.        
+                            v = obj.fitProps.movieOptimStatus;
+                            close(v)
+                    end    
+                    %  }}}
+                else
+                    %  Non-Interactive {{{
+                    switch state
+                        case 'init'
+                            % init {{{
+                            saveP = [ FixedParams.savepath, filesep, FixedParams.config.savename];
+                            structData(1).Fit = structFit;
+                            structData(1).optimvalues = optimValues;
+                            save( saveP, 'obj', 'Image2D', 'dimmt', 'numPixX', 'numPixY', 'structData')
+                            % }}}
+                        case 'iter'
+                            %  iter {{{
+                            %  Load vars from file
+                            saveP = [ FixedParams.savepath, filesep, FixedParams.config.savename];
+                            load( saveP, 'structData');
+                            iterNum = length(structData) + 1;
+                            %  Append data to variables and save back
+                            structData( iterNum).Fit = structFit;
+                            structData( iterNum).optimvalues = optimValues;
+                            save( saveP, 'structData', '-append')
+                            % }}}
+                        case 'done'
+                            % No clean up tasks required for this plot function.        
+                    end    
+                    %  }}}
+                end
 
                 end
                 % }}}
@@ -538,8 +580,11 @@ classdef Microtubule
         % fitMicrotubule{{{
         function obj = fitMicrotubule( obj, params)
     
-                [vfit,resnorm,residual,exitflag,~,~,~] = lsqnonlin( obj.fitProps.problem); 
+                [vfit,resnorm,residual,exitflag,~,~,jacobian] = lsqnonlin( obj.fitProps.problem); 
+                ci = nlparci( vfit, residual, 'jacobian', jacobian, 'alpha', 0.07);
+                vfitError=abs( (ci(:,2)-ci(:,1) ) / 2 )';
                 structFit = convertVec2Struct_MT( vfit, obj.fitProps.FixedParams);
+                obj.fitProps.vfitError = vfitError;
                 obj.fitProps.structFit = structFit;
                 obj.fitProps.vfit = vfit;
                 disp( sprintf('length1 = %d', length(vfit)))
