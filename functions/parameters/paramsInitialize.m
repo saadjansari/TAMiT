@@ -1,6 +1,10 @@
 function params = paramsInitialize()
 % This is a script that initializes the parameters for various processes including estimation, fitting, tracking and plotting
 
+times = 1:25; % specify a range 1:250 or use the 'all' flag
+channels = 1; % specify channels as [1, 3, 4] or use the 'all' flag
+featuresInChannels = ['microtubules', 'spots']
+
 % Cell Phase Classification
 cellPhaseClassification.mitosisSNR = 3;
 cellPhaseClassification.mitosisMinPixels = 5;
@@ -10,10 +14,11 @@ estimation.InitImageFrameRange = 3;
 estimation.usePreviousFitAsEstimate = 1;
 
 % General Fitting
-fitting.doFitting = 0;
+fitting.doFitting = 1;
 
 % General Tracking
-tracking.doTracking = 0;
+tracking.doTracking = 1;
+tracking.channels = 'all'; % either specify channel numbers or use 'all', 'all' tracks features for all channels in which the fit routine has been run, i.e params.channels
 
 % Interphase (Curved Microtubules) :
 paramsIntMT = 'paramsInterphase';
@@ -25,7 +30,9 @@ params.mitosis = paramsMitosis();
 paramsMitKC = 'paramsKinetochoresMitosis';
 params.kc = paramsKinetochoresMitosis();
 
-
+params.times = times;
+params.channels = channels;
+params.featuresInChannels = featuresInChannels;
 params.cellPhaseClassification = cellPhaseClassification;
 params.estimation = estimation;
 params.fitting = fitting;

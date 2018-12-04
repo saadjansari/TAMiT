@@ -729,11 +729,32 @@ classdef Microtubule
         end
         % }}} 
         
-        function outputArg = trackVariableChange(obj,inputArg)
-            %METHOD1 Summary of this method goes here
-            %   Detailed explanation goes here
-            outputArg = obj.Property1 + inputArg;
+        % Analysis
+        % findLength {{{
+        function lengthLine = findLength( obj)
+            
+            t = linspace( 0, 1);
+            xx = polyval( obj.fitCoef.x, t);
+            yy = polyval( obj.fitCoef.y, t);
+            zz = polyval( obj.fitCoef.z, t);
+            
+            lengthLine = sum( sqrt( diff(xx).^2 + diff(yy).^2 + diff(zz).^ )2 );
         end
+        % }}}
+
+        % findOrientationMean {{{
+        function [orientationLineXY, orientationLineZ] = findOrientationMean( obj)
+            
+            t = linspace( 0, 1);
+            xx = polyval( obj.fitCoef.x, t);
+            yy = polyval( obj.fitCoef.y, t);
+            zz = polyval( obj.fitCoef.z, t);
+        
+            orientationLineXY = mean( atan( diff( yy) ./ diff(xx) ) );
+            orientationLineZ = obj.fitCoef.z(end-1);
+
+        end
+        % }}}
 
     end
 end

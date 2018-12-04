@@ -1,31 +1,41 @@
-function featureInfo = detectFeaturesCell( movData, currentCell, params)
+function featureInfo = detectFeaturesCell( currentCell, params)
 % explanation needed
 
-msg = { ['Analyzing Cell-', num2str(currentCell)] };disp([msg{:}])
+msg = { ['Analyzing Cell-', num2str( currentCell)] };
+disp( [ msg{:} ] )
 
-% Load metadata
-params.meta = movData.metaData;
-params.movieMatfile = movData;
+% Detection setup {{{
+
+% movie data, metadata, and savepath
+movData = params.mov;
 savePath = params.savePath;
-% cellphase vector will store cellphase info (1 is interphase, 2 is mitosis, 3 is post-anaphase)
+
+% find range of times and channels
+if isnumeric( params.times), times = params.times;
+elseif strcmp( params.times, 'all'), times = 1 : params.meta.numTimes; 
+else, error('incorrect time range specification in paramsInitialize'), end
+    
+if isnumeric( params.channels), channels = params.channels;
+elseif strcmp( params.channels, 'all'), channels = 1 : params.meta.numChannels;
+else, error('incorrect channels specification in paramsInitialize'), end
+
+% Pre-allocate cellphase vector
+% It will store cellphase info (1 is interphase, 2 is mitosis, 3 is post-anaphase)
 cellphase = zeros( 1, params.meta.numTimes);
 
-times = 1:25;
-channels = 1;
-
-% Pre-allocate featureBank {{{
+% Pre-allocate featureBank
 paramsInit = params; paramsInit.savePath = pwd; paramsInit.currTime = 1; paramsInit.currChannel = 1;
 ftB = initFeatureBank( 0,0, 1, 1, 1, paramsInit);
 for jT = 1 : times(end), for jC = 1 : channels(end) 
     featureInfo(jT, jC) = ftB;
 end; end
-size( featureInfo)
+
 % }}}
 
 for jTime = times 
 for jChannel = channels 
   
-    params.savepath = [savepath, filesep, sprintf('cell_%d',currentcell), filesep, sprintf('channel_%d', jchannel), filesep, sprintf('frame_%d', jtime) ]; 
+    params.savePath = [savePath, filesep, sprintf('cell_%d',currentCell), filesep, sprintf('channel_%d', jChannel), filesep, sprintf('frame_%d', jTime) ]; 
     params.currTime  = jTime;
     params.currChannel = jChannel;
     mkdir( params.savePath)
@@ -51,7 +61,6 @@ end
 save( [savePath, filesep, 'featureInfo.mat'], 'featureInfo', 'params');
 
 % CellPhasePlot( movData, cellphase);
-
 
 % Functions
 
@@ -196,6 +205,10 @@ end
 % obj = fitFeatures( imPlane, currentCellPhase, fitParams) {{{
 function featureBank = fitFeatures( featureBank, currentCellPhase, fitParams)
 
+    if fitParams.fitting.doFitting == 0
+        disp('Fitting disabled by user via fitting.doFitting flag in paramsInitialize.m file'); return
+    end
+
 	switch currentCellPhase
 	case 1 
         fitParams.interphase.savePath = fitParams.savePath;
@@ -210,6 +223,5 @@ function featureBank = fitFeatures( featureBank, currentCellPhase, fitParams)
 
 end
  % }}}
-
 
 end
