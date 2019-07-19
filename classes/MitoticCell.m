@@ -102,8 +102,6 @@ classdef MitoticCell < Cell
                 fitInfo.Nnew = featureMain.getSubFeatureNumber();
                 fitInfo.Nold = fitInfo.Nnew + 1;
             end
-
-
             
             % find upper and lower bounds of parameters
             [fitVecUb, fitVecLb] = MitoticCell.getUpperLowerBounds( fitVec, fitLabels, imageOrg);
@@ -131,6 +129,15 @@ classdef MitoticCell < Cell
             fitInfo.channel = parameters.channel;
             fitInfo.time = parameters.time;
             fitInfo.fitScope = fitScope;
+            fitInfo.saveDirectory = parameters.saveDirectory;
+            if strcmp(obj.settings.server, 'Local')
+                fitInfo.graphics = 1;
+                fitInfo.graphicsVerbose = 0;
+            elseif strcmp(obj.settings.server, 'Summit') || strcmp(obj.settings.server, 'Rumor')
+                fitInfo.graphics = 0;
+                fitInfo.graphicsVerbose = 0;
+            end
+
             
             % Find voxel indices for gaussian feature computation
             % simulate feature
@@ -178,9 +185,9 @@ classdef MitoticCell < Cell
             props.SpindleMT = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
             props.AsterMT = {'endPosition', 'amplitude', 'sigma'};
             props.Spindle = {'background'};
-            display.SPB = {'Color', 'Red', 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
-            display.SpindleMT= {'Color', 'Red', 'LineWidth', 5};
-            display.AsterMT = {'Color', 'Red', 'LineWidth', 3};
+            display.SPB = {'Color', [0.7 0 0.7] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
+            display.SpindleMT= {'Color', [1 0 1] , 'LineWidth', 5};
+            display.AsterMT = {'Color', [1 0 1] , 'LineWidth', 3};
             if dim==3, sigma=[1.2 1.2 1.0]; elseif dim==2, sigma=[1.2 1.2]; end
             bkg = median( imageIn( imageIn(:) > 0) );
 

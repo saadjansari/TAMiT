@@ -175,6 +175,24 @@ classdef AsterMT < Organizer
         end
         % }}}
 
+        % displayFeature {{{
+        function ax = displayFeature( obj, ax)
+
+            if nargin < 2
+                f = figure;
+                ax = axes; axis ij; hold on;
+                imagesc( max( obj.image, [], 3) ); colormap gray; axis equal;
+            end
+
+            % Ask subfeatures to display themselves
+            % Do this in reverse so that the SPB is plotted last
+            for jFeat = obj.numFeatures : -1 : 1
+                ax = obj.featureList{jFeat}.displayFeature( ax);
+            end
+
+        end
+        % }}}
+
     end
 
 end

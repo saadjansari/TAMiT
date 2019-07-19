@@ -9,8 +9,6 @@ classdef Cell < handle & matlab.mixin.Copyable
         lifetime % 2-element vector containing [start_time, end_time]. Should be used when accessing image
         image % (X,Y,Z,T,C)
         featureList % cell array containing features. this is of size numberOfChannels x Time.
-%         background
-%         background_nuclear
         settings
         featureMap
     end
@@ -27,7 +25,6 @@ classdef Cell < handle & matlab.mixin.Copyable
             obj.species = species;
             obj.featuresInChannels = featuresInChannels;
             obj.numberOfChannels = size( image, 5);
-%             obj.background = median( obj.image( obj.image ~= 0) );
             obj.settings = settings;
 
             % Initialize the feature list
@@ -36,19 +33,22 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Initialize featureIdxMap
             obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
 
-            % Default Behaviours
-            
-            % default to a generic type if isn't specified
+            % Cell Type
             if nargin < 5, obj.type = 'generic';
             else, obj.type = type; end
 
             % Save Directory default behaviour
-            if nargin < 6, obj.settings.saveDirectory = [pwd, filesep, 'ResultsDump'];
-                error('why am i here')
-                delete( obj.settings.saveDirectory, 's')
-                mkdir( obj.settings.saveDirectory)
+            if nargin < 6, 
+                obj.settings.saveDirectory = [pwd, filesep, 'ResultsDump'];
             end
+            if exist( obj.settings.saveDirectory) == 7
+                warning('off', 'MATLAB:RMDIR:RemovedFromPath')
+                rmdir( obj.settings.saveDirectory, 's');
+                warning('on', 'MATLAB:RMDIR:RemovedFromPath')
+            end
+            mkdir( obj.settings.saveDirectory)
 
+            % Displays
             disp('    -----------------------   C E L L    I N F O   ------------------------');
             disp('    -----------------------------------------------------------------------');disp(' ')
             disp( ['        Type : ' obj.type ] )
@@ -69,10 +69,14 @@ classdef Cell < handle & matlab.mixin.Copyable
                 disp( upper( sprintf( ['                               Channel %d = ' obj.featuresInChannels{jChannel}], jChannel ) ) )
                 disp('    -----------------------------------------------------------------------')
                 for jTime = obj.lifetime(1) : obj.lifetime(2)
+
                     disp( sprintf( '    C-%d Time = %d', jChannel, jTime) )
 
                     parameters.channel = jChannel;
                     parameters.time = jTime;
+                    parameters.saveDirectory = [ obj.settings.saveDirectory , filesep, sprintf( 'C%d_T%d', jChannel, jTime) ];
+                    mkdir( parameters.saveDirectory);
+
                     Image2Fit = obj.image(:,:,:,jTime, jChannel);
                     
                     % Estimate the features (defined in specialized sub-class )
@@ -98,7 +102,8 @@ classdef Cell < handle & matlab.mixin.Copyable
                     Cell.displayFinalFit( Image2Fit, obj.featureList{jChannel, jTime}, fitInfo.GlobalNumber);
 
                     obj.updatefeatureMap( jChannel, jTime);
-
+                    
+                    close all
                 end
                 disp('    -----------------------------------------------------------------------')
             end
@@ -994,107 +999,133 @@ classdef Cell < handle & matlab.mixin.Copyable
             nX = fitInfo.numVoxels.X; nY = fitInfo.numVoxels.Y; nZ = fitInfo.numVoxels.Z; dim = length( size(ImageOrg) );
             image2D = max( ImageOrg, [], 3); intMin = min( ImageOrg(:) ); intMax = max( ImageOrg(:) );
             
-            interactive = 1;
             imageSets = 'colormap gray; axis equal; axis ij; set( gca, ''xlim'', [1 nX], ''ylim'', [1 nY], ''XTick'', [], ''YTick'', [], ''CLim'', [intMin intMax], ''FontSize'', 14)';
 
             time = fitInfo.time;
             channel = fitInfo.channel;
             fitScope = fitInfo.fitScope;
             if strcmp( fitScope, 'local')
-                figProps = {'NumberTitle', 'off', 'Name', sprintf('C%d_T%d_%s_feat%d_iter%d', channel, time, fitScope, fitInfo.currentFeature, optim.iteration ), 'WindowState', 'maximized'};
+                fName = sprintf('C%d_T%d_%s_feat%d_iter%d', channel, time, fitScope, fitInfo.currentFeature, optim.iteration );
+                sName = sprintf('%s_feat%d_iter%d',  fitScope, fitInfo.currentFeature, optim.iteration );
             elseif strcmp( fitScope, 'global')
-                figProps = {'NumberTitle', 'off', 'Name', sprintf('C%d_T%d_%s_iter%d', channel, time, fitScope, optim.iteration ), 'WindowState', 'maximized'};
+                fName = sprintf('C%d_T%d_%s_iter%d', channel, time, fitScope, optim.iteration );
+                sName = sprintf('%s_iter%d', fitScope, optim.iteration );
             elseif strcmp( fitScope, 'globum_add')
-                figProps = {'NumberTitle', 'off', 'Name', sprintf('C%d_T%d_globum%d-%d_iter%d', channel, time, fitInfo.Nold, fitInfo.Nnew, optim.iteration ), 'WindowState', 'maximized'};
+                fName = sprintf('C%d_T%d_globum%d-%d_iter%d', channel, time, fitInfo.Nold, fitInfo.Nnew, optim.iteration );
+                sName = sprintf('globum%d-%d_iter%d', fitInfo.Nold, fitInfo.Nnew, optim.iteration );
             elseif strcmp( fitScope, 'globum_remove')
-                figProps = {'NumberTitle', 'off', 'Name', sprintf('C%d_T%d_globum%d-%d_iter%d', channel, time, fitInfo.Nold, fitInfo.Nnew, optim.iteration ), 'WindowState', 'maximized'};
+                fName = sprintf('C%d_T%d_globum%d-%d_iter%d', channel, time, fitInfo.Nold, fitInfo.Nnew, optim.iteration );
+                sName = sprintf('globum%d-%d_iter%d', fitInfo.Nold, fitInfo.Nnew, optim.iteration );
+            end
+            figProps = {'NumberTitle', 'off', 'Name', fName, 'Position', [1 1 1280 720]};
+
+            if fitInfo.graphicsVerbose == 1
+                %  Interactive Plotting {{{
+                switch state
+                    case 'init'
+
+                        % Make Figure
+                        figTitle = [];
+                        figName = [];
+                        figPath = [];
+                        f = figure( figProps{:} );
+                        set( f, 'Tag', sprintf('fig %d_%d_%s', channel, time, fitScope) );
+                        ax = tight_subplot(2,3, 0.05);
+                        delete( ax(6) );
+                        drawnow
+                        pause(1)                        
+
+                        % Original Image
+                        axes( ax(1) ); %                     subplot(231)
+                        img = imagesc( image2D ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Original'); set( img, 'Tag', 'imgOrg');
+                        set( ax(1), 'Tag', 'ax1');
+
+                        % Simulated Image
+    %                     subplot(232)
+                        axes( ax(2) ); 
+                        imageSim = Cell.simulateCellWithVec( vec, fitInfo);
+                        img = imagesc( max(imageSim, [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Simulated'); set( img, 'Tag', 'imgSim');
+                        set( ax(2), 'Tag', 'ax2');
+
+                        % Residual Image
+    %                     subplot(233)
+                        axes( ax(3) ); 
+                        img = imagesc( max( abs( ImageOrg - imageSim), [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Residual'); set( img, 'Tag', 'imgRes');
+                        set( ax(3), 'Tag', 'ax3');
+
+                        % Graphical Features
+    %                     subplot(234)
+                        axes( ax(4) ); 
+                        imagesc( image2D); eval(imageSets); hold on;
+                        fitInfo.featureCurrent.displayFeature(gca);
+                        set( get(gca, 'title'), 'String', sprintf('N = %d',fitInfo.featureCurrent.getSubFeatureNumber()))
+                        set( ax(4), 'Tag', 'ax4');
+
+                        % Residual vs Iteration
+    %                     subplot(235)
+                        axes( ax(5) ); 
+                        xtickformat( '%.2f'); ytickformat( '%d')
+                        plotRes = plot( optim.iteration, optim.resnorm, '--b', 'Marker', '*', 'LineWidth', 3, 'MarkerSize', 10);
+                        set( plotRes,'Tag','plotRes');
+                        xlabel('Iteration','interp','none'); ylabel('Resnorm','interp','none');
+                        title( sprintf('Best Resnorm : %g', optim.resnorm ),'interp','none');
+                        set( gca, 'FontSize', 14); grid minor; grid on
+                        set( ax(5), 'Tag', 'ax5');
+
+                        % VarX vs Iteration
+
+                    case 'iter'
+                        % Simulated Image
+
+                        f = findobj( 'Tag', sprintf('fig %d_%d_%s', channel, time, fitScope));
+                        set( f, figProps{:});
+    %                     subplot(232)
+                        axes( findobj('Tag', 'ax2') );
+                        imageSim = Cell.simulateCellWithVec( vec, fitInfo);
+                        img = findobj( get( gca,'Children'), 'Tag', 'imgSim');
+                        set( img, 'CData', max( imageSim, [], 3) );
+                        
+                        % Residual Image
+    %                     subplot(233)
+                        axes( findobj('Tag', 'ax3') );
+                        imgRes = max( abs( ImageOrg - imageSim), [], 3); 
+                        img = findobj( get( gca,'Children'), 'Tag', 'imgRes');
+                        set( img, 'CData', max( imgRes, [], 3) );
+
+                        % Graphical Features
+    %                     subplot(234)
+                        axes( findobj('Tag', 'ax4') );
+                        imagesc( image2D); eval(imageSets); hold on;
+                        fitInfo.featureCurrent.displayFeature(gca);
+                        set( get(gca, 'title'), 'String', sprintf('N = %d',fitInfo.featureCurrent.getSubFeatureNumber()))
+
+                        % Update residual plot
+    %                     subplot(235)
+                        axes( findobj('Tag', 'ax5') );
+                        plotRes = findobj( get( gca,'Children'), 'Tag', 'plotRes');
+                        X = [ get( plotRes, 'Xdata') optim.iteration]; Y = [ get( plotRes, 'Ydata') optim.resnorm ];
+                        set( plotRes, 'Xdata', X, 'Ydata', Y);
+                        set( get( gca, 'Title'), 'String', sprintf('Best Resnorm : %g',optim.resnorm) );
+
+                        drawnow
+                        pause(0.5)
+
+                    case 'done'
+                        % No clean up tasks required for this plot function.        
+                        stop = true;
+                end    
+
+                % Make a folder and save these figures
+                sName = [fitInfo.saveDirectory, filesep, sName];
+                export_fig( sName, '-png', '-nocrop', '-a1') 
+                %  }}}
+
+            elseif fitInfo.graphicsVerbose == 0
+
+                % do all this!
+
             end
 
-            %  Interactive Plotting {{{
-            switch state
-                case 'init'
-
-                    % Make Figure
-                    figTitle = [];
-                    figName = [];
-                    figPath = [];
-                    f = figure( figProps{:} );
-                    set( f, 'Tag', sprintf('fig %d_%d_%s', channel, time, fitScope) );
-%                     posOld = get(gcf, 'Position');
-%                     set(gcf, figProps{:} ); 
-                    drawnow
-                    pause(0.5)                        
-
-                    % Original Image
-                    subplot(231)
-                    img = imagesc( image2D ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Original'); set( img, 'Tag', 'imgOrg');
-
-                    % Simulated Image
-                    subplot(232)
-                    imageSim = Cell.simulateCellWithVec( vec, fitInfo);
-                    img = imagesc( max(imageSim, [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Simulated'); set( img, 'Tag', 'imgSim');
-                    
-                    % Residual Image
-                    subplot(233)
-                    img = imagesc( max( abs( ImageOrg - imageSim), [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Residual'); set( img, 'Tag', 'imgRes');
-
-                    % Graphical Features
-                    subplot(234)
-                    imagesc( image2D); eval(imageSets); hold on;
-                    fitInfo.featureCurrent.displayFeature(gca);
-                    set( get(gca, 'title'), 'String', sprintf('N = %d',fitInfo.featureCurrent.getSubFeatureNumber()))
-
-                    % should call a function to do this
-
-                    % Residual vs Iteration
-                    subplot(235)
-                    plotRes = plot( optim.iteration, optim.resnorm, '--b', 'Marker', '*', 'LineWidth', 3, 'MarkerSize', 10);
-                    set( plotRes,'Tag','plotRes');
-                    xlabel('Iteration','interp','none'); ylabel('Resnorm','interp','none');
-                    title( sprintf('Best Resnorm : %g', optim.resnorm ),'interp','none');
-                    set( gca, 'FontSize', 14); grid minor; grid on
-
-                    % VarX vs Iteration
-                    
-
-                case 'iter'
-                    % Simulated Image
-
-                    f = findobj( 'Tag', sprintf('fig %d_%d_%s', channel, time, fitScope));
-                    set( f, figProps{:});
-
-                    subplot(232)
-                    imageSim = Cell.simulateCellWithVec( vec, fitInfo);
-                    img = findobj( get( gca,'Children'), 'Tag', 'imgSim');
-                    set( img, 'CData', max( imageSim, [], 3) );
-                    
-                    % Residual Image
-                    subplot(233)
-                    imgRes = max( abs( ImageOrg - imageSim), [], 3); 
-                    img = findobj( get( gca,'Children'), 'Tag', 'imgRes');
-                    set( img, 'CData', max( imgRes, [], 3) );
-
-                    % Graphical Features
-                    subplot(234)
-                    imagesc( image2D); eval(imageSets); hold on;
-                    fitInfo.featureCurrent.displayFeature(gca);
-                    set( get(gca, 'title'), 'String', sprintf('N = %d',fitInfo.featureCurrent.getSubFeatureNumber()))
-
-                    % Update residual plot
-                    subplot(235)
-                    plotRes = findobj( get( gca,'Children'), 'Tag', 'plotRes');
-                    X = [ get( plotRes, 'Xdata') optim.iteration]; Y = [ get( plotRes, 'Ydata') optim.resnorm ];
-                    set( plotRes, 'Xdata', X, 'Ydata', Y);
-                    set( get( gca, 'Title'), 'String', sprintf('Best Resnorm : %g',optim.resnorm) );
-
-                    drawnow
-                    pause(0.5)
-
-                case 'done'
-                    % No clean up tasks required for this plot function.        
-                    stop = true;
-            end    
-            %  }}}
 
         end
         % }}}
@@ -1103,44 +1134,60 @@ classdef Cell < handle & matlab.mixin.Copyable
         function h = displayFinalFit( Image2Fit, mainFeature, fitInfo)
             % Display Final Features and Fitting Results
 
+            if fitInfo.graphics == 0
+                return
+            end
+
             nX = size( Image2Fit, 2); nY = size( Image2Fit, 1); nZ = size( Image2Fit, 3); dim = length( size(Image2Fit) );
             image2D = max( Image2Fit, [], 3); intMin = min( Image2Fit(:) ); intMax = max( Image2Fit(:) );
             
-            interactive = 1;
-            figProps = {'NumberTitle', 'off', 'Name', sprintf('C%d_T%d_%s', fitInfo.channel, fitInfo.time, fitInfo.fitScope ), 'WindowState', 'maximized'};
+            fName = sprintf('C%d_T%d_%s', fitInfo.channel, fitInfo.time, fitInfo.fitScope );
+            figProps = {'NumberTitle', 'off', 'Name', fName, 'Position', [1 1 1280 720]};
 
             imageSets = 'colormap gray; axis equal; axis ij; set( gca, ''xlim'', [1 nX], ''ylim'', [1 nY], ''XTick'', [], ''YTick'', [], ''CLim'', [intMin intMax], ''FontSize'', 14)';
             h = figure( figProps{:} );
+            ax = tight_subplot(2, 3, 0.05);
             drawnow; pause(3)
 
             % Original Image
-            subplot(231)
+%             subplot(231)
+            axes( ax(1) );
             img = imagesc( image2D ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Original'); set( img, 'Tag', 'imgOrg');
 
             % Initial Simulated Image
-            subplot(232)
+%             subplot(232)
+            axes( ax(2) );
             imageSimI = Cell.simulateCellWithVec( fitInfo.vecInit, fitInfo);
             img = imagesc( max(imageSimI, [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Simulated Init'); set( img, 'Tag', 'imgSimI');
 
             % Final Simulated Image
-            subplot(233)
+%             subplot(233)
+            axes( ax(3) );
             imageSimF = Cell.simulateCellWithVec( fitInfo.fitResults.vfit, fitInfo);
             img = imagesc( max(imageSimF, [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Simulated Final'); set( img, 'Tag', 'imgSimF');
 
             % Features
-            subplot(234) 
+%             subplot(234) 
+            axes( ax(4) );
             img = imagesc( image2D ); eval( imageSets); set( img, 'Tag', 'imgFeatures'); hold on;
             mainFeature.displayFeature(gca);
             set( get(gca, 'title'), 'String', sprintf('Features : N = %d',fitInfo.featureCurrent.getSubFeatureNumber()))
 
             % Initial Residual
-            subplot(235)
-            img = imagesc( max( abs( Image2Fit - imageSimI), [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Residual Init'); set( img, 'Tag', 'imgResI');
+%             subplot(235)
+            axes( ax(5) ); 
+            img = imagesc( max( abs( Image2Fit - imageSimI), [], 3) ); eval( imageSets); 
+            set( get(gca, 'title'), 'String', 'Image Residual Init 100%'); set( img, 'Tag', 'imgResI');
 
             % Final Residual
-            subplot(236)
-            img = imagesc( max( abs( Image2Fit - imageSimF), [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Residual Final'); set( img, 'Tag', 'imgResF');
+%             subplot(236)
+            axes( ax(6) );
+            residFrac = 100*sum( abs( Image2Fit(:) - imageSimF(:) ) ) / sum( abs( Image2Fit(:) - imageSimI(:) ) );
+            img = imagesc( max( abs( Image2Fit - imageSimF), [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', sprintf('Image Residual Final %.1f%%', residFrac) ); set( img, 'Tag', 'imgResF');
 
+            sName = [ fitInfo.saveDirectory, filesep,  sprintf('C%d_T%d_%s', fitInfo.channel, fitInfo.time, fitInfo.fitScope ) ];
+            export_fig( sName, '-png', '-nocrop', '-a1')
+%             error('stop here')
         end
         % }}}
 
