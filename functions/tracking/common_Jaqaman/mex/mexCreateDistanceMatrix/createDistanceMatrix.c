@@ -18,7 +18,9 @@
  */
 
 #include "mex.h"
-#include "distmat.h"
+/* #include "distmat.h"
+ * replaced the above line with the line below */
+#include "distmat.c"
 
 void mexFunction(int nlhs, mxArray *plhs[],int nrhs, const mxArray *prhs[])
 {

@@ -1,6 +1,6 @@
 # ignore these files
-Results
-PaperFigures
-PaperMeth
-tempSave.mat
-config_file.m
+/Results/*
+/PaperFigures/*
+/PaperMeth/*
+/tempVars/*
+/makeSettings.m

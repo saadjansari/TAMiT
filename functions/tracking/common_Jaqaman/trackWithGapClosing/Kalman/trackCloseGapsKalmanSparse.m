@@ -23,6 +23,10 @@ function [tracksFinal,kalmanInfoLink,errFlag] = trackCloseGapsKalmanSparse(...
 %                            1st column: values (ones if not available),
 %                            2nd column: standard deviation (zeros if not
 %                            available).
+%       OPTIONAL fields (only if the features are lines)
+%             .std         : gaussian standard deviation of the features
+%                            1st column is the values
+%                            2nd column is the errors
 %           ADDITIONAL FIELDS:
 %             .kinType     : Kinetochore type: 0 - inlier, 1 -
 %                            unaligned, 2 - lagging. Needed only when
@@ -372,7 +376,6 @@ else %if not self-adaptive, link in one round only
 end
 
 %% post-processing of linking results
-
 
 %this function now breaks up frame-to-frame linked tracks if they do not
 %follow a linear trajectory.  it only runs with the EB3 cost matrix

@@ -68,12 +68,15 @@ params.meta = params.mov.metaData;
 
 goodCells = sort([10, 11, 12, 15, 16 18, 19, 23, 24, 25, 27, 29, 31, 33, 35, 36, 37, 39, 4, 5, 7, 8]);
 for jCell = 31 
-
-	% detect features in all time frames
-	featuresCell = detectFeaturesCell( jCell, params);
+    
+	% load features in all time frames
+    loadfilename = [pwd, filesep, 'savedDetectionDataForTracking.mat'];
+    loadFeat = load( loadfilename );
+    loadFeat
+    loadFeat.featureInfo
 
 	% track features over time
-%	featuresTracked = trackFeaturesCell( mov, featuresCell, jCell, params)
+	featuresTracked = trackFeaturesCell( loadFeat.featureInfo, jCell, params)
 
 	% run analysis on features
 %	featuresAnalyzed = analyzeFeaturesCell( featuresTracked, jCell, params) 

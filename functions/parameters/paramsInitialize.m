@@ -1,8 +1,6 @@
 function params = paramsInitialize()
 % This is a script that initializes the parameters for various processes including estimation, fitting, tracking and plotting
 
-times = 1:25; % specify a range 1:250 or use the 'all' flag
-channels = 1; % specify channels as [1, 3, 4] or use the 'all' flag
 featuresInChannels = ['microtubules', 'spots']
 
 % Cell Phase Classification
@@ -30,8 +28,6 @@ params.mitosis = paramsMitosis();
 paramsMitKC = 'paramsKinetochoresMitosis';
 params.kc = paramsKinetochoresMitosis();
 
-params.times = times;
-params.channels = channels;
 params.featuresInChannels = featuresInChannels;
 params.cellPhaseClassification = cellPhaseClassification;
 params.estimation = estimation;
