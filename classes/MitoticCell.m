@@ -16,7 +16,7 @@ classdef MitoticCell < Cell
         % }}}
 
         % findFeatures {{{
-        function obj = findFeatures( obj, image, cTime, cChannel)
+        function obj = findFeatures( obj, cTime, cChannel)
         % findFeatures : estimates and finds the features 
             
 
@@ -27,11 +27,11 @@ classdef MitoticCell < Cell
 
                     case 'Microtubule'
 
-                        obj.featureList{ cChannel, cTime} = MitoticCell.findFeaturesDeNovo_MT( image );
+                        obj.featureList{ cChannel, cTime} = MitoticCell.findFeaturesDeNovo_MT( obj.image(:,:,:,cTime, cChannel), obj.settings.flags.debug);
 
                     case 'Kinetochore'
 
-                        obj.featureList{ cChannel, cTime} = MitoticCell.findFeaturesDeNovo_KC( image );
+                        obj.featureList{ cChannel, cTime} = MitoticCell.findFeaturesDeNovo_KC( obj.image(:,:,:,cTime, cChannel), obj.settings.flags.debug);
 
                 end
 
@@ -39,125 +39,8 @@ classdef MitoticCell < Cell
 
                 disp('            - Using fits from previous timestep') 
                 obj.featureList{ cChannel, cTime} = obj.featureList{ cChannel, cTime-1}.copyDeep( );
-                obj.featureList{ cChannel, cTime} = obj.featureList{ cChannel, cTime-1}.fillParams();
+%                 obj.featureList{ cChannel, cTime} = obj.featureList{ cChannel, cTime-1}.fillParams();
 
-            end
-
-        end
-        % }}}
-
-        % prepareFit {{{
-        function [ fitProblem, fitInfo ] = prepareFit( obj, featureMain, imageOrg, parameters, fitScope, cFeature)
-            
-            % Input Checks
-            if length( featureMain) ~= 1
-                error('prep_fitLocal : there should only be a single main feature'), end
-            
-            if ~strcmp( fitScope, 'local') && ~strcmp( fitScope, 'global') && ~strcmp( fitScope, 'globum_add') && ~strcmp( fitScope, 'globum_remove')
-
-                error('prepareFit : input argument fitScope must be either ''local'' or ''global'' '); end
-
-            if strcmp( fitScope, 'local') && nargin < 6
-                error('prepareFit : for a local fit, feature number argument must be provided'); end
-
-            % The fit will be 3-dimensional
-            imageOrg = im2double( imageOrg); 
-            
-            % set general optimization options 
-%             opts = optimoptions( @lsqnonlin, ...
-%                 'MaxFunEvals', 2000, ...
-%                 'OptimalityTolerance', 1e-12, ...
-%                 'MaxIter', 10, ...
-%                 'TolFun', 1e-7, ...
-%                 'FiniteDifferenceStepSize', 1e-1, ...
-%                 'FiniteDifferenceType', 'central', ...
-%                 'StepTolerance', 1e-3, ...
-%                 'display', 'iter', ... 
-%                 'OutputFcn', @plotFit );
-
-            opts = optimoptions( @lsqnonlin, ...
-                'MaxIter', 15, ...
-                'TolFun', 1e-7, ...
-                'FiniteDifferenceStepSize', 1e-2, ...
-                'display', 'off', ...
-                'OutputFcn', @plotFit );
-
-            % Prompt the main feature for a list of subfeatures, their fit vectors, and their label vectors
-            if strcmp(fitScope, 'local')
-                [ fitVec, fitLabels, fitObj] = getVecLocal( featureMain);
-                fitVec = fitVec{ cFeature};
-                fitLabels = fitLabels{ cFeature};
-                fitObj = fitObj{ cFeature};
-            elseif strcmp(fitScope, 'global')
-                [ fitVec, fitLabels ] = getVec( featureMain); 
-                fitObj = featureMain; cFeature = 1; 
-            elseif strcmp(fitScope, 'globum_add')
-                [ fitVec, fitLabels ] = getVec( featureMain); 
-                fitObj = featureMain; cFeature = 1; 
-                fitInfo.Nnew = featureMain.getSubFeatureNumber();
-                fitInfo.Nold = fitInfo.Nnew - 1;
-            elseif strcmp(fitScope, 'globum_remove')
-                [ fitVec, fitLabels ] = getVec( featureMain); 
-                fitObj = featureMain; cFeature = 1; 
-                fitInfo.Nnew = featureMain.getSubFeatureNumber();
-                fitInfo.Nold = fitInfo.Nnew + 1;
-            end
-            
-            % find upper and lower bounds of parameters
-            [fitVecUb, fitVecLb] = MitoticCell.getUpperLowerBounds( fitVec, fitLabels, imageOrg);
-
-            % Exploration Speed
-            speedVec = MitoticCell.getExplorationSpeedVector( fitLabels);
-            fitVec = fitVec./speedVec;
-            fitVecUb = fitVecUb./speedVec;
-            fitVecLb = fitVecLb./speedVec;
-%             error('stop here')
-
-            % Set up parameters for fit
-            fitInfo.featureMain = featureMain;
-            fitInfo.featureCurrent = fitObj;
-            fitInfo.vecInit = fitVec;
-            fitInfo.labels = fitLabels;
-            fitInfo.mask = logical( imageOrg);
-            fitInfo.featureIndex = cFeature;
-%             fitInfo.parentObj = parameters.Cell;
-%             fitInfo.Image2Fit = uint8(imageOrg);
-            fitInfo.numVoxels.X = size( imageOrg,2);
-            fitInfo.numVoxels.Y = size( imageOrg,1);
-            fitInfo.numVoxels.Z = size( imageOrg,3);
-            fitInfo.speedVec = speedVec;
-            fitInfo.channel = parameters.channel;
-            fitInfo.time = parameters.time;
-            fitInfo.fitScope = fitScope;
-            fitInfo.saveDirectory = parameters.saveDirectory;
-            if strcmp(obj.settings.server, 'Local')
-                fitInfo.graphics = 1;
-                fitInfo.graphicsVerbose = 0;
-            elseif strcmp(obj.settings.server, 'Summit') || strcmp(obj.settings.server, 'Rumor')
-                fitInfo.graphics = 0;
-                fitInfo.graphicsVerbose = 0;
-            end
-
-            
-            % Find voxel indices for gaussian feature computation
-            % simulate feature
-%             imSim = fitObj.simulateFeature( 0*imageOrg);
-%             idx = find( imSim > 0.001*max( imSim(:) ) );
-%             [y x z] = ind2sub( size(imageOrg), idx);
-%             fitInfo.fastComputation.idx = idx;
-%             fitInfo.fastComputation.x = x;
-%             fitInfo.fastComputation.y = y;
-%             fitInfo.fastComputation.z = z;
-
-            % make the error function for lsqnonlin
-            f = Cell.makeErrorFcn( imageOrg, fitInfo );
-
-            % Crate Optimization Problem
-            fitProblem = createOptimProblem( 'lsqnonlin', 'objective', f, 'x0', fitVec, 'ub', fitVecUb, 'lb', fitVecLb, 'options', opts);
-
-            % Create handle for plotting function
-            function stop = plotFit( x, optimV, state)
-                stop = Cell.plot_midFit(x, optimV, state, fitInfo);
             end
 
         end
@@ -170,13 +53,13 @@ classdef MitoticCell < Cell
         % Microtubules {{{
         
         % findFeaturesDeNovo_MT {{{
-        function spindleObj = findFeaturesDeNovo_MT( imageIn)
+        function spindleObj = findFeaturesDeNovo_MT( imageIn, displayFlag)
 
             % Mitotic Cell:
             %   Find the Spindle microtubule
             %   From each spindle pole, find astral microtubules
 
-            plotFlag_estimate = 0;
+            displayFlag = displayFlag;
             dim = length( size(imageIn) );
             imageIn = im2double( imageIn);
             spindleExclusionRange = deg2rad(45);
@@ -194,7 +77,7 @@ classdef MitoticCell < Cell
             % Spindle
             
             % Find the Spindle. 
-            if plotFlag_estimate
+            if displayFlag
                 f = figure;
                 ax = axes;
                 imagesc( max(imageIn, [], 3) ); colormap gray; axis equal; hold on
@@ -203,16 +86,21 @@ classdef MitoticCell < Cell
                 spindle = MitoticCell.findTheSpindle( imageIn);
             end
             % Create the Spindle MTs
-            spindleAmp = median( Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition ) )-bkg;
-            spindleMT = Line( spindle.MT.startPosition, spindle.MT.endPosition, spindleAmp, sigma, dim, imageIn, props.SpindleMT, display.SpindleMT );
+            spindleAmp = min( Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition ) )-bkg;
+            spindleMT = Line( spindle.MT.startPosition, spindle.MT.endPosition, spindleAmp, sigma, dim, props.SpindleMT, display.SpindleMT );
+            spindleMT.findVoxelsInsideMask( logical(imageIn) );
 
             % SPB
             
             % Create the SpindlePoleBody objects
             spbAmp(1) = imageIn( spindleMT.startPosition(2), spindleMT.startPosition(1), spindleMT.startPosition(3) )-bkg-spindleAmp;
             spbAmp(2) = imageIn( spindleMT.endPosition(2), spindleMT.endPosition(1), spindleMT.endPosition(3) )-bkg-spindleAmp;
-            SPB{1} = Spot( spindleMT.startPosition, spbAmp(1), sigma, dim, imageIn, props.SPB, display.SPB);
-            SPB{2} = Spot( spindleMT.endPosition, spbAmp(2), sigma, dim, imageIn, props.SPB, display.SPB);
+            if any(spbAmp < 0);
+                spbAmp( spbAmp < 0) = bkg;
+                warning( 'findFeaturesMT_deNovo : forcing SPBAmp to be > 0')
+            end
+            SPB{1} = Spot( spindleMT.startPosition, spbAmp(1), sigma, dim, props.SPB, display.SPB);
+            SPB{2} = Spot( spindleMT.endPosition, spbAmp(2), sigma, dim, props.SPB, display.SPB);
 
             % Astral MT
             
@@ -221,7 +109,7 @@ classdef MitoticCell < Cell
             spindleAngle(2) = mod( atan2( spindleMT.startPosition(2)-spindleMT.endPosition(2) , spindleMT.startPosition(1)-spindleMT.endPosition(1) ) , 2*pi );
 
             % Find Astral Microtubules
-            if plotFlag_estimate
+            if displayFlag 
                 [ spindle.Aster{1}.MT, ax] = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.startPosition, spindleAngle(1), spindleExclusionRange, ax);
                 [ spindle.Aster{2}.MT, ax] = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.endPosition, spindleAngle(2), spindleExclusionRange, ax); 
             else
@@ -233,8 +121,13 @@ classdef MitoticCell < Cell
             AstralMT = cell(1,2);
             for jAster = 1 : 2
                 for jmt = 1 : length( spindle.Aster{jAster}.MT )
+
                     lineAmp = median( Cell.findAmplitudeAlongLine( imageIn, spindle.Aster{jAster}.MT{jmt}.startPosition, spindle.Aster{jAster}.MT{jmt}.endPosition ) )-bkg;
-                    newMT = Line( spindle.Aster{jAster}.MT{jmt}.startPosition, spindle.Aster{jAster}.MT{jmt}.endPosition, lineAmp, sigma, dim, imageIn, props.AsterMT, display.AsterMT);
+
+                    newMT = Line( spindle.Aster{jAster}.MT{jmt}.startPosition, spindle.Aster{jAster}.MT{jmt}.endPosition, lineAmp, sigma, dim, props.AsterMT, display.AsterMT);
+
+                    newMT.findVoxelsInsideMask( logical(imageIn) );
+
                     if isempty( AstralMT{jAster} )
                         AstralMT{jAster} = {newMT};
                     else
@@ -248,17 +141,20 @@ classdef MitoticCell < Cell
             % SpindleMT + 2 Asters stored in a Spindle
             for jAster = 1 : 2
                 if ~isempty( AstralMT{jAster} )
-                    AsterObjects{jAster} = AsterMT( dim, imageIn, SPB{jAster}, AstralMT{jAster}{:} );
+                    AsterObjects{jAster} = AsterMT( dim, SPB{jAster}, AstralMT{jAster}{:} );
                 else
-                    AsterObjects{jAster} = AsterMT( dim, imageIn, SPB{jAster} );
+                    AsterObjects{jAster} = AsterMT( dim, SPB{jAster} );
                 end
 
             end
             spindleObj = Spindle( dim, imageIn, {spindleMT, AsterObjects{:} }, props.Spindle);
             spindleObj.findEnvironmentalConditions();
             spindleObj.syncFeaturesWithMap();
-            spindleObj.fillParams();
-%             spindleObj.displayFeature();
+%             spindleObj.fillParams();
+
+            %if displayFlag
+                %spindleObj.displayFeature();
+            %end
             
         end
         % }}}
@@ -521,161 +417,114 @@ classdef MitoticCell < Cell
         % }}}
 
         % Kinetochores {{{
-        function kcBank = findFeaturesDeNovo_KC( image2Find, imageRef)
+
+        % findFeaturesDeNovo_KC {{{
+        function kcBank = findFeaturesDeNovo_KC( image2Find, displayFlag)
             % Mitotic Cell: Find Kinetochores
             
-            plotFlag_estimate = 0;
+            props.KC = {'position', 'amplitude', 'sigma'};
+            display.KC = {'Color', [0 0.8 0] , 'Marker', '*', 'MarkerSize', 5, 'LineWidth', 1};
+            
+            [ kc, maskNuclear, intNuclear] = MitoticCell.findKinetochores_mis12( image2Find);
 
-            image2Find_Org = image2Find;
-            if nargin == 2
-%                 image2Find = image2Find .* mat2gray(imageRef);
+            % Create the Kinetochores
+            disp(sprintf( '                Number of kinetochores = %d', length(kc.x) ) )
+            if length(kc.x) > 6
+                error('too many kinetochores found. maybe you should fix the spot finder')
+            end
+            if length(kc.x) == 0 
+                error('too little kinetochores found. maybe you should fix the spot finder')
+            end
+            
+            dim = length( size( image2Find) ); 
+            if dim==2, sigma=[1.2 1.2]; elseif dim==3, sigma=[1.2 1.2 1.0]; end
+
+            for jspot = 1 : length(kc.x)
+                kcBank{ jspot} = Spot( [ kc.x(jspot), kc.y(jspot), kc.z(jspot)], kc.amplitude(jspot)-intNuclear, sigma, dim, props.KC, display.KC);
+                kcBank{ jspot}.findVoxelsInsideMask( logical(image2Find) );
             end
 
-            [ image2D, idxMax] = max( image2Find, [], 3);
-%             image2D = imgaussfilt( image2D, 1):
+            % Create a Kinetochore Bank for handling and storage
+            kcBank = KinetochoreBank( image2Find, kcBank{:} );
+            kcBank.findEnvironmentalConditions();
+            kcBank.syncFeaturesWithMap();
+            kcBank.maskNuclear = maskNuclear;
+            kcBank.backgroundNuclear = intNuclear - kcBank.background;
 
-            % How to find Kinetochores?
+            if displayFlag
+                f = figure;
+                ax = axes;
+                imagesc( max( image2Find, [], 3) ); colormap gray; axis equal; hold on
+                kcBank.displayFeature( ax);
+            end
+
+        end
+        % }}}
+        % findKinetochores_mis12 {{{
+        function [kc, maskNuclear, intNuclear] = findKinetochores_mis12( image2Find) 
+            % Find Kinetochores that are mis12-gf labeled
+
+            % Process:
+            %   1. Find the 3D nucleus ( to a high accuracy)
+            %   2. Find Kinetochores inside the nucleus by looking for peaks
+
+            imageOrg = mat2gray(image2Find);
+            imMaskB3 = logical( imageOrg);
+            imMaskB2 = imMaskB3(:,:,1);
+            [ image2D, idxMax] = max( image2Find, [], 3);
+
+            imageG = mat2gray( imgaussfilt( imageOrg, 0.5) ); imageG = imageG .* imMaskB3;
+            imVals = imageG( imageG(:) > 0); T = multithresh( imVals, 2);
+            imMaskN3 = imageG; imMaskN3( imMaskN3 < T(1) ) = 0; imMaskN3 = logical( imMaskN3);
+
+            % For each slice, dilate the image to get connected components, then only keep the biggest obejct, and then apply a convex hull
+            for jZ = 1 : size( imMaskN3, 3)
+                imSlice = imMaskN3(:,:,jZ);
+                imSlice = imdilate( imSlice, strel('disk', 1) );
+                [labeledImage, numberOfBlobs] = bwlabel( imSlice);
+                blobMeasurements = regionprops(labeledImage, 'area');
+                allAreas = [blobMeasurements.Area];
+                [sortedAreas, sortIndexes] = sort(allAreas, 'descend');
+                biggestBlob = ismember(labeledImage, sortIndexes(1));
+                imSlice = biggestBlob > 0;
+                imMaskN3(:,:,jZ) = bwconvhull( imSlice);
+
+                %% MAYBE DRAW ELLIPSE AROUND BIG OBJECT
+
+            end
+
             % Iterative thresholding
-            threshVal = median( image2D(:) );
+            image2D = image2D .*  max( imMaskN3, [], 3);
+            imVal = image2D( image2D(:) > 0);
+            threshVal = min( imVal);
             unmaskReg = sum( image2D(:) > threshVal);
-            unmaskThresh = 25; % threshold until 35 pixels remain
+            unmaskThresh = 25; % threshold until 25 pixels remain
             while unmaskReg > unmaskThresh
                 unmaskReg = sum( image2D(:) > threshVal);
-                threshVal = threshVal+2;
+                threshVal = threshVal+0.01;
             end
             imgThreshed = image2D; imgThreshed( imgThreshed < threshVal) = 0;
             imgThreshed = imgThreshed .* bwconvhull( logical(imgThreshed) );
             
             % Find maxima in the unmasked regions
             maxima = imregionalmax( imgThreshed);
-            [y, x] = find( maxima );
-            
+            [kc.y, kc.x] = find( maxima );
             % for each (x,y) pair find the z-pixel that has the max intensity, and find the amplitude
-            z = 0*x; amplitude= 0*x;
-            z = idxMax( sub2ind( size(image2Find), y, x) );
-            amplitude = image2Find_Org( sub2ind( size(image2Find), round(y), round(x), round(z) ) );
+            kc.z = idxMax( sub2ind( size(image2Find), kc.y, kc.x) );
+            kc.amplitude = image2Find( sub2ind( size(image2Find), round(kc.y), round(kc.x), round(kc.z) ) );
+            maskNuclear = imMaskN3;
+            intNuclear = sum( imMaskN3(:) .* image2Find(:) ) / sum( imMaskN3(:) );
 
-            % Create the Kinetochores
-            disp(sprintf( 'number of kinetochores found = %d', length(x) ) )
-            if length(x) > 6
-                error('too many kinetochores found. maybe you should fix the spot finder')
-            end
-            
-            dim = length( size( image2Find) ); 
-            if dim==2, sigma=[1.2 1.2]; elseif dim==3, sigma=[1.2 1.2 1.0]; end
-            for jspot = 1 : length(x)
-                kcBank{ jspot} = Kinetochore( [ x(jspot), y(jspot), z(jspot)], amplitude(jspot), sigma, dim, image2Find);
-            end
-            % Create a Kinetochore Bank for handling and storage
-            kcBank = KinetochoreBank( kcBank{:} );
-
-            if plotFlag_estimate
-                f = figure;
-                ax = axes;
-                imagesc( max( image2Find, [], 3) ); colormap gray; axis equal; hold on
-                plot( x, y, 'Color', 'g', 'Marker', '*', 'MarkerSize', 5, 'LineWidth', 2);
-            end
+        end
+        % }}}
+        % findKinetochores_cen2 {{{
+        function [kc, maskNuclear, intNuclear] = findKinetochore_cen2( image2Find)
 
         end
         % }}}
 
-        % getUpperLowerBounds {{{
-        function [ub, lb] = getUpperLowerBounds( vec, vecLabels, image)
-            % Get upper and lower bounds for fitting
-            
-            ub = vec; lb = vec;
-            minVox = 1;
-            maxVox = size( image);
-            estBkg = median( image( image> 0) );
-            maxBkg = max( image(:) );
-            minBkg = min( image(:) );
-            maxAmp = max( image(:) );
-            minAmp = 0; % min SnR is half of max SnR of image
-            minSig = [1.2, 1.2, 1.0];
-            maxSig = [1.5, 1.5, 1.2];
-            
-
-            % find the correct label in vecLabels, and start to place in the correct bounds in the correct places
-
-            % Find index of parameters 
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'amplitude') ) );
-            idxSig = find( ~cellfun( @isempty, strfind( vecLabels, 'sigma') ) );
-            idxP0 = find( ~cellfun( @isempty, strfind( vecLabels, 'startPosition') ) );
-            idxP1 = find( ~cellfun( @isempty, strfind( vecLabels, 'endPosition') ) );
-            idxP = find( ~cellfun( @isempty, strfind( vecLabels, 'position') ) );
-            idxBkg = find( ~cellfun( @isempty, strfind( vecLabels, 'background') ) );
-
-            % Store upper and lower bounds correctly
-            if ~isempty( idxAmp), 
-                ub( idxAmp) = maxAmp;
-                lb( idxAmp) = minAmp; end
-            if ~isempty( idxSig), 
-                nF = length( idxSig)/3;
-                ub( idxSig) = repmat( maxSig, 1, nF);
-                lb( idxSig) = repmat( minSig, 1, nF); end
-            if ~isempty( idxP0), 
-                nF = length( idxP0)/3;
-                ub( idxP0 ) = repmat( [ maxVox(2) maxVox(1) maxVox(3) ], 1, nF);
-                lb( idxP0 ) = minVox; end
-            if ~isempty( idxP1), 
-                nF = length( idxP1)/3;
-                ub( idxP1 ) = repmat( [ maxVox(2) maxVox(1) maxVox(3) ], 1, nF);
-                lb( idxP1 ) = minVox; end
-            if ~isempty( idxP), 
-                nF = length( idxP)/3;
-                ub( idxP ) = repmat( [ maxVox(2) maxVox(1) maxVox(3) ], 1, nF);
-                lb( idxP ) = minVox; end
-            if ~isempty( idxBkg), 
-                ub( idxP ) = maxBkg;
-                lb( idxP ) = minBkg; end
-
-            if any( lb > ub)
-                disp( ub )
-                disp( lb )
-                error('bounds are wrong')
-            end
-
-        end
         % }}}
 
-        % getExplorationSpeedVector {{{
-        function speedVec = getExplorationSpeedVector( vecLabels)
-            % Creates a weighing vector to allow a user to assign different importance to different kinds of parameters. This will infact allow the fitting optimization engine to explore the parameters space at different speeds
-            
-            % Exlporation Speed : unassigned speeds are kept at 1.0
-%             speedAmp = 100;
-%             speedBkg = 10;
-%             speedSigma = 1;
-%             speedPos = 10;
-            speedAmp = 1000;
-            speedBkg = 10;
-            speedSigma = 1;
-            speedPos = 1;
-            speedVec = ones( size(vecLabels) );
-
-            % Find the index of these speeds
-            % Amplitude
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'amplitude') ) );
-            speedVec( idxAmp) = speedAmp;
-
-            % Background 
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'background') ) );
-            speedVec( idxAmp) = speedBkg;
-
-            % Sigma 
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'sigma') ) );
-            speedVec( idxAmp) = speedSigma;
-            
-            % Position
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'startPosition') ) );
-            speedVec( idxAmp) = speedPos;
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'endPosition') ) );
-            speedVec( idxAmp) = speedPos;
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'position') ) );
-            speedVec( idxAmp) = speedPos;
-
-        end
-        % }}}
 
     end
 

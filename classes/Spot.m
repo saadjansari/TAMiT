@@ -7,29 +7,28 @@ classdef Spot < BasicElement
     methods ( Access = public )
        
         % Spot {{{
-        function obj = Spot( position, amplitude, sigma, dim, image, props2Fit, display)
+        function obj = Spot( position, amplitude, sigma, dim, props2Fit, display)
         % Spot : this is the constructor function for a Spot. This will be used for SPBs, MTOCs, and Kinetochores
 
-            obj = obj@BasicElement( dim, image, amplitude, sigma, props2Fit, display, 'Spot')
-            
+            obj = obj@BasicElement( dim, amplitude, sigma, props2Fit, display, 'Spot');
             obj.position = position;
 
         end
         % }}}
 
         % simulateFeature {{{
-        function imageOut = simulateFeature( obj, imageIn)
+        function imageOut = simulateFeature( obj, sizeImage)
 
             if nargin < 2
-                imageIn = 0*obj.image;
+                error('simulateFeature: must provide size of box to simulate feature in')
             end
 
             % Simulate a gaussian spot
-            imageOut = imageIn;
-            if ~isempty( obj.params.idxVoxels)
-                imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint3D( obj.position, obj.sigma, 0*imageIn, obj.params.idxVoxels.idx, obj.params.idxVoxels.X, obj.params.idxVoxels.Y, obj.params.idxVoxels.Z) );
+            imageOut = zeros( sizeImage);
+            if isfield( 'idxVoxels', obj.params)
+                imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint3D( obj.position, obj.sigma, imageOut, obj.params.idxVoxels.idx, obj.params.idxVoxels.X, obj.params.idxVoxels.Y, obj.params.idxVoxels.Z) );
             else
-                imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint3D( obj.position, obj.sigma, 0*imageIn) );
+                imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint3D( obj.position, obj.sigma, imageOut) );
             end
             obj.imageSim = imageFeat;
 %             imageOut( imageOut < imageFeat) = imageFeat( imageOut < imageFeat);
@@ -72,16 +71,46 @@ classdef Spot < BasicElement
         end
         % }}}
 
+        % fillparams {{{
         function obj = fillParams( obj)
             
             obj.params.idxVoxels = Spot.findVoxelsNearSpot( obj.position, obj.image, 15);
             
         end
+        % }}}
+        
+        % saveAsStruct {{{
+        function S = saveAsStruct( obj)
+
+            S.type = obj.type;
+            S.dim = obj.dim;
+            S.props2Fit = obj.props2Fit;
+            S.position = obj.position;
+            S.amplitude = obj.amplitude;
+            S.sigma = obj.sigma;
+            S.display = obj.display;
+
+        end
+        % }}}
         
     end
     
     methods (Static = true)
+
+        % loadFromStruct {{{
+        function obj = loadFromStruct( S)
+            
+            if ~isfield( S, 'type') || ~strcmp( S.type, 'Spot')
+                error('incorrect type')
+            end
+
+            obj = Spot( S.position, S.amplitude, S.sigma, S.dim, S.props2Fit, S.display);
+%             obj = obj@BasicElement( S.dim, S.amplitude, S.sigma, S.props2Fit, S.display, 'Spot');
+
+        end
+        % }}}
         
+        % findVoxelsNearSpot {{{
         function spotVox = findVoxelsNearSpot( pos, imageFind, radDilate)
             
             dim = numel( pos );
@@ -112,6 +141,7 @@ classdef Spot < BasicElement
             
             
         end
+        % }}}
         
     end
 

@@ -6,13 +6,13 @@ classdef AsterMT < Organizer
     methods
        
         % AsterMT {{{
-        function obj = AsterMT( dim, image, spb, varargin)
+        function obj = AsterMT( dim, spb, varargin)
 
-            if nargin < 3 
+            if nargin < 2 
                 error( 'MT_Array: number of inputs is inconsistent')
             end
 
-            obj = obj@Organizer( dim, image, { spb, varargin{:} }, 'AsterMT');
+            obj = obj@Organizer( dim, { spb, varargin{:} }, 'AsterMT');
 
         end
         % }}}
@@ -33,7 +33,10 @@ classdef AsterMT < Organizer
             % get vectors from features
 
             % get SPB vector. Keep all its values
+            
+
             [vec_spb, vecLabels_spb] = getVec( obj.featureList{ 1}, propsSPB);
+
             vec = [vec , vec_spb];
             vecLabels_spb = strcat( 'SPB_', vecLabels_spb);
             vecLabels = { vecLabels{:}, vecLabels_spb{:} };
@@ -168,6 +171,7 @@ classdef AsterMT < Organizer
             % worst microtubule of this aster
             if isempty( worstFeature.residual)
                 worstFeature.idx = 0;
+                worstFeature.residual = NaN;
             else
                 [ worstFeature.residual , worstFeature.idx ] = max( worstFeature.residual);
             end
@@ -179,9 +183,7 @@ classdef AsterMT < Organizer
         function ax = displayFeature( obj, ax)
 
             if nargin < 2
-                f = figure;
-                ax = axes; axis ij; hold on;
-                imagesc( max( obj.image, [], 3) ); colormap gray; axis equal;
+                error('must provide an axes to display feature on')
             end
 
             % Ask subfeatures to display themselves
@@ -193,6 +195,42 @@ classdef AsterMT < Organizer
         end
         % }}}
 
+        % saveAsStruct {{{
+        function S = saveAsStruct( obj)
+
+            S.type = obj.type;
+            S.dim = obj.dim;
+
+            for jFeat = 1 : length( obj.featureList)
+                S.featureList{ jFeat} = saveAsStruct( obj.featureList{jFeat} );
+            end
+
+        end
+        % }}}
+        
+    end
+
+    methods( Static = true )
+
+        % loadFromStruct {{{
+        function obj = loadFromStruct( S)
+            
+            if ~isfield( S, 'type') || ~strcmp( S.type, 'AsterMT')
+                error('incorrect type')
+            end
+
+            % Load all the features from their structures recursively
+            featureList{ 1} = Spot.loadFromStruct( S.featureList{ 1} ); 
+            for jFeat = 2: length( S.featureList)
+                featureList{ jFeat} = Line.loadFromStruct( S.featureList{jFeat} ); 
+            end
+
+            obj = AsterMT( S.dim, featureList{:});
+%             obj = obj@Organizer( S.dim, featureList, S.type);
+
+        end
+        % }}}
+        
     end
 
 end

@@ -8,19 +8,14 @@ classdef Organizer < Feature
     methods
 
         % Organizer {{{
-        function obj = Organizer( dim, image, featureList, type)
+        function obj = Organizer( dim, featureList, type)
         % Organizer : this is the constructor function for an Organizer
-            
-            % Ensure dim matches image dimensionality
-            if dim ~= length( size( image) )
-                error( 'Feature: input argument dim does not match dimensionality of input argument image')
-            end
 
-            if nargin < 4
+            if nargin < 3 
                 type = 'generic organizer';
             end
 
-            obj = obj@Feature( dim, image, type);
+            obj = obj@Feature( dim, type);
             obj.featureList = featureList;
             obj.numFeatures = length( featureList);
 
@@ -31,9 +26,7 @@ classdef Organizer < Feature
         function ax = displayFeature( obj, ax)
 
             if nargin < 2
-                f = figure;
-                ax = axes; axis ij; hold on;
-                imagesc( max( obj.image, [], 3) ); colormap gray; axis equal;
+                error('displayFeature: pass in an axes handle to display Feature')
             end
 
             % Ask subfeatures to display themselves
@@ -72,17 +65,16 @@ classdef Organizer < Feature
         % }}}
 
         % simulateFeature {{{ 
-        function imageOut = simulateFeature( obj, imageIn)
+        function imageOut = simulateFeature( obj, sizeImage)
 
             if nargin < 2
-                imageIn = 0*obj.image;
+                error('simulateFeature: must pass an imageSize to make a simulated Image')
             end
             
-            imageOut = imageIn;
-
             % Simulate all the features
+            imageOut = zeros( sizeImage);
             for jFeat = 1 : obj.numFeatures
-                imageOut = simulateFeature( obj.featureList{ jFeat}, imageOut);
+                imageOut = imageOut + simulateFeature( obj.featureList{ jFeat}, sizeImage);
             end
             obj.imageSim = imageOut;
 
@@ -161,12 +153,12 @@ classdef Organizer < Feature
         end
         % }}}
 
-        % fillParams {{{
-        function obj = fillParams( obj)
+        % fillparams {{{
+        function obj = fillparams( obj)
            
             % fill params for each object
-            for jObj = 1 : obj.numFeatures
-                obj.featureList{jObj}.fillParams();
+            for jobj = 1 : obj.numfeatures
+                obj.featurelist{jobj}.fillparams();
             end
             
         end

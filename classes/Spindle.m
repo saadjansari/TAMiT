@@ -7,6 +7,7 @@ classdef Spindle < Organizer
         backgroundNuclear 
         maskNuclear
         featureMap
+        image
     end
 
     methods (Access = public)
@@ -28,11 +29,22 @@ classdef Spindle < Organizer
                 error('Spindle: featureList{3} must be of type ''AsterMT'' ') 
             end
 
-            obj = obj@Organizer( dim, image, featureList, 'Spindle');
+            obj = obj@Organizer( dim, featureList, 'Spindle');
+            obj.image = image;
             obj.props2Fit = props2Fit;
             
             % initialize featureMap and assign IDs
             obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
+
+            % assign voxels to its basic elements
+            obj.featureList{1}.findVoxelsInsideMask( logical(image) );
+            for jAster = 1 : 2
+                for jFeat = 1 : length( obj.featureList{ 1+jAster}.featureList)
+
+                    obj.featureList{1+jAster}.featureList{jFeat}.findVoxelsInsideMask( logical( image) );
+
+                end
+            end
 
         end
         % }}}
@@ -211,8 +223,8 @@ classdef Spindle < Organizer
 
             % Create feature object 
             amp = feature{ idxKeep}.amplitude;
-            feature = Line( feature{idxKeep}.startPosition, feature{idxKeep}.endPosition, amp, sigma, obj.dim, obj.image, props2Fit, display);
-            feature.fillParams();
+            feature = Line( feature{idxKeep}.startPosition, feature{idxKeep}.endPosition, amp, sigma, obj.dim, props2Fit, display);
+%             feature.fillParams();
             
             % Add feature to the correct subfeature 
             idxAdd = obj.featureList{1+idxKeep}.addFeatureToList( feature );
@@ -328,7 +340,7 @@ classdef Spindle < Organizer
             % Only simulate feature with matching ID
             % Find the feature
             cFeature = obj.findObjectFromID( featureID);
-            imageOut = cFeature.simulateFeature( imageOut);
+            imageOut = cFeature.simulateFeature( size(imageIn) );
 
             % Fill background where features are not prominent-er
             if ~isempty( obj.background)
@@ -434,7 +446,47 @@ classdef Spindle < Organizer
                 
         end
         % }}}       
+
+        % saveAsStruct {{{
+        function S = saveAsStruct( obj)
+
+            S.type = obj.type;
+            S.dim = obj.dim;
+            S.image = uint16( obj.image);
+            S.props2Fit = obj.props2Fit;
+
+            for jFeat = 1 : length( obj.featureList)
+                S.featureList{ jFeat} = saveAsStruct( obj.featureList{jFeat} );
+            end
+
+        end
+        % }}}
         
+    end
+
+    methods( Static = true )
+
+        % loadFromStruct {{{
+        function obj = loadFromStruct( S)
+            
+            if ~isfield( S, 'type') || ~strcmp( S.type, 'Spindle')
+                error('incorrect type')
+            end
+
+            % Load all the features from their structures recursively
+            featureList{ 1} = Line.loadFromStruct( S.featureList{ 1} ); 
+            for jFeat = 2 : length( S.featureList)
+                featureList{ jFeat} = AsterMT.loadFromStruct( S.featureList{ jFeat} ); 
+            end
+
+            obj = Spindle( S.dim, S.image, featureList, S.props2Fit);
+%             obj = obj@Organizer( S.dim, featureList, S.type);
+            obj.findEnvironmentalConditions();
+            obj.syncFeaturesWithMap()
+
+        end
+        % }}}
+
     end
 
 end

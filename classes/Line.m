@@ -4,20 +4,20 @@ classdef Line < BasicElement
         startPosition
         endPosition
         length
-        orientation
+%         orientation
     end
 
     methods
        
         % Line {{{
-        function obj = Line( startPosition, endPosition, amplitude, sigma, dim, image, props2Fit, display)
+        function obj = Line( startPosition, endPosition, amplitude, sigma, dim, props2Fit, display)
         % Line : this is the constructor function for a Line. This could be a Microtubule
 
             % Ensure dim matches image dimensionality and positions dimensionality
-            if dim ~= length( size( image) ) || dim ~= length( startPosition) || dim ~= length(endPosition) || dim ~= length( sigma)
+            if dim ~= length( startPosition) || dim ~= length(endPosition) || dim ~= length( sigma)
                 error( 'Feature: input argument dim does not match dimensionality of input argument image')
             end
-            obj = obj@BasicElement( dim, image, amplitude, sigma, props2Fit, display, 'Line');
+            obj = obj@BasicElement( dim, amplitude, sigma, props2Fit, display, 'Line');
 
             obj.startPosition = startPosition;
             obj.endPosition = endPosition;
@@ -31,7 +31,7 @@ classdef Line < BasicElement
 
             % sample props2get
             if nargin==1
-            props2get = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
+                props2get = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
             end
             
             % make sure props input matches properties defined in class
@@ -72,16 +72,11 @@ classdef Line < BasicElement
                 idxProp = find( strcmp( props2find{ jProp} , vecLabels) );
                 
                 % Checking
-                if length( idxProp) == 0
-                    continue
-                end
                 if length( obj.( props2find{ jProp} ) ) ~= length( vec(idxProp) )
                     error( 'absorbVec: length of vector props to absorb does not match the old property size')
                 end
             
                 % Set final property
-                obj.( props2find{jProp} );
-                vec( idxProp);
                 obj.( props2find{ jProp} ) = vec( idxProp);
 
             end
@@ -90,22 +85,22 @@ classdef Line < BasicElement
         % }}}
         
         % simulateFeature {{{
-        function imageOut = simulateFeature( obj, imageIn)
+        function imageOut = simulateFeature( obj, sizeImage)
 
             if nargin < 2
-                imageIn = 0*obj.image;
+                error('simulateFeature: input needed for size of image to simulate the feature in ')
             end
+            imageOut = zeros( sizeImage);
 
             % Simulate a gaussian line
-            if ~isempty( obj.params.idxVoxels)
-                imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianLine3D( obj.startPosition, obj.endPosition, obj.sigma, 0*imageIn, obj.params.idxVoxels.idx, obj.params.idxVoxels.X, obj.params.idxVoxels.Y, obj.params.idxVoxels.Z) );
+            if isfield( obj.params, 'idx') 
+                imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianLine3D( obj.startPosition, obj.endPosition, obj.sigma, imageOut, obj.params.idx, obj.params.x, obj.params.y, obj.params.z) );
             else
-                imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianLine3D( obj.startPosition, obj.endPosition, obj.sigma, 0*imageIn) );
+                imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianLine3D( obj.startPosition, obj.endPosition, obj.sigma, imageOut) );
             end
-            imageOut = imageIn;
             obj.imageSim = imageFeat;
-%             imageOut( imageFeat > imageIn) = imageFeat( imageFeat > imageIn);
             imageOut = imageFeat + imageOut;
+            %imageOut( imageFeat > imageIn) = imageFeat( imageFeat > imageIn);
 
         end
         % }}}
@@ -114,9 +109,7 @@ classdef Line < BasicElement
         function ax = displayFeature( obj, ax)
 
             if nargin < 2
-                f = figure;
-                ax = axes; axis ij; hold on;
-                imagesc( max( obj.image, [], 3) ); colormap gray; axis equal;
+                error('displayFeature: must provide axes handle to display the feature in')
             end
 
             % Create the line to display
@@ -125,16 +118,51 @@ classdef Line < BasicElement
         end
         % }}}
         
-        function obj = fillParams( obj)
+        % fillParams {{{
+        function obj = fillParams( obj, sizeImage)
             
-            obj.params.idxVoxels = Line.findVoxelsNearLine( obj.startPosition, obj.endPosition, obj.image, 20);
+            obj.params.idxVoxels = Line.findVoxelsNearLine( obj.startPosition, obj.endPosition, sizeImage, 20);
             
         end
+        % }}}
+        
+        % saveAsStruct {{{
+        function S = saveAsStruct( obj)
+
+            S.type = obj.type;
+            S.dim = obj.dim;
+            S.props2Fit = obj.props2Fit;
+            S.startPosition = obj.startPosition;
+            S.endPosition = obj.endPosition;
+            S.amplitude = obj.amplitude;
+            S.sigma = obj.sigma;
+            S.display = obj.display;
+
+        end
+        % }}}
         
     end
+
     methods ( Static = true )
         
-        function lineVox = findVoxelsNearLine( startPoint, endPoint, imageFind, radDilate)
+        % loadFromStruct {{{
+        function obj = loadFromStruct( S)
+            
+            if ~isfield( S, 'type') || ~strcmp( S.type, 'Line')
+                error('incorrect type')
+            end
+
+            obj = Line( S.startPosition, S.endPosition, S.amplitude, S.sigma, S.dim, S.props2Fit, S.display);
+%             obj = obj@BasicElement( S.dim, S.amplitude, S.sigma, S.props2Fit, S.display, 'Line');
+%             obj.startPosition = startPosition;
+%             obj.endPosition = endPosition;
+%             obj.length = norm( endPosition-startPosition);
+
+        end
+        % }}}
+        
+        % findVoxelsNearLine {{{
+        function lineVox = findVoxelsNearLine( startPoint, endPoint, sizeImage, radDilate)
             
             dim = numel( startPoint);
             if dim ~= 2 && dim ~= 3
@@ -142,7 +170,7 @@ classdef Line < BasicElement
             end
             
             % Draw the line in empty space
-            imLine = 0*imageFind;
+            imLine = zeros( sizeImage);
             len = norm( endPoint - startPoint);
             
             X = round( linspace( startPoint(1), endPoint(1), round(len) ) );
@@ -151,25 +179,26 @@ classdef Line < BasicElement
                 Z = round( linspace( startPoint(3), endPoint(3), round(len) ) );
             end
             
-            idxVoxels = sub2ind( size(imageFind), Y, X, Z);
+            idxVoxels = sub2ind( sizeImage, Y, X, Z);
             imLine( idxVoxels ) = 1;
             
             % dilate the line with a sphere of large size
             % Assume z-direction is limited (~10 pixels)
             imLine = imdilate( max( imLine, [], 3), strel('disk', radDilate) );
-            imLine = repmat( imLine, 1, 1, size(imageFind, 3) );
+            imLine = repmat( imLine, 1, 1, sizeImage(3) );
 %             imLine = imdilate( imLine, strel( 'sphere', radDilate) );
             
             % return voxel indices for the dilated line
             lineVox.idx = find( imLine(:) );
             if dim == 2
-                [lineVox.Y, lineVox.X] = ind2sub( size(imLine), lineVox.idx);
+                [lineVox.Y, lineVox.X] = ind2sub( sizeImage, lineVox.idx);
             elseif dim == 3
-                [lineVox.Y, lineVox.X, lineVox.Z] = ind2sub( size(imLine), lineVox.idx);
+                [lineVox.Y, lineVox.X, lineVox.Z] = ind2sub( sizeImage, lineVox.idx);
             end
             
             
         end
+        % }}}
 
     end
 end
