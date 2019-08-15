@@ -41,13 +41,13 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Save Directory default behaviour
             if nargin < 6, 
                 obj.settings.saveDirectory = [pwd, filesep, 'ResultsDump'];
-            end
-            if exist( obj.settings.saveDirectory) == 7
                 warning('off', 'MATLAB:RMDIR:RemovedFromPath')
                 rmdir( obj.settings.saveDirectory, 's');
                 warning('on', 'MATLAB:RMDIR:RemovedFromPath')
             end
-            mkdir( obj.settings.saveDirectory)
+            if exist( obj.settings.saveDirectory) ~= 7
+                mkdir( obj.settings.saveDirectory)
+            end
 
             % Displays
             disp('    -----------------------   C E L L    I N F O   ------------------------');

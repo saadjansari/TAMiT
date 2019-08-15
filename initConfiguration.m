@@ -72,24 +72,23 @@ function [CFG, CFGinfo] = initConfiguration( CFG)
     if strcmp( CFG, 'Local')
 
         runPath = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell';
-        saveParent = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell';
+        saveParent = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell/Results';
 
     elseif strcmp( CFG, 'Debug')
 
         runPath = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell';
-        saveParent = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell';
+        saveParent = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell/Results';
 
     elseif strcmp( CFG, 'Summit') 
 
         runPath = '/projects/saan8193/ImageAnalysis/SingleCell';
-        saveParent= '/scratch/summit/saan8193/ImageAnalysis/SingleCell'
-
+        saveParent = '/scratch/summit/saan8193/SingleCell';
 
     elseif strcmp( CFG, 'Rumor') 
 
         error('Rumor not setup for singleCell yet')
         runPath = '/projects/saan8193/ImageAnalysis/SingleCell';
-        saveParent= '/scratch/summit/saan8193/ImageAnalysis/SingleCell'
+        saveParent= '/scratch/summit/saan8193/ImageAnalysis/SingleCell/Results'
 
     end
 

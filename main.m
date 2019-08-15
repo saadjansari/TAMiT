@@ -5,17 +5,18 @@ function status = main()
     addpath( genpath(pwd) )
 
     CFG = 'Local';
-    settingsFun = 'makeSettings';
+    initParams = 'initParams';
 
     % check if user settings exist in the current folder
-    if exist( settingsFun ) ~= 2
-        error( ['copy' settingsFunc  '.m to the current folder location : ', pwd] ), end
+    if exist( initParams, 'file' ) ~= 2
+        error( ['copy ' initParams '.m to the current folder location : ', pwd] );
+    end
 
-    % run the settings file : creates a setting.mat file in the results folder
-    settingsPath = feval( settingsFun, CFG);
+    % run the settings file : creates a params.mat file in the save directory folder
+    paramsPath = feval( initParams, CFG);
 
     % Run Single Cell
-    singleCell( settingsPath);
+    singleCell( paramsPath);
 
     % clear user settings init file from the folder
 %     delete [ settingsFun '.m']
