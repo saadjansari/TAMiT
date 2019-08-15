@@ -1,5 +1,6 @@
 function status = main()
-
+    % ----------------------------- PREP ---------------------------
+    
     clc; close all;
     clearvars 
     addpath( genpath(pwd) )
@@ -15,10 +16,16 @@ function status = main()
     % run the settings file : creates a params.mat file in the save directory folder
     paramsPath = feval( initParams, CFG);
 
-    % Run Single Cell
-    singleCell( paramsPath);
+    % Define cleanup tasks
+    c1 = onCleanup( @() eval('diary off') );
+    c2 = onCleanup( @() disp('Closing files and cleaning up') );
 
-    % clear user settings init file from the folder
-%     delete [ settingsFun '.m']
+    % ----------------------------- MAIN ---------------------------
+    
+        % Run Single Cell
+        singleCell( paramsPath);
+        fprintf('MATLAB quit unexpectedly. Closing files and cleaning up...\n')
+
+    % ---------------------------- CLEANUP -------------------------
 
 end

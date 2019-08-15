@@ -23,15 +23,5 @@ function params = initPaths( params)
     
     params.paramsPath = [ params.saveDirectory, filesep, 'params'];
 
-    disp('--------------------------------------------------------------------------------------')
-    disp( ['Configuration: ' params.CFG])
-    disp(' ')
-    disp('Paths:')
-    disp(' ')
-    disp( ['    Run Path: ' params.CFGinfo.runPath])
-    disp( ['    Save Path: ' params.saveDirectory])
-    disp( ['    User Settings: ' params.paramsPath, '.mat' ])
-    disp(' ')
-    disp('--------------------------------------------------------------------------------------')
 
 end
