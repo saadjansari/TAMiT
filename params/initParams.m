@@ -3,15 +3,30 @@ function paramsPath = initParams( CFG )
     
     % set up the base configuration
     if nargin == 0; CFG='Local'; end
-    [params.CFG, params.CFGinfo] = initConfiguration( CFG);
+
+    % Initialize Configuration, Cell Info and Paths
+    if exist( fullfile( pwd, 'initConfiguration.m') ) ~= 2
+        error( ['copy initConfiguration.m to the current folder location : ', pwd] );
+    else
+        [params.CFG, params.CFGinfo] = initConfiguration( CFG);
+    end
 
     % Set up the cell info for fitting
-    params.cellinfo = initCellInfo();
+    if exist( fullfile( pwd, 'initCellInfo.m') ) ~= 2
+        error( ['copy initCellInfo.m to the current folder location : ', pwd] );
+    else
+        params.cellinfo = initCellInfo();
+    end
 
     % St up the paths for running single cell
-    params = initPaths( params);
+    if exist( fullfile( pwd, 'initPaths.m') ) ~= 2
+        error( ['copy initPaths.m to the current folder location : ', pwd] );
+    else
+        params = initPaths( params);
+    end
     
     % Turn on diary to record all information
+    c1 = onCleanup( @() eval('diary off') );
     diary( fullfile(params.saveDirectory, 'singleCell.log') );
 
     % Save params

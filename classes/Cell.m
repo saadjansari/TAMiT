@@ -6,6 +6,7 @@ classdef Cell < handle & matlab.mixin.Copyable
         strain % any specific strain information
         numberOfChannels
         featuresInChannels
+        channelsToFit
         lifetime % 2-element vector containing [start_time, end_time]. Should be used when accessing image
         image % (X,Y,Z,T,C)
         featureList % cell array containing features. this is of size numberOfChannels x Time.
@@ -17,7 +18,7 @@ classdef Cell < handle & matlab.mixin.Copyable
     methods ( Access = public )
         
         % Cell {{{
-        function obj = Cell( image, lifetime, species, featuresInChannels, type, settings)
+        function obj = Cell( image, lifetime, species, featuresInChannels, channelsToFit, type, settings)
         % Cell : constructor function for Cell superclass
        
             % Store essentials
@@ -25,21 +26,22 @@ classdef Cell < handle & matlab.mixin.Copyable
             obj.lifetime = lifetime;
             obj.species = species;
             obj.featuresInChannels = featuresInChannels;
+            obj.channelsToFit = channelsToFit;
             obj.numberOfChannels = size( image, 5);
             obj.settings = Cell.parseSettings( settings);
 
             % Initialize the feature list
-            obj.featureList = cell( obj.numberOfChannels, size(image, 4) );
+            obj.featureList = cell( length( obj.channelsToFit), size(image, 4) );
             
             % Initialize featureIdxMap
             obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
 
             % Cell Type
-            if nargin < 5, obj.type = 'generic';
+            if nargin < 6, obj.type = 'generic';
             else, obj.type = type; end
 
             % Save Directory default behaviour
-            if nargin < 6, 
+            if nargin < 7, 
                 obj.settings.saveDirectory = [pwd, filesep, 'ResultsDump'];
                 warning('off', 'MATLAB:RMDIR:RemovedFromPath')
                 rmdir( obj.settings.saveDirectory, 's');
@@ -65,17 +67,22 @@ classdef Cell < handle & matlab.mixin.Copyable
         % fitFeatures {{{
         function obj = fitFeatures( obj, parameters)
 
-            for jChannel = 1 : obj.numberOfChannels
-                disp( upper( sprintf( ['                               Channel %d = ' obj.featuresInChannels{jChannel}], jChannel ) ) )
+            for jChannel = 1 : length(obj.channelsToFit)
+
+                % get actual channel number based on channel index
+                cChannel = obj.channelsToFit( jChannel);
+                disp( upper( sprintf( ['                               Channel %d = ' obj.featuresInChannels{jChannel}], cChannel ) ) )
                 disp('    -----------------------------------------------------------------------')
+
                 for jTime = obj.lifetime(1) : obj.lifetime(2)
 
                     disp( sprintf( '    C-%d Time = %d', jChannel, jTime) )
 
                     % Initialize for this CT step
-                    parameters.channel = jChannel;
+                    parameters.channelTrue = cChannel;
+                    parameters.channelIdx = jChannel;
                     parameters.time = jTime;
-                    parameters.saveDirectory = [ obj.settings.saveDirectory , filesep, sprintf( 'C%d_T%d', jChannel, jTime) ];
+                    parameters.saveDirectory = [ obj.settings.saveDirectory , filesep, sprintf( 'C%d_T%d', cChannel, jTime) ];
                     mkdir( parameters.saveDirectory);
 
                     % Fit features for this CT frame
@@ -91,13 +98,20 @@ classdef Cell < handle & matlab.mixin.Copyable
         function fitFeatures_Frame( obj, parameters)
             % Find and fit features for a single CT frame
             
-            Image2Fit = obj.image(:,:,:, parameters.time, parameters.channel);
-        
+            Image2Fit = obj.image(:,:,:, parameters.time, parameters.channelTrue);
+
+            % check if frame should be skipped
+            status = Cell.checkFrameViability( Image2Fit, parameters.time);
+            if status ~= 0
+                obj.featureList{ parameters.channelIdx, parameters.time} = NaN;
+                return
+            end
+
             % Estimate the features based on an estimation routine (defined in specialized sub-class )
             % Good estimation is key to good optimization in low SnR images
             disp('        Estimation')
-            obj = findFeatures( obj, parameters.time, parameters.channel); 
-            mainFeature = obj.featureList{ parameters.channel , parameters.time};
+            obj = findFeatures( obj, parameters.time, parameters.channelTrue, parameters.channelIdx); 
+            mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
 
             % Optimize the features via local and global fitting, followed by optimization of feature number
             disp('        Optimization')
@@ -125,12 +139,12 @@ classdef Cell < handle & matlab.mixin.Copyable
 
                 % Display and Save
                 if obj.settings.flags.graphRealTime
-                    Cell.displayFinalFit( Image2Fit, obj.featureList{parameters.channel, parameters.time}, fitInfo.GlobalNumber);
+                    Cell.displayFinalFit( Image2Fit, obj.featureList{parameters.channelIdx, parameters.time}, fitInfo.GlobalNumber);
                 end
                 Cell.saveFinalFit( Image2Fit, mainFeature, fitInfo.GlobalNumber);
             end
 
-            obj.updatefeatureMap( parameters.channel, parameters.time);
+            obj.updateFeatureMap( parameters.channelIdx, parameters.time);
             close all
 
         end
@@ -140,7 +154,7 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             disp('                    Local Fitting : '); 
 
-            mainFeature = obj.featureList{ parameters.channel, parameters.time};
+            mainFeature = obj.featureList{ parameters.channelIdx, parameters.time};
             nFeatures = mainFeature.getSubFeatureNumber();
 
             for jFeature = 1 : nFeatures
@@ -177,7 +191,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             disp('                    Global Fitting : '); 
 %             disp('                        Initiated'); 
 
-            mainFeature = obj.featureList{ parameters.channel, parameters.time};
+            mainFeature = obj.featureList{ parameters.channelIdx, parameters.time};
 
             % Prepare for Fit (specialized)
             [ fitProblem, fitInfo] = prepareFit( obj, mainFeature, Image2Fit, parameters, fitScope);
@@ -199,7 +213,7 @@ classdef Cell < handle & matlab.mixin.Copyable
         function fitInfo = fitFeatureNumber( obj, Image2Fit, parameters, fitInfo)
 
             cTime = parameters.time;
-            cChannel = parameters.channel;
+            cChannel = parameters.channelIdx;
             % We will iteratively add and remove features to find the optimum number
             p = 1e-10;
 %             alpha = 0.05;
@@ -376,7 +390,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             fitInfo.mask = logical( imageOrg);
             fitInfo.image = imageOrg;
             fitInfo.numVoxels = size( imageOrg);
-            fitInfo.channel = parameters.channel;
+            fitInfo.channel = parameters.channelTrue;
             fitInfo.time = parameters.time;
             fitInfo.fitScope = fitScope;
             fitInfo.saveDirectory = parameters.saveDirectory;
@@ -427,7 +441,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                                     'FiniteDifferenceType', 'central', ...
                                     'StepTolerance', 1e-3, ...
                                     'display', 'off', ...
-                                    'UseParallel', true);
+                                    'UseParallel', false);
             end
             % }}}
 
@@ -518,7 +532,7 @@ classdef Cell < handle & matlab.mixin.Copyable
         % }}}
         
         % updateFeatureMap {{{
-        function obj = updatefeatureMap( obj, channel, time)
+        function obj = updateFeatureMap( obj, channel, time)
            
             % Initialize the counter. Get all the keys from featureIdxList
             % and add 1
@@ -881,7 +895,22 @@ classdef Cell < handle & matlab.mixin.Copyable
 
         end
         % }}}
+            % checkFrameViability {{{
+            function status = checkFrameViability( Image2Fit, jTime);
 
+                status = 0;
+                % Check if frame is all super-bright( i.e. voxel variance is close to zero)
+                maxVox = max( Image2Fit(:) );
+                minVox = min( Image2Fit(:) );
+
+                if maxVox == minVox
+                    status = 1
+                    disp( sprintf( 'Unviable frame %d, Skipping it...', jTime) )
+                end
+
+            end
+            % }}}
+            
        % }}}
        
         % Feature Estimation {{{
@@ -1712,7 +1741,7 @@ classdef Cell < handle & matlab.mixin.Copyable
 
     methods ( Abstract = true )
     
-        obj = findFeatures( obj, image, time, channel)
+        obj = findFeatures( obj, image, time, channelTrue, channelIdx)
 
     end
 

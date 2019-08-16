@@ -7,39 +7,50 @@ classdef MitoticCell < Cell
     methods
         
         % MitoticCell {{{
-        function obj = MitoticCell( image, lifetime, species, featuresInChannels, settings)
+        function obj = MitoticCell( image, lifetime, species, featuresInChannels, channelsToFit, settings)
         % MitoticCell : constructor function for MitoticCell object     
 
-            obj = obj@Cell( image, lifetime, species, featuresInChannels, 'Mitosis', settings);
+            obj = obj@Cell( image, lifetime, species, featuresInChannels, channelsToFit, 'Mitosis', settings);
 
         end
         % }}}
 
         % findFeatures {{{
-        function obj = findFeatures( obj, cTime, cChannel)
+        function obj = findFeatures( obj, cTime, cChannel, idxChannel)
         % findFeatures : estimates and finds the features 
             
 
             if cTime == obj.lifetime(1)
                 disp('            - DeNovo') 
 
-                switch obj.featuresInChannels{ cChannel}
+                switch obj.featuresInChannels{ idxChannel}
 
                     case 'Microtubule'
 
-                        obj.featureList{ cChannel, cTime} = MitoticCell.findFeaturesDeNovo_MT( obj.image(:,:,:,cTime, cChannel), obj.settings.flags.debug);
+                        obj.featureList{ idxChannel, cTime} = MitoticCell.findFeaturesDeNovo_MT( obj.image(:,:,:,cTime, cChannel), obj.settings.flags.debug);
 
                     case 'Kinetochore'
 
-                        obj.featureList{ cChannel, cTime} = MitoticCell.findFeaturesDeNovo_KC( obj.image(:,:,:,cTime, cChannel), obj.settings.flags.debug);
+                        obj.featureList{ idxChannel, cTime} = MitoticCell.findFeaturesDeNovo_KC( obj.image(:,:,:,cTime, cChannel), obj.settings.flags.debug);
 
                 end
 
             else
 
                 disp('            - Using fits from previous timestep') 
-                obj.featureList{ cChannel, cTime} = obj.featureList{ cChannel, cTime-1}.copyDeep( );
-%                 obj.featureList{ cChannel, cTime} = obj.featureList{ cChannel, cTime-1}.fillParams();
+
+                % Could be a bad frame, so we iterate back until we find a featureList ~= NaN that we can make a copy of
+                usePrevFrame = 1;
+                badFrame = 1;
+                while badFrame
+                    try
+                        badFrame = isnan( obj.featureList{ idxChannel, cTime-usePrevFrame} )
+                        usePrevFrame = usePrevFrame+1;
+                    catch 
+                        badFrame = 0;
+                        obj.featureList{ idxChannel, cTime} = obj.featureList{ idxChannel, cTime-usePrevFrame}.copyDeep();
+                    end
+                end
 
             end
 

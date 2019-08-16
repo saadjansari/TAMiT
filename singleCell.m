@@ -22,7 +22,7 @@ function features = singleCell( settingsPath)
 %             parpool;
 
             % initialize a mitotic cell
-            myCell = MitoticCell( cellData.cell3D, settings.cellinfo.lifetime, settings.cellinfo.species, settings.cellinfo.channelFeatures, settings );
+            myCell = MitoticCell( cellData.cell3D, settings.cellinfo.lifetime, settings.cellinfo.species, settings.cellinfo.channelFeatures, settings.cellinfo.channelsToFit, settings );
 
             % Play the movie
 %             myCell.playMovie( 1 );

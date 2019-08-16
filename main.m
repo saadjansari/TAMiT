@@ -5,11 +5,11 @@ function status = main()
     clearvars 
     addpath( genpath(pwd) )
 
-    CFG = 'Local';
+    CFG = 'Debug';
     initParams = 'initParams';
 
-    % check if user settings exist in the current folder
-    if exist( initParams, 'file' ) ~= 2
+    % check if params file exists in the current folder
+    if exist( fullfile( pwd, [initParams '.m'] ) ) ~= 2
         error( ['copy ' initParams '.m to the current folder location : ', pwd] );
     end
 
@@ -18,13 +18,13 @@ function status = main()
 
     % Define cleanup tasks
     c1 = onCleanup( @() eval('diary off') );
-    c2 = onCleanup( @() disp('Closing files and cleaning up') );
+    c2 = onCleanup( @() delete( gcp('nocreate') ) );
+    c3 = onCleanup( @() disp('Closing files and cleaning up') );
 
     % ----------------------------- MAIN ---------------------------
     
-        % Run Single Cell
-        singleCell( paramsPath);
-        fprintf('MATLAB quit unexpectedly. Closing files and cleaning up...\n')
+    % Run Single Cell
+    singleCell( paramsPath);
 
     % ---------------------------- CLEANUP -------------------------
 

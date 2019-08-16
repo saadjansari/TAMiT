@@ -16,8 +16,11 @@ function params = initCellInfo()
     lifetime = [150 155];
     %lifetime = [208 210]; 
 
-    % Channel Features (array size must match dim5 of cell movie)
+    % Channel Features ( what features do you want to fit?)
     channelFeatures = {'Microtubule', 'Kinetochore'};
+
+    % Channels to Fit ( [] = all ) (length must match the length of channelFeatures) (order must match the order of features in channelFeatures)
+    channelsToFit = [1 2];
 
     % Cell Movie Location
     moviePath = '/Users/saadjansari/Documents/Projects/ImageAnalysis/FY Datasets/998_150msR_100G_trig_7Z_001_cells/998_150msR_100G_trig_7Z_001_24.mat'; 
@@ -28,6 +31,7 @@ function params = initCellInfo()
     params.strain = strain;
     params.lifetime = lifetime;
     params.channelFeatures = channelFeatures;
+    params.channelsToFit = channelsToFit;
     params.moviePath = moviePath;
 
 end

@@ -5,14 +5,15 @@
 % cColor can either be a string or a string array of upto 3 elements specifying the color of each of the channels. the size of cColors must match the size of cChannels
 
 % load the movie from the segmented cell
-cellpath = '/Users/saadjansari/Documents/Projects/ImageAnalysis/FY Datasets/998_150msR_100G_trig_7Z_001_cells/998_150msR_100G_trig_7Z_001_24.mat';
+cellpath = '/Users/saadjansari/Documents/Projects/ImageAnalysis/FY Datasets/1095_50msG_100msR_7Z_005_cells/1095_50msG_100msR_7Z_005_33.mat';
 cellData = importSingleCell( cellpath );
 image = cellData.cell3D;
 
 numChannels = size(image, 5);
-cChannels = 1 : numChannels;
-colors = {'R', 'G', 'B'};
-cColors = colors( 1: numChannels);
+cChannels = 2;
+% cChannels = 1 : numChannels;
+colors = {'G', 'R', 'B'};
+cColors = colors( cChannels);
 
 if length( cChannels) > 3
     error('playMovie: cChannels cannot contain more than 3 elements')
