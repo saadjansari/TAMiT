@@ -1,6 +1,5 @@
 function params = initCellInfo()
     % Initializes the cell info
-    
 
     % Cell Type : 'Mitosis' or 'Interphase'
     celltype = 'Mitosis';
@@ -10,21 +9,21 @@ function params = initCellInfo()
 
     % Cell Strain
     
-    strain = 'wild-type';
-
-    % Times to Analyze: must be within the time range of the cell movie
-    lifetime = [150 155];
-    %lifetime = [208 210]; 
+    strain = 'gtb1-K5A';
+%     lifetime = [11 156];
+     lifetime = [35 156];
 
     % Channel Features ( what features do you want to fit?)
-    channelFeatures = {'Microtubule', 'Kinetochore'};
+    channelFeatures = {'Microtubule'};
 
     % Channels to Fit ( [] = all ) (length must match the length of channelFeatures) (order must match the order of features in channelFeatures)
-    channelsToFit = [1 2];
-
+    channelsToFit = [2];
+ 
     % Cell Movie Location
-    moviePath = '/Users/saadjansari/Documents/Projects/ImageAnalysis/FY Datasets/998_150msR_100G_trig_7Z_001_cells/998_150msR_100G_trig_7Z_001_24.mat'; 
-%     moviePath = '/projects/saan8193/ImageAnalysis/FY Datasets/998_150msR_100G_trig_7Z_001_cells/998_150msR_100G_trig_7Z_001_24.mat';     
+    movieParentLocal = '/Users/saadjansari/Documents/Projects/ImageAnalysis/FY Datasets'
+    movieParentSummit = '/projects/saan8193/ImageAnalysis/FY Datasets'
+    movieParentRumor = '/projects/saan8193/ImageAnalysis/FY Datasets'
+    moviePath = fullfile( movieParentLocal, '1095_50msG_100msR_7Z_005_cells/1095_50msG_100msR_7Z_005_7.mat');
     
     params.celltype = celltype;
     params.species = species;
