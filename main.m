@@ -1,11 +1,14 @@
-function status = main()
+function status = main( CFG)
     % ----------------------------- PREP ---------------------------
     
     clc; close all;
-    clearvars 
+    clearvars -except CFG
     addpath( genpath(pwd) )
 
-    CFG = 'Debug';
+    if nargin == 0
+        CFG = 'Local';
+    end
+
     initParams = 'initParams';
 
     % check if params file exists in the current folder
