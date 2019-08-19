@@ -12,7 +12,6 @@ classdef Cell < handle & matlab.mixin.Copyable
         featureList % cell array containing features. this is of size numberOfChannels x Time.
         settings
         featureMap
-        dataForPostGraphics
     end
 
     methods ( Access = public )
@@ -133,7 +132,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             Cell.saveFinalFit( Image2Fit, mainFeature, fitInfo.Global);
 
             % HyperParameter Fitting
-            if obj.settings.flags.doFitFeatureNumber
+            if obj.settings.flags.doFitFeatureNumber && ~obj.settings.skipOptimizeNumber
                 disp('            - Feature Number')
                 fitInfo.GlobalNumber = fitFeatureNumber( obj, Image2Fit, parameters, fitInfo.Global);
 
@@ -146,6 +145,10 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             obj.updateFeatureMap( parameters.channelIdx, parameters.time);
             close all
+            
+            fitInfo.Global.fitVecs.labels
+            fitInfo.Global.fitVecs.vec
+            fitInfo.Global.fitResults.vfit
 
         end
         % }}}
@@ -211,6 +214,11 @@ classdef Cell < handle & matlab.mixin.Copyable
         % }}}
         % fitFeatureNumber {{{
         function fitInfo = fitFeatureNumber( obj, Image2Fit, parameters, fitInfo)
+
+            % check if features should be added and removed
+            if obj.settings.skipOptimizeNumber
+                return
+            end
 
             cTime = parameters.time;
             cChannel = parameters.channelIdx;
@@ -410,11 +418,11 @@ classdef Cell < handle & matlab.mixin.Copyable
                 opts = optimoptions( @lsqnonlin, ...
                                     'MaxFunEvals', 2000, ...
                                     'OptimalityTolerance', 1e-12, ...
-                                    'MaxIter', 10, ...
+                                    'MaxIter', 20, ...
                                     'TolFun', 1e-7, ...
-                                    'FiniteDifferenceStepSize', 1e-1, ...
+                                    'FiniteDifferenceStepSize', 1e-2, ...
                                     'FiniteDifferenceType', 'central', ...
-                                    'StepTolerance', 1e-3, ...
+                                    'StepTolerance', 1e-5, ...
                                     'display', 'iter', ... 
                                     'OutputFcn', @plotFit );
 
@@ -435,7 +443,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                 opts = optimoptions( @lsqnonlin, ...
                                     'MaxFunEvals', 2000, ...
                                     'OptimalityTolerance', 1e-12, ...
-                                    'MaxIter', 10, ...
+                                    'MaxIter', 30, ...
                                     'TolFun', 1e-7, ...
                                     'FiniteDifferenceStepSize', 1e-1, ...
                                     'FiniteDifferenceType', 'central', ...
@@ -1112,10 +1120,11 @@ classdef Cell < handle & matlab.mixin.Copyable
             maxAmp = max( image(:) );
             minAmp = 0; % min SnR is half of max SnR of image
             minSig = [1.2, 1.2, 1.0];
-            maxSig = [1.5, 1.5, 1.2];
+            maxSig = [2.0, 2.0, 2.0];
             
 
             % find the correct label in vecLabels, and start to place in the correct bounds in the correct places
+
 
             % Find index of parameters 
             idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'amplitude') ) );
@@ -1124,6 +1133,12 @@ classdef Cell < handle & matlab.mixin.Copyable
             idxP1 = find( ~cellfun( @isempty, strfind( vecLabels, 'endPosition') ) );
             idxP = find( ~cellfun( @isempty, strfind( vecLabels, 'position') ) );
             idxBkg = find( ~cellfun( @isempty, strfind( vecLabels, 'background') ) );
+
+            % determine amplitude bounds
+            % halfway between background and max value?
+            %minAmp = 0.5*(maxBkg - vec(1) );
+            %idxUp = vec(idxAmp) < minAmp;
+            %vec( idxAmp(idxUp) ) = minAmp;
 
             % Store upper and lower bounds correctly
             if ~isempty( idxAmp), 
@@ -1150,6 +1165,9 @@ classdef Cell < handle & matlab.mixin.Copyable
                 lb( idxP ) = minBkg; end
 
             if any( lb > ub) || any(ub < lb) || any( vec < lb) || any(vec > ub)
+                badIdx = unique([ find( lb > ub),  find(ub < lb) , find( vec < lb) , find(vec > ub)]);
+                badProps = vecLabels( badIdx)
+                disp(vecLabels)
                 disp( ub )
                 disp( vec)
                 disp( lb )
@@ -1728,6 +1746,21 @@ classdef Cell < handle & matlab.mixin.Copyable
             flags.doFitLocal = settings.CFGinfo.fitLocal;
             flags.doFitFeatureNumber = settings.CFGinfo.fitFeatureNumber;
             flags.fitExploreSpeed = settings.CFGinfo.fitExploreSpeed;
+            if isfield( settings, 'fitSpindleOnly')
+                flags.fitSpindleOnly = 1;
+            else
+                flags.fitSpindleOnly = 0;
+            end
+            if isfield( settings, 'skipOptimizeNumber')
+                flags.skipOptimizeNumber = settings.skipOptimizeNumber;
+            else
+                flags.skipOptimizeNumber = 0;
+            end
+            if isfield( settings, 'removeSpindleSPB')
+                flags.removeSpindleSPB = settings.removeSpindleSPB;
+            else
+                flags.removeSpindleSPB = 0;
+            end
 
             settings.paths.saveParent = settings.CFGinfo.saveParent;
             settings.paths.run = settings.CFGinfo.runPath;

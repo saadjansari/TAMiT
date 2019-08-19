@@ -30,8 +30,11 @@ classdef Spot < BasicElement
             else
                 imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint3D( obj.position, obj.sigma, imageOut) );
             end
+
+            % FIXME
+%             imageFeat = imageOut;
             obj.imageSim = imageFeat;
-%             imageOut( imageOut < imageFeat) = imageFeat( imageOut < imageFeat);
+            imageOut( imageOut < imageFeat) = imageFeat( imageOut < imageFeat);
             imageOut = imageFeat + imageOut;
 
         end

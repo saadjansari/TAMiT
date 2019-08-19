@@ -19,6 +19,9 @@ classdef MitoticCell < Cell
         function obj = findFeatures( obj, cTime, cChannel, idxChannel)
         % findFeatures : estimates and finds the features 
             
+            % Compose image to try fitting to:
+            idxT = cTime-1:cTime+1;
+            if idxT(1) < obj.lifetime(1), idxT=idxT+1; elseif idxT(end) > obj.lifetime(2), idxT = idxT-1; end
 
             if cTime == obj.lifetime(1)
                 disp('            - DeNovo') 
@@ -27,7 +30,7 @@ classdef MitoticCell < Cell
 
                     case 'Microtubule'
 
-                        obj.featureList{ idxChannel, cTime} = MitoticCell.findFeaturesDeNovo_MT( obj.image(:,:,:,cTime, cChannel), obj.settings.flags.debug);
+                        obj.featureList{ idxChannel, cTime} = MitoticCell.findFeaturesDeNovo_MT( obj.image(:,:,:,cTime, cChannel), obj.settings.flags.debug, obj.settings.flags.fitSpindleOnly, obj.settings.flags.removeSpindleSPB);
 
                     case 'Kinetochore'
 
@@ -64,7 +67,7 @@ classdef MitoticCell < Cell
         % Microtubules {{{
         
         % findFeaturesDeNovo_MT {{{
-        function spindleObj = findFeaturesDeNovo_MT( imageIn, displayFlag)
+        function spindleObj = findFeaturesDeNovo_MT( imageIn, displayFlag, spindleOnlyFlag, removeSpindleSPB)
 
             % Mitotic Cell:
             %   Find the Spindle microtubule
@@ -97,15 +100,20 @@ classdef MitoticCell < Cell
                 spindle = MitoticCell.findTheSpindle( imageIn);
             end
             % Create the Spindle MTs
-            spindleAmp = min( Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition ) )-bkg;
+            lineAmpList = Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition );
+%             spindleAmp = lineAmpList( round( length(lineAmpList)/2) );
+             spindleAmp = lineAmpList( round( length(lineAmpList)/2) ) - bkg;
+%             spindleAmp = min( Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition ) )-bkg;
             spindleMT = Line( spindle.MT.startPosition, spindle.MT.endPosition, spindleAmp, sigma, dim, props.SpindleMT, display.SpindleMT );
             spindleMT.findVoxelsInsideMask( logical(imageIn) );
 
             % SPB
             
             % Create the SpindlePoleBody objects
-            spbAmp(1) = imageIn( spindleMT.startPosition(2), spindleMT.startPosition(1), spindleMT.startPosition(3) )-bkg-spindleAmp;
-            spbAmp(2) = imageIn( spindleMT.endPosition(2), spindleMT.endPosition(1), spindleMT.endPosition(3) )-bkg-spindleAmp;
+%             spbAmp(1) = imageIn( spindleMT.startPosition(2), spindleMT.startPosition(1), spindleMT.startPosition(3) );
+%             spbAmp(2) = imageIn( spindleMT.endPosition(2), spindleMT.endPosition(1), spindleMT.endPosition(3) );
+             spbAmp(1) = imageIn( spindleMT.startPosition(2), spindleMT.startPosition(1), spindleMT.startPosition(3) )-bkg-spindleAmp;
+             spbAmp(2) = imageIn( spindleMT.endPosition(2), spindleMT.endPosition(1), spindleMT.endPosition(3) )-bkg-spindleAmp;
             if any(spbAmp < 0);
                 spbAmp( spbAmp < 0) = bkg;
                 warning( 'findFeaturesMT_deNovo : forcing SPBAmp to be > 0')
@@ -114,37 +122,42 @@ classdef MitoticCell < Cell
             SPB{2} = Spot( spindleMT.endPosition, spbAmp(2), sigma, dim, props.SPB, display.SPB);
 
             % Astral MT
-            
-            % Find the angle of this spindle w.r.t to each pole
-            spindleAngle(1) = mod( atan2( spindleMT.endPosition(2)-spindleMT.startPosition(2) , spindleMT.endPosition(1)-spindleMT.startPosition(1) ), 2*pi );
-            spindleAngle(2) = mod( atan2( spindleMT.startPosition(2)-spindleMT.endPosition(2) , spindleMT.startPosition(1)-spindleMT.endPosition(1) ) , 2*pi );
+            if ~spindleOnlyFlag
 
-            % Find Astral Microtubules
-            if displayFlag 
-                [ spindle.Aster{1}.MT, ax] = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.startPosition, spindleAngle(1), spindleExclusionRange, ax);
-                [ spindle.Aster{2}.MT, ax] = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.endPosition, spindleAngle(2), spindleExclusionRange, ax); 
-            else
-                spindle.Aster{1}.MT = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.startPosition, spindleAngle(1), spindleExclusionRange);
-                spindle.Aster{2}.MT = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.endPosition, spindleAngle(2), spindleExclusionRange); 
-            end
+                % Find the angle of this spindle w.r.t to each pole
+                spindleAngle(2) = mod( atan2( spindleMT.startPosition(2)-spindleMT.endPosition(2) , spindleMT.startPosition(1)-spindleMT.endPosition(1) ) , 2*pi );
 
-            % Create Astral MTs
-            AstralMT = cell(1,2);
-            for jAster = 1 : 2
-                for jmt = 1 : length( spindle.Aster{jAster}.MT )
+                % Find Astral Microtubules
+                if displayFlag 
+                    [ spindle.Aster{1}.MT, ax] = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.startPosition, spindleAngle(1), spindleExclusionRange, ax);
+                    [ spindle.Aster{2}.MT, ax] = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.endPosition, spindleAngle(2), spindleExclusionRange, ax); 
+                else
+                    spindle.Aster{1}.MT = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.startPosition, spindleAngle(1), spindleExclusionRange);
+                    spindle.Aster{2}.MT = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.endPosition, spindleAngle(2), spindleExclusionRange); 
+                end
 
-                    lineAmp = median( Cell.findAmplitudeAlongLine( imageIn, spindle.Aster{jAster}.MT{jmt}.startPosition, spindle.Aster{jAster}.MT{jmt}.endPosition ) )-bkg;
+                % Create Astral MTs
+                AstralMT = cell(1,2);
+                for jAster = 1 : 2
+                    for jmt = 1 : length( spindle.Aster{jAster}.MT )
 
-                    newMT = Line( spindle.Aster{jAster}.MT{jmt}.startPosition, spindle.Aster{jAster}.MT{jmt}.endPosition, lineAmp, sigma, dim, props.AsterMT, display.AsterMT);
+                        lineAmp = median( Cell.findAmplitudeAlongLine( imageIn, spindle.Aster{jAster}.MT{jmt}.startPosition, spindle.Aster{jAster}.MT{jmt}.endPosition ) )-bkg;
 
-                    newMT.findVoxelsInsideMask( logical(imageIn) );
+                        newMT = Line( spindle.Aster{jAster}.MT{jmt}.startPosition, spindle.Aster{jAster}.MT{jmt}.endPosition, lineAmp, sigma, dim, props.AsterMT, display.AsterMT);
 
-                    if isempty( AstralMT{jAster} )
-                        AstralMT{jAster} = {newMT};
-                    else
-                        AstralMT{jAster} = { AstralMT{jAster}{:}, newMT};
+                        newMT.findVoxelsInsideMask( logical(imageIn) );
+
+                        if isempty( AstralMT{jAster} )
+                            AstralMT{jAster} = {newMT};
+                        else
+                            AstralMT{jAster} = { AstralMT{jAster}{:}, newMT};
+                        end
                     end
                 end
+
+            elseif spindleOnlyFlag % no astral microtubules allowed
+                AstralMT{1} = {};
+                AstralMT{2} = {};
             end
 
             % Store basic objects in object Hierarchy
@@ -158,7 +171,12 @@ classdef MitoticCell < Cell
                 end
 
             end
-            spindleObj = Spindle( dim, imageIn, {spindleMT, AsterObjects{:} }, props.Spindle);
+           
+            if removeSpindleSPB
+                spindleObj = Spindle( dim, imageIn, {spindleMT}, props.Spindle);
+            else
+                spindleObj = Spindle( dim, imageIn, {spindleMT, AsterObjects{:} }, props.Spindle);
+            end
             spindleObj.findEnvironmentalConditions();
             spindleObj.syncFeaturesWithMap();
 %             spindleObj.fillParams();
@@ -179,10 +197,11 @@ classdef MitoticCell < Cell
             end
 
             % Params
-            spindleDeterminationSensitivity = 0.4;
-            spindleMinIntensity = 0.6;
+            spindleDeterminationSensitivity = 0.6;
+            spindleMinIntensity = 0.75;
             linewidth = 3;
             brightestPixelAsSPB = 0;
+            imMask3D = imageIn > 0;
 
             % Useful variables  
             % zAnisotropy = ceil( sizeVoxelsZ / sizeVoxelsX );
@@ -190,11 +209,11 @@ classdef MitoticCell < Cell
 
             % Find Strong Signal Regions{{{
             % Convolve the image with a 3D gaussian to bring out the signal from the SPB
-            image3DConv = imgaussfilt3( imageIn, 0.5, 'FilterDomain', 'spatial');
+            image3DConv = imgaussfilt3( imageIn, 1, 'FilterDomain', 'spatial') .* imMask3D;
             imPlane = mat2gray( max( image3DConv, [], 3) );
 
             % Keep the strongest signal pixels
-            threshOtsu = thresholdOtsu( imPlane( imPlane > 0) );
+            threshOtsu = max( [thresholdOtsu( imPlane( imPlane > 0) ) 0.7]);
             imPlaneStrong = imPlane;
             imPlaneStrong( imPlaneStrong < threshOtsu) = 0;
 
@@ -278,13 +297,13 @@ classdef MitoticCell < Cell
             % measure intensity
             IntSpindle = zeros(1, length(coords) );
             idxMaxPix = zeros(1, length(coords) );
-            % dispImg( imPlane); hold on; title('How linescan is done with a line width'); set(gca, 'FontSize', 16)
-            % plot( [coords(2,1) coords(2,end)], [coords(1,1) coords(1,end)], 'r-', 'LineWidth', 1)
+%             dispImg( imPlane); hold on; title('How linescan is done with a line width'); set(gca, 'FontSize', 16)
+%             plot( [coords(2,1) coords(2,end)], [coords(1,1) coords(1,end)], 'r-', 'LineWidth', 1)
             for jPix = 1 : length(IntSpindle)
                 coordsPerp = round( coords(:, jPix) +  perpMatrix);
                 coordsPerp( 1, find( coordsPerp(1,:) > numVoxelsY) ) = numVoxelsY; coordsPerp( 1, find( coordsPerp(1,:) < 1) ) = 1;
                 coordsPerp( 2, find( coordsPerp(2,:) > numVoxelsX) ) = numVoxelsX; coordsPerp( 2, find( coordsPerp(2,:) < 1) ) = 1;
-            %     plot( coordsPerp(2,:), coordsPerp(1,:), 'c-', 'LineWidth', 1)
+%                 plot( coordsPerp(2,:), coordsPerp(1,:), 'c-', 'LineWidth', 1)
                 idxPerp = sub2ind( [numVoxelsY, numVoxelsX], coordsPerp(1, :), coordsPerp(2, :) ); 
                 [IntSpindle( jPix), idxMaxInt] = max( imPlane(idxPerp) );
                 idxMaxPix( jPix) = idxPerp( idxMaxInt);

@@ -16,18 +16,18 @@ classdef Spindle < Organizer
         function obj = Spindle( dim, image, featureList, props2Fit)
 
             % ensure that featureList has 3 elements. The first is of type Line, the second and third are of type AsterMT
-            if length( featureList) ~=3
-                error('Spindle: featureList input argument must contain 3 objects in total')
-            end
+            %if length( featureList) ~=3
+                %error('Spindle: featureList input argument must contain 3 objects in total')
+            %end
             if ~strcmp( featureList{1}.type, 'Line')
                 error('Spindle: featureList{1} must be of type ''Line'' ') 
             end
-            if ~strcmp( featureList{2}.type, 'AsterMT')
-                error('Spindle: featureList{2} must be of type ''AsterMT'' ') 
-            end
-            if ~strcmp( featureList{3}.type, 'AsterMT')
-                error('Spindle: featureList{3} must be of type ''AsterMT'' ') 
-            end
+            %if ~strcmp( featureList{2}.type, 'AsterMT')
+                %error('Spindle: featureList{2} must be of type ''AsterMT'' ') 
+            %end
+            %if ~strcmp( featureList{3}.type, 'AsterMT')
+                %error('Spindle: featureList{3} must be of type ''AsterMT'' ') 
+            %end
 
             obj = obj@Organizer( dim, featureList, 'Spindle');
             obj.image = image;
@@ -36,9 +36,11 @@ classdef Spindle < Organizer
             % initialize featureMap and assign IDs
             obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
 
+            obj.numAsters = length(featureList)-1;
+
             % assign voxels to its basic elements
             obj.featureList{1}.findVoxelsInsideMask( logical(image) );
-            for jAster = 1 : 2
+            for jAster = 1 : obj.numAsters
                 for jFeat = 1 : length( obj.featureList{ 1+jAster}.featureList)
 
                     obj.featureList{1+jAster}.featureList{jFeat}.findVoxelsInsideMask( logical( image) );
@@ -99,7 +101,7 @@ classdef Spindle < Organizer
              
             % Aster Vector
             % Create the vector for each subfeature MT_Array and send it to the objects for absorption
-            for jAster = 1 : 2
+            for jAster = 1 : obj.numAsters
 
                 strAster = [ 'SP_', num2str(jAster), '_' ];
                 % Take the vector and find indices associated with the mt_array. 
