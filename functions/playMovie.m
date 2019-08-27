@@ -5,7 +5,7 @@
 % cColor can either be a string or a string array of upto 3 elements specifying the color of each of the channels. the size of cColors must match the size of cChannels
 
 % load the movie from the segmented cell
-cellpath = '/Users/saadjansari/Documents/Projects/ImageAnalysis/FY Datasets/1095_50msG_100msR_7Z_007_cells/1095_50msG_100msR_7Z_007_26.mat';
+cellpath = '/Users/saadjansari/Documents/Projects/ImageAnalysis/FY Datasets/1095_50msG_100msR_7Z_002_cells/1095_50msG_100msR_7Z_002_7.mat';
 cellData = importSingleCell( cellpath );
 image = cellData.cell3D;
 

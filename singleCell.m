@@ -41,6 +41,20 @@ function features = singleCell( paramsPath)
     % Import the single cell movie
     cellData = importSingleCell( params.cellinfo.moviePath);
 
+    % Add additional data to param file that is cell specific
+    
+    % Voxel Size
+    sizeVoxels = [ cellData.metaData.sizeVoxelsX, cellData.metaData.sizeVoxelsY, cellData.metaData.sizeVoxelsZ];
+
+    % Time Step 
+    % find mean time for all z-slices
+    timesTC = squeeze(mean( cellData.planeTimes, 1) ); 
+    timeSteps = diff(timesTC);
+    % remove any nans and then use the median timeStep as the timeStep
+    timeSteps( isnan( timeSteps) ) = 0;
+    timeStep = median( timeSteps);
+    save( paramsPath, 'sizeVoxels', 'timeStep', '-append')
+
     % Run the specific type of cell
     switch params.cellinfo.celltype
         case 'Mitosis'

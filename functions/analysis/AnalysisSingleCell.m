@@ -15,8 +15,8 @@ classdef AnalysisSingleCell < handle
 
     methods (Access = public )
 
-        % AnalsisSingleCell {{{
-        function obj = AnalysisSingleCell( pathResCell, cellType, channels, features, timeStep, sizeVoxels, mov)
+        % AnalysisSingleCell {{{
+        function obj = AnalysisSingleCell( pathResCell, cellType, channels, features, timeStep, sizeVoxels)
             % Contruct the Analysis Object
             
             obj.path = pathResCell;
@@ -40,10 +40,6 @@ classdef AnalysisSingleCell < handle
 
             if nargin > 5
                 obj.sizeVoxels = sizeVoxels;
-            end
-
-            if nargin > 6
-                obj.mov = mov;
             end
 
             [~, obj.folderName, ~] = fileparts( pathResCell);
@@ -86,12 +82,6 @@ classdef AnalysisSingleCell < handle
 
             % find times for which analysis will be performed
             obj.times = obj.findTimes( channel);
-            % FIXME cut7 does not have data, so we'll  use microtubule data
-            if strcmp( obj.features{jChannel}, 'Cut7')
-                % find MT channel
-                refChannel = obj.channels( find( strcmp( obj.features, 'Microtubule') ) );
-                obj.times = obj.findTimes( refChannel);
-            end 
 
             for jFrame = 1 : length( obj.times)
 
@@ -118,21 +108,10 @@ classdef AnalysisSingleCell < handle
             timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_global.mat']; 
 
             % Load data file
-            
-            % FIXME cut7 does not have data, so we'll load up microtubule data for it to get spindle lengths
-            if strcmp( obj.features{jChannel}, 'Cut7')
-                % find MT channel
-                refChannel = obj.channels( find( strcmp( obj.features, 'Microtubule') ) );
-                timeDataFile = ['C' num2str( refChannel) '_T' num2str( time) '_global.mat']; 
-            end 
             timeData = load( timeDataFile);
 
             % Initialize main feature from loaded data
             eval( ['mainFeature = ' timeData.featureMainStruct.type '.loadFromStruct( timeData.featureMainStruct);'] );
-            %if strcmp( obj.features{jChannel}, 'Cut7')
-                %timeData.featureMainStruct.type
-                %mainFeature
-            %end 
 
             % Run Feature Specific analysis
             obj.analyzeFeature( mainFeature, jChannel, jTime);
@@ -176,7 +155,7 @@ classdef AnalysisSingleCell < handle
             end
 
             % Capture frame for movie
-            img = obj.mov( :,:,:, obj.times(jTime), 2);
+            img = mainFeature.image;
             f = figure('visible', 'off'); 
             h = tight_subplot(1,2);
             set(f, 'currentaxes', h(1) );
@@ -255,11 +234,8 @@ classdef AnalysisSingleCell < handle
             endPos = mainFeature.featureList{1}.endPosition;
 
             % get cut7 frame 
-            channelCut7 = obj.channels( find( strcmp( obj.features, 'Cut7') ) );
-            cut7Frame = obj.mov(:,:,:, cTime, channelCut7);
-            % take a max z projection
-            cut7Frame = squeeze( max( cut7Frame, [], 3) );
-            cut7amp = Cell.findAmplitudeAlongLine( cut7Frame, startPos(1:2), endPos(1:2)); 
+            img = mainFeature.image;
+            cut7amp = Cell.findAmplitudeAlongLine( max( cut7Frame, [], 3), startPos(1:2), endPos(1:2)); 
 
             % normalize it from 0 to 1
             normRange = 0:0.02:1;
@@ -270,6 +246,20 @@ classdef AnalysisSingleCell < handle
             % Store amplitude data normalized against spindle length
             obj.data.cut7Amp(jTime, :)=interp1( linspace(0,1,length( cut7amp) ), cut7amp, normRange);
 
+            % Capture frame for movie
+            f = figure('visible', 'off'); 
+            h = tight_subplot(1,2);
+            set(f, 'currentaxes', h(1) );
+            imagesc( h(1), max(img , [], 3) ), 
+            colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
+            title(sprintf('ref: T = %d', obj.times(jTime) ) );
+            set(f, 'currentaxes', h(2) );
+            imagesc( h(2), max(img , [], 3) ), 
+            colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
+            line( [startPos(1), endPos(1)], [startPos(2), endPos(2)], 'm:', 'LineWidth', 1)
+            title(sprintf('feature: T = %d', obj.times(jTime) ) );
+            obj.data.movCut7( jTime) = getframe( f);
+            close(f)
         end
         % }}}
         % graphChannelCut7 {{{
@@ -390,7 +380,6 @@ classdef AnalysisSingleCell < handle
         % makeMovie {{{
         function makeMovie( obj, jChannel)
             
-            % FIXME
             if find( strcmp( obj.features, 'Microtubule') ) == jChannel % if microtubule channel
 
                 writerObj = VideoWriter([obj.path, filesep, 'mt_video.avi']);
@@ -410,6 +399,30 @@ classdef AnalysisSingleCell < handle
 
                 % close the writer object
                 close(writerObj);
+
+            elseif find( strcmp( obj.features, 'Cut7') ) == jChannel % if microtubule channel
+
+                writerObj = VideoWriter([obj.path, filesep, 'cut7_video.avi']);
+                writerObj.FrameRate = 10;
+
+                % open the video writer
+                open(writerObj);
+
+                % write the frames to the video
+                for i=1:length(obj.data.movCut7)
+
+                    % convert the image to a frame
+                    frame = obj.data.movCut7(i) ;    
+                    writeVideo(writerObj, frame);
+
+                end
+
+                % close the writer object
+                close(writerObj);
+
+            else
+
+                error('unknown feature channel')
 
             end
 
@@ -452,10 +465,10 @@ classdef AnalysisSingleCell < handle
 
             % TEMPORARY. IMPORTING THE MOVIE AND LOADING SOME INFORMATION.
             % THIS SHOULD BE DONE BY SINGLECELL
-            movInfo = AnalysisSingleCell.importMovie( params);
+            %movInfo = AnalysisSingleCell.importMovie( params);
 
             % Initialize analysis object
-            analysisObj = AnalysisSingleCell( resPathCell, params.cellType, params.channelsToAnalyze, params.channelFeatures, movInfo.timeStep, movInfo.sizeVoxels, movInfo.mov);
+            analysisObj = AnalysisSingleCell( resPathCell, params.cellType, params.channelsToAnalyze, params.channelFeatures, params.timeStep, params.sizeVoxels);
 
             % analyze the cell
             analysisObj.Analyze();

@@ -74,9 +74,11 @@ class SimulSingleCell( object):
         # set the correct working directory
         if self.opts.config == 'Summit':
             self.workdir = paths_workdir['Summit']
+            self.launchdir = paths_launch['Summit']
             
         elif self.opts.config == 'Local':
             self.workdir = paths_workdir['Local']
+            self.launchdir = paths_launch['Summit']
             
         elif self.opts.config == 'Rumor':
             raise ValueError('RunSimulSingleCell: rumor not set up yet.')
@@ -105,6 +107,7 @@ class SimulSingleCell( object):
         # Launch the fits
         if self.opts.launch:
             print( 'Launching simulataneous cell fits...')
+            # os.chdir( self.launchdir) 
             status = call(['sbatch', self.fname['launch']])  
 
     def InitializeParams(self):
