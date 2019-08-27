@@ -45,8 +45,10 @@ classdef Organizer < Feature
             objCopy = copyShallow( obj);
             
             % copy featureMap if present
-            if isprop( objCopy, 'featureMap')
+            if isprop( objCopy, 'featureMap') && ~isempty( obj.featureMap.keys )
                 objCopy.featureMap = containers.Map( obj.featureMap.keys,obj.featureMap.values);
+            else
+                obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
             end
 
             % now make it deep by copying obj.featureList

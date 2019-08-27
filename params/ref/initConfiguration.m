@@ -19,7 +19,7 @@ function [CFG, CFGinfo] = initConfiguration( CFG)
     runDebug = 0;
     fitLocal = 0;
     fitFeatureNumber = 1;
-    fitExploreSpeed = 1;
+    fitExploreSpeed = 0;
 
     switch CFG
         case 'Local'

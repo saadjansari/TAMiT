@@ -484,7 +484,7 @@ classdef Spindle < Organizer
             obj = Spindle( S.dim, S.image, featureList, S.props2Fit);
 %             obj = obj@Organizer( S.dim, featureList, S.type);
             obj.findEnvironmentalConditions();
-            obj.syncFeaturesWithMap()
+            obj.syncFeaturesWithMap();
 
         end
         % }}}

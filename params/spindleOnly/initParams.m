@@ -2,7 +2,11 @@ function paramsPath = initParams( CFG )
     % Creates the settings for running the software
     
     % set up the base configuration
-    if nargin == 0; CFG='Local'; end
+    if nargin == 0
+        CFG='Local'; 
+    %else 
+        %CFG = CFG{1}; 
+    end
 
     % Initialize Configuration, Cell Info and Paths
     if exist( fullfile( pwd, 'initConfiguration.m') ) ~= 2
@@ -18,38 +22,43 @@ function paramsPath = initParams( CFG )
         params.cellinfo = initCellInfo();
     end
 
-    % St up the paths for running single cell
+    % Set up the paths for running single cell
     if exist( fullfile( pwd, 'initPaths.m') ) ~= 2
         error( ['copy initPaths.m to the current folder location : ', pwd] );
     else
         params = initPaths( params);
     end
-    
-    % Turn on diary to record all information
-    c1 = onCleanup( @() eval('diary off') );
-    diary( fullfile(params.saveDirectory, 'singleCell.log') );
 
-    % Add specific params here for this fitting run
-    params.fitSpindleOnly = 1;
-    params.skipOptimizeNumber = 1;
-    params.removeSpindleSPB = 1;
+    numCells = length( params);
+    paramsRef = params;
 
+    for jCell = 1 : numCells
 
-    % Save params
-    paramsPath = params.paramsPath;
-    save( paramsPath, 'params', '-v7.3')
-    
-    % Make sure you copy the settings file from a default place into runpath
+        params = paramsRef{ jCell};
 
-    disp('--------------------------------------------------------------------------------------')
-    disp( ['Configuration: ' params.CFG])
-    disp(' ')
-    disp('Paths:')
-    disp(' ')
-    disp( ['    Run Path: ' params.CFGinfo.runPath])
-    disp( ['    Save Path: ' params.saveDirectory])
-    disp( ['    User Settings: ' params.paramsPath, '.mat' ])
-    disp(' ')
-    disp('--------------------------------------------------------------------------------------')
+        % Add specific params here for this fitting run
+        params.fitSpindleOnly = 1;
+        params.skipOptimizeNumber = 1;
+        params.removeSpindleSPB = 1;
+
+        % Save params
+        paramsPath{ jCell} = params.paramsPath;
+        save( paramsPath{ jCell}, 'params', '-v7.3')
+        
+        % Make sure you copy the settings file from a default place into runpath
+
+        %disp('--------------------------------------------------------------------------------------')
+        %disp( ['Configuration: ' params.CFG])
+        %disp(' ')
+        %disp('Paths:')
+        %disp(' ')
+        %disp( ['    Run Path: ' params.CFGinfo.runPath])
+        %disp( ['    Save Path: ' params.saveDirectory])
+        %disp( ['    User Settings: ' params.paramsPath, '.mat' ])
+        %disp(' ')
+        %disp('--------------------------------------------------------------------------------------')
+
+    end
+
 
 end

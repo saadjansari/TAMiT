@@ -19,10 +19,7 @@ classdef MitoticCell < Cell
         function obj = findFeatures( obj, cTime, cChannel, idxChannel)
         % findFeatures : estimates and finds the features 
             
-            % Compose image to try fitting to:
-            idxT = cTime-1:cTime+1;
-            if idxT(1) < obj.lifetime(1), idxT=idxT+1; elseif idxT(end) > obj.lifetime(2), idxT = idxT-1; end
-
+            % FIRST FRAME
             if cTime == obj.lifetime(1)
                 disp('            - DeNovo') 
 
@@ -36,9 +33,19 @@ classdef MitoticCell < Cell
 
                         obj.featureList{ idxChannel, cTime} = MitoticCell.findFeaturesDeNovo_KC( obj.image(:,:,:,cTime, cChannel), obj.settings.flags.debug);
 
+                    case 'Cut7'
+
+                        obj.featureList{ idxChannel, cTime} = MitoticCell.findFeaturesDeNovo_Cut7( obj.image(:,:,:,cTime, cChannel), obj.settings.flags.debug);
+
+                        % Also try getting spindle information from microtubule channel if it exists (MICROTUBULE CHANNEL MUST BE ANALYZED FIRST FOR THIS TO WORK)
+                        mtChannel = find( strcmp( obj.featuresInChannels, 'Microtubule' ) );
+                        if ~isempty( mtChannel)
+                            obj.featureList{ idxChannel, cTime}.harvestSpindleInfo( obj.featureList{mtChannel, cTime} );
+                        end
+
                 end
 
-            else
+            else % NOT FIRST FRAME
 
                 disp('            - Using fits from previous timestep') 
 
@@ -52,6 +59,7 @@ classdef MitoticCell < Cell
                     catch 
                         badFrame = 0;
                         obj.featureList{ idxChannel, cTime} = obj.featureList{ idxChannel, cTime-usePrevFrame}.copyDeep();
+                        obj.featureList{ idxChannel, cTime}.image = obj.image(:,:,:,cTime, cChannel);
                     end
                 end
 
@@ -547,14 +555,17 @@ classdef MitoticCell < Cell
 
         end
         % }}}
-        % findKinetochores_cen2 {{{
-        function [kc, maskNuclear, intNuclear] = findKinetochore_cen2( image2Find)
+        
+        % }}}
+
+        % Cut7 {{{
+        function Cut7 = findFeaturesDeNovo_Cut7( image2Find, displayFlag)
+            % Find cut7
+
+            Cut7 = Cut7Distribution( image2Find, {} );
 
         end
         % }}}
-
-        % }}}
-
 
     end
 

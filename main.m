@@ -3,7 +3,12 @@ function status = main( CFG)
     
     clc; close all;
     clearvars -except CFG
-    addpath( genpath(pwd) )
+
+    % Make sure we have the correct paths
+    warning('off', 'MATLAB:rmpath:DirNotFound');
+    rmpath( genpath(pwd) );
+    warning('on', 'MATLAB:rmpath:DirNotFound');
+    addpath( pwd);
 
     if nargin == 0
         CFG = 'Local';
@@ -20,14 +25,17 @@ function status = main( CFG)
     paramsPath = feval( initParams, CFG);
 
     % Define cleanup tasks
-    c1 = onCleanup( @() eval('diary off') );
     c2 = onCleanup( @() delete( gcp('nocreate') ) );
     c3 = onCleanup( @() disp('Closing files and cleaning up') );
 
     % ----------------------------- MAIN ---------------------------
-    
-    % Run Single Cell
-    singleCell( paramsPath);
+   
+    for jCell = 1 : length( paramsPath)
+
+        % Run Single Cell
+        singleCell( paramsPath{ jCell} );
+
+    end
 
     % ---------------------------- CLEANUP -------------------------
 

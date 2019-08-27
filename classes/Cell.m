@@ -112,6 +112,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             obj = findFeatures( obj, parameters.time, parameters.channelTrue, parameters.channelIdx); 
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
 
+
             % Optimize the features via local and global fitting, followed by optimization of feature number
             disp('        Optimization')
             disp('            - Regular')
@@ -146,9 +147,9 @@ classdef Cell < handle & matlab.mixin.Copyable
             obj.updateFeatureMap( parameters.channelIdx, parameters.time);
             close all
             
-            fitInfo.Global.fitVecs.labels
-            fitInfo.Global.fitVecs.vec
-            fitInfo.Global.fitResults.vfit
+            %fitInfo.Global.fitVecs.labels
+            %fitInfo.Global.fitVecs.vec
+            %fitInfo.Global.fitResults.vfit
 
         end
         % }}}
@@ -157,6 +158,14 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             disp('                    Local Fitting : '); 
 
+            % Check if mainFeature should be fit. If not, then return out of method
+            if isempty( mainFeature.featureList)
+                fprintf('                       Skipping fitting for %s\n', mainFeature.type);  
+                [ ~, fitInfo] = prepareFit( obj, mainFeature, Image2Fit, parameters, 'local', 1);
+                fitInfo.featureMain = mainFeature;
+                return
+            end
+            
             mainFeature = obj.featureList{ parameters.channelIdx, parameters.time};
             nFeatures = mainFeature.getSubFeatureNumber();
 
@@ -199,6 +208,13 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Prepare for Fit (specialized)
             [ fitProblem, fitInfo] = prepareFit( obj, mainFeature, Image2Fit, parameters, fitScope);
 
+            % Check if mainFeature should be fit. If not, then return out of method
+            if isempty( mainFeature.featureList)
+                fitInfo.featureMain = mainFeature;
+                fprintf('                       Skipping fitting for %s\n', mainFeature.type);  
+                return
+            end
+
             % Run Global Fit
             [fR.vfit,fR.resnorm,fR.residual,fR.exitflag,~,~,fR.jacobian] = lsqnonlin( fitProblem ); 
             
@@ -222,6 +238,13 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             cTime = parameters.time;
             cChannel = parameters.channelIdx;
+
+            % check if mainFeature should be fit. If not, then return out of method
+            if isempty( obj.featureList{ cChannel, cTime} )
+                fprintf('                       Skipping fitting for %s\n', mainFeature.type);  
+                return
+            end
+
             % We will iteratively add and remove features to find the optimum number
             p = 1e-10;
 %             alpha = 0.05;
@@ -360,6 +383,16 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Set optimization options based on configuration flags
 %             opts = Cell.setOptimOpts( obj.settings.flags);
 
+            % If no features are present to be fitted, assign the essentials and return out
+            if isempty( featureMain.featureList)
+                fitInfo.channel = parameters.channelTrue;
+                fitInfo.time = parameters.time;
+                fitInfo.fitScope = fitScope;
+                fitInfo.saveDirectory = parameters.saveDirectory;
+                fitProblem = [];
+                return
+            end
+
             % Obtain the feature to fit, its fit vector and its labels for lsqnonlin and parsing
             if strcmp(fitScope, 'local')
                 [ fitVec, fitLabels, fitObj] = getVecLocal( featureMain);
@@ -419,7 +452,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                                     'MaxFunEvals', 2000, ...
                                     'OptimalityTolerance', 1e-12, ...
                                     'MaxIter', 20, ...
-                                    'TolFun', 1e-7, ...
+                                    'TolFun', 1e-9, ...
                                     'FiniteDifferenceStepSize', 1e-2, ...
                                     'FiniteDifferenceType', 'central', ...
                                     'StepTolerance', 1e-5, ...
@@ -432,7 +465,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                                     'MaxFunEvals', 2000, ...
                                     'OptimalityTolerance', 1e-12, ...
                                     'MaxIter', 10, ...
-                                    'TolFun', 1e-7, ...
+                                    'TolFun', 1e-9, ...
                                     'FiniteDifferenceStepSize', 1e-2, ...
                                     'FiniteDifferenceType', 'central', ...
                                     'StepTolerance', 1e-5, ...
@@ -444,11 +477,11 @@ classdef Cell < handle & matlab.mixin.Copyable
                                     'MaxFunEvals', 2000, ...
                                     'OptimalityTolerance', 1e-12, ...
                                     'MaxIter', 30, ...
-                                    'TolFun', 1e-7, ...
+                                    'TolFun', 1e-9, ...
                                     'FiniteDifferenceStepSize', 1e-2, ...
                                     'FiniteDifferenceType', 'central', ...
                                     'StepTolerance', 1e-5, ...
-                                    'display', 'off', ...
+                                    'display', 'iter', ...
                                     'UseParallel', false);
             end
             % }}}
@@ -557,7 +590,9 @@ classdef Cell < handle & matlab.mixin.Copyable
             
             % update local keys by counter
             % add values to the global map
-            keysLocalNew = cell2mat(keysLocal) + counter;
+            if ~isempty( keysLocal);
+                keysLocalNew = cell2mat(keysLocal) + counter;
+            end
             remove( mapLocal, keysLocal);
             for jKey = cell2mat(keysLocal)
                 % add to local map
@@ -1442,7 +1477,6 @@ classdef Cell < handle & matlab.mixin.Copyable
 
         end
         % }}}
-        
         % save_midfit {{{
         function stop = save_midfit( vec, optim, state, fitInfo )
             % Plots during Lsqnonlin fitting
@@ -1605,6 +1639,12 @@ classdef Cell < handle & matlab.mixin.Copyable
         function h = displayFinalFit( Image2Fit, mainFeature, fitInfo)
             % Display Final Features and Fitting Results
 
+            % Check if mainFeature has been dit. If not, then return out of method
+            if isempty( mainFeature.featureList)
+                fprintf('                       Skipping display for %s\n', mainFeature.type);  
+                return
+            end
+
             nX = size( Image2Fit, 2); nY = size( Image2Fit, 1); nZ = size( Image2Fit, 3); dim = length( size(Image2Fit) );
             image2D = max( Image2Fit, [], 3); intMin = min( Image2Fit(:) ); intMax = max( Image2Fit(:) );
             
@@ -1719,8 +1759,13 @@ classdef Cell < handle & matlab.mixin.Copyable
 %             Image2Fit = uint16 (Image2Fit);
 
             % Images Simulated
-            imageSimI = uint16( Cell.simulateCellWithVec( fitInfo.fitVecs.vec, fitInfo) );
-            imageSimF = uint16( Cell.simulateCellWithVec( fitInfo.fitResults.vfit, fitInfo) );
+            if ~isempty( mainFeature.featureList)
+                imageSimI = uint16( Cell.simulateCellWithVec( fitInfo.fitVecs.vec, fitInfo) );
+                imageSimF = uint16( Cell.simulateCellWithVec( fitInfo.fitResults.vfit, fitInfo) );
+            else
+                imageSimI = [];
+                imageSimF = [];
+            end
 
             % Main feature
             featureMainStruct = fitInfo.featureMain.saveAsStruct();
@@ -1730,6 +1775,7 @@ classdef Cell < handle & matlab.mixin.Copyable
 
         end
         % }}}
+        
     end
 
     methods ( Static = true , Access = protected )
