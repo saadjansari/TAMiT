@@ -19,8 +19,9 @@ classdef MitoticCell < Cell
         function obj = findFeatures( obj, cTime, cChannel, idxChannel)
         % findFeatures : estimates and finds the features 
             
-            % FIRST FRAME
             if cTime == obj.lifetime(1)
+
+            % FIRST FRAME {{{
                 disp('            - DeNovo') 
 
                 switch obj.featuresInChannels{ idxChannel}
@@ -44,8 +45,11 @@ classdef MitoticCell < Cell
                         end
 
                 end
+            % }}} 
+            
+            else 
 
-            else % NOT FIRST FRAME
+            % NOT FIRST FRAME {{{
 
                 disp('            - Using fits from previous timestep') 
 
@@ -60,8 +64,22 @@ classdef MitoticCell < Cell
                         badFrame = 0;
                         obj.featureList{ idxChannel, cTime} = obj.featureList{ idxChannel, cTime-usePrevFrame}.copyDeep();
                         obj.featureList{ idxChannel, cTime}.image = obj.image(:,:,:,cTime, cChannel);
+
+                        % If cut7 channel, try to get spindle information from MT channel
+                        switch obj.featuresInChannels{ idxChannel}
+                            case 'Cut7'
+                                % Also try getting spindle information from microtubule channel if it exists (MICROTUBULE CHANNEL MUST BE ANALYZED FIRST FOR THIS TO WORK)
+                                mtChannel = find( strcmp( obj.featuresInChannels, 'Microtubule' ) );
+                                if ~isempty( mtChannel)
+                                    obj.featureList{ idxChannel, cTime}.harvestSpindleInfo( obj.featureList{mtChannel, cTime} );
+                                end
+
+                        end
+
                     end
                 end
+            
+            % }}}
 
             end
 

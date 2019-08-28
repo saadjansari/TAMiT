@@ -58,7 +58,7 @@ classdef AnalysisSingleCell < handle
 
                 channel = obj.channels( jChannel);
                 feature = obj.features{ jChannel};
-                fprintf('   Analyzing channel %d with feature %s\n', channel, feature); 
+                fprintf('   Analyzing channel %d with feature %s...\n', channel, feature); 
 
                 % analyze a single channel
                 obj.analyzeChannel( jChannel);
@@ -87,6 +87,7 @@ classdef AnalysisSingleCell < handle
 
                 % Current time frame
                 jTime = obj.times( jFrame);
+                fprintf('      Analyzing time %d...\n', jTime); 
 
                 % Analyze this frame
                 obj.analyzeFrame( jChannel, jFrame);
@@ -230,12 +231,12 @@ classdef AnalysisSingleCell < handle
             cTime = obj.times( jTime);
 
             % get spindle start, spindle end from microtubule channel
-            startPos = mainFeature.featureList{1}.startPosition;
-            endPos = mainFeature.featureList{1}.endPosition;
+            startPos = mainFeature.spindlePositionStart;
+            endPos = mainFeature.spindlePositionEnd;
 
             % get cut7 frame 
             img = mainFeature.image;
-            cut7amp = Cell.findAmplitudeAlongLine( max( cut7Frame, [], 3), startPos(1:2), endPos(1:2)); 
+            cut7amp = Cell.findAmplitudeAlongLine( max( img, [], 3), startPos(1:2), endPos(1:2)); 
 
             % normalize it from 0 to 1
             normRange = 0:0.02:1;
@@ -256,7 +257,7 @@ classdef AnalysisSingleCell < handle
             set(f, 'currentaxes', h(2) );
             imagesc( h(2), max(img , [], 3) ), 
             colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
-            line( [startPos(1), endPos(1)], [startPos(2), endPos(2)], 'm:', 'LineWidth', 1)
+            line( [startPos(1), endPos(1)], [startPos(2), endPos(2)], 'Color', 'm', 'LineStyle', ':', 'LineWidth', 1)
             title(sprintf('feature: T = %d', obj.times(jTime) ) );
             obj.data.movCut7( jTime) = getframe( f);
             close(f)
@@ -463,12 +464,9 @@ classdef AnalysisSingleCell < handle
             params.Cell = load( [resPathCell, filesep, 'params.mat']);
             params.resPath = resPathCell;
 
-            % TEMPORARY. IMPORTING THE MOVIE AND LOADING SOME INFORMATION.
-            % THIS SHOULD BE DONE BY SINGLECELL
-            %movInfo = AnalysisSingleCell.importMovie( params);
 
             % Initialize analysis object
-            analysisObj = AnalysisSingleCell( resPathCell, params.cellType, params.channelsToAnalyze, params.channelFeatures, params.timeStep, params.sizeVoxels);
+            analysisObj = AnalysisSingleCell( resPathCell, params.cellType, params.channelsToAnalyze, params.channelFeatures, params.Cell.timeStep, params.Cell.sizeVoxels);
 
             % analyze the cell
             analysisObj.Analyze();
