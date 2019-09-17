@@ -133,7 +133,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             Cell.saveFinalFit( Image2Fit, mainFeature, fitInfo.Global);
 
             % HyperParameter Fitting
-            if obj.settings.flags.doFitFeatureNumber && ~obj.settings.skipOptimizeNumber
+            if obj.settings.flags.doFitFeatureNumber && ~obj.settings.flags.skipOptimizeNumber
                 disp('            - Feature Number')
                 fitInfo.GlobalNumber = fitFeatureNumber( obj, Image2Fit, parameters, fitInfo.Global);
 
@@ -232,7 +232,7 @@ classdef Cell < handle & matlab.mixin.Copyable
         function fitInfo = fitFeatureNumber( obj, Image2Fit, parameters, fitInfo)
 
             % check if features should be added and removed
-            if obj.settings.skipOptimizeNumber
+            if obj.settings.flags.skipOptimizeNumber
                 return
             end
 

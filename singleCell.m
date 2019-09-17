@@ -42,10 +42,8 @@ function features = singleCell( paramsPath)
     cellData = importSingleCell( params.cellinfo.moviePath);
 
     % Add additional data to param file that is cell specific
-    
     % Voxel Size
     sizeVoxels = [ cellData.metaData.sizeVoxelsX, cellData.metaData.sizeVoxelsY, cellData.metaData.sizeVoxelsZ];
-
     % Time Step 
     % find mean time for all z-slices
     timesTC = squeeze(mean( cellData.planeTimes, 1) ); 
@@ -65,10 +63,15 @@ function features = singleCell( paramsPath)
             % Fit features
             myCell = myCell.fitFeatures();
 
+        case 'Monopolar'
+
+            % Not set up yet
+            error('singleCell: monopolar under construction')
+
         case 'Interphase'
 
             % Not set up yet
-            error('singleCell: interphase not set up yet')
+            error('singleCell: interphase under construction')
 
     end
 

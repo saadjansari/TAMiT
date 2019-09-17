@@ -14,9 +14,8 @@ function status = main( CFG)
         CFG = 'Local';
     end
 
-    initParams = 'initParams';
-
     % check if params file exists in the current folder
+    initParams = 'initParams';
     if exist( fullfile( pwd, [initParams '.m'] ) ) ~= 2
         error( ['copy ' initParams '.m to the current folder location : ', pwd] );
     end

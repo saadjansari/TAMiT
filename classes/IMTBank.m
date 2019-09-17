@@ -85,51 +85,40 @@ classdef IMTBank < Organizer
 
             % I can have a list of vectors and a list of vectorLabels, and a list of objects
             % Order of features : 
-            %   Spindle Microtubule (complete optimization)
-            %   Astral Microtubules (end optimization)
+            % AsterMTOC (complete)
+            % Aster MTs (poly coef end)
 
             vecList = {};
             vecLabelsList = {};
             objList = {};
 
             % Define properties to get
-            props.spindle = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
-            props.spb = {'amplitude', 'sigma'};
-            props.mt = {'endPosition', 'amplitude', 'sigma'};
+            props.mtoc= {'position', 'amplitude', 'sigma'};
+            props.imt = {'endPolyCoef', 'amplitude', 'sigma'};
 
-            % Spindle vector
-            [ vecList{1} , vecLabelsList{1}] = getVec( obj.featureList{1}, props.spindle );
-            objList{1} = obj.featureList{1};
-            numFeatures = 1;
+            % Aster Vector 
+            numFeat = 0
+            cFeat = 1+numFeat;
+            for jAster = 1 : obj.numAsters
 
-            % SPB 1 vector
-            [ vecList{2} , vecLabelsList{2}] = getVec( obj.featureList{2}.featureList{1}, props.spb);
-            objList{2} = obj.featureList{2}.featureList{1};
-            numFeatures = numFeatures+1;
+                % get mtoc vector
+                [ vecList{cFeat} , vecLabelsList{cFeat}] = getVec( obj.featureList{jAster}.featureList{1}, props.mtoc);
+                objList{cFeat} = obj.featureList{jAster}.featureList{1};
 
-            % SPB 2 vector
-            [ vecList{3} , vecLabelsList{3}] = getVec( obj.featureList{3}.featureList{1}, props.spb);
-            objList{3} = obj.featureList{3}.featureList{1};
-            numFeatures = numFeatures+1;
-
-            % Microtubule vector : Aster 1
-            for jmt = 2 : obj.featureList{2}.numFeatures
-                [ vecList{ numFeatures+jmt} , vecLabelsList{ numFeatures+jmt}] = getVec( obj.featureList{2}.featureList{1+jmt}, props.mt );
-                objList{ numFeatures+jmt} = obj.featureList{2}.featureList{1+jmt};
+                % get imt vectors
+                nummt = length( obj.featureList{jAster}.featureList) - 1;
+                for jmt = 1 : nummt
+                    [ vecList{ cFeat+jmt} , vecLabelsList{ cFeat+jmt}] = getVec( obj.featureList{jAster}.featureList{1+jmt}, props.imt );
+                    objList{ cFeat+jmt} = obj.featureList{jAster}.featureList{1+jmt};
+                end
+                numFeat = length( vecList);
+                cFeat = 1 : numFeat;
             end
-            numFeatures = numFeatures + obj.featureList{2}.numFeatures-1;
-
-            % Microtubule vector : Aster 2
-            for jmt = 2 : obj.featureList{3}.numFeatures
-                [ vecList{ numFeatures+jmt} , vecLabelsList{ numFeatures+jmt}] = getVec( obj.featureList{3}.featureList{1+jmt}, props.mt );
-                objList{ numFeatures+jmt} = obj.featureList{3}.featureList{1+jmt};
-            end
-            numFeatures = numFeatures + obj.featureList{3}.numFeatures-1;
 
             % Prepend environmental parameters to each vec and vecLabel
             [vecE, vecLabelsE] = getVecEnvironment( obj, obj.props2Fit);
             
-            for jFeat = 1 : numFeatures
+            for jFeat = 1 : numFeat
                 vecList{jFeat} = [ vecE , [vecList{jFeat}(:)]' ];
                 vecLabelsList{jFeat} = { vecLabelsE{:} , vecLabelsList{jFeat}{:} };
             end
@@ -140,92 +129,9 @@ classdef IMTBank < Organizer
         % updateSubFeatures {{{
         function obj = updateSubFeatures( obj)
 
-            % Get the spindle microtubule start and end positions and update the SPB associated with the spindle
-            obj.featureList{2}.featureList{1}.position = obj.featureList{1}.startPosition;
-            obj.featureList{3}.featureList{1}.position = obj.featureList{1}.endPosition;
+            % update number of asters 
+            obj.numAsters = length( obj.featureList); 
 
-        end
-        % }}}
-
-        % getAngleXY {{{
-        function angle = getAngleXY( obj)
-            % Return the angle the spindle makes in XY : 2 values correspond to the two origins at the two poles
-
-            angle(1) = mod( atan2( obj.featureList{1}.endPosition(2) - obj.featureList{1}.startPosition(2) , obj.featureList{1}.endPosition(1) - obj.featureList{1}.startPosition(1) ), 2*pi );
-
-            angle(2) = mod( atan2( obj.featureList{1}.startPosition(2) - obj.featureList{1}.endPosition(2) , obj.featureList{1}.startPosition(1) - obj.featureList{1}.endPosition(1) ), 2*pi );
-
-        end
-        % }}}
-
-        % addSubFeatures {{{
-        function obj = addSubFeatures( obj, Image2Find)
-            % Searches for missing features and adds them to the featureList
-            
-            % For a spindle, we can only add more astral microtubules
-            % For each pole we will find a possible microtubule to add, then we will pick the best of the two possibilities and add them to our feature list.
-
-            % How to find a possible microtubule:
-            %   1. Angular Sweep (not clear how to ensure a line is found if there are no peaks)
-            %   2. Pick the location of the highest residual and draw a line from both pole connecting to the max residual point. Find the mean intensity of each line. Subtract the mean from the actual voxel values along the line to find a total residual. Pick the pole with the minimum residual.
-
-            props2Fit = {'endPosition', 'amplitude', 'sigma'};
-            display = {'Color', 'Red', 'LineWidth', 3};
-            if obj.dim==3, sigma=[1.2 1.2 1.0]; elseif obj.dim==2, sigma=[1.2 1.2]; end
-
-            % Get Spindle Angle
-            spindleAngle = getAngleXY( obj);
-            spindleExclusionRange = deg2rad( 10);
-
-            % ask subfeatures to find missing features
-            feature{1} = obj.featureList{2}.findBestMissingFeature( Image2Find, spindleAngle(1), spindleExclusionRange);
-            feature{2} = obj.featureList{3}.findBestMissingFeature( Image2Find, spindleAngle(2), spindleExclusionRange);
-
-            % Make higher level decision on the best missing feature
-            [~,idxKeep] = min( [ feature{1}.residual, feature{2}.residual ] );
-
-            % Create feature object 
-            amp = feature{ idxKeep}.amplitude;
-            feature = Line( feature{idxKeep}.startPosition, feature{idxKeep}.endPosition, amp, sigma, obj.dim, props2Fit, display);
-%             feature.fillParams();
-            
-            % Add feature to the correct subfeature 
-            idxAdd = obj.featureList{1+idxKeep}.addFeatureToList( feature );
-            % Add feature ID and update the featureMap
-            feature.ID = max( cell2mat( keys( obj.featureMap) ) )+1;
-            obj.featureMap( feature.ID) = [ 1+idxKeep idxAdd];
-                
-        end
-        % }}}
-
-        % removeSubFeatures {{{
-        function [ obj, successRemove] = removeSubFeatures( obj, Image2Find)
-            % Searches for redundant features and removes them from the featureList
-            
-            % For a spindle, we can only remove  astral microtubules
-            % For each pole we will find a possible microtubule to remove, then we will pick the best of the two possibilities and remove them from our feature list.
-            % Look at the residual under each astral microtubule
-            % Remove the one with the biggest mean residual.
-            % If there are no microtubules to remove
-            successRemove = 1;
-
-            % Ask asters to give their worst microtubule features
-            worstFeature{1} = obj.featureList{2}.findWorstFeature( Image2Find);
-            worstFeature{2} = obj.featureList{3}.findWorstFeature( Image2Find);
-
-            % If no features to remove, exit the function
-            if worstFeature{1}.idx == 0 && worstFeature{2}.idx == 0
-                successRemove = 0;
-                return
-            end
-
-            % Make higher level decision on the worst-est feature
-            [~, idxAster ] = max( [ worstFeature{1}.residual, worstFeature{2}.residual] );
-            idxMT = 1 + worstFeature{ idxAster}.idx;
-
-            % Remove the worst microtubule
-            obj.featureList{ 1 + idxAster}.removeFeatureFromList( idxMT);
-                
         end
         % }}}
 

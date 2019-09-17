@@ -6,7 +6,6 @@ classdef Spindle < Organizer
         background
         backgroundNuclear 
         maskNuclear
-        featureMap
         image
     end
 

@@ -8,7 +8,6 @@ classdef AnalysisSingleCell < handle
         times = []
         timeStep
         sizeVoxels = [0.1067 0.1067 0.5]; %default
-        mov
         data
         folderName
     end
@@ -236,7 +235,7 @@ classdef AnalysisSingleCell < handle
 
             % get cut7 frame 
             img = mainFeature.image;
-            cut7amp = Cell.findAmplitudeAlongLine( max( img, [], 3), startPos(1:2), endPos(1:2)); 
+            cut7amp = Cell.findAmplitudeAlongLine( max( img, [], 3), startPos(1:2), endPos(1:2));
 
             % normalize it from 0 to 1
             normRange = 0:0.02:1;
@@ -245,7 +244,7 @@ classdef AnalysisSingleCell < handle
             end
 
             % Store amplitude data normalized against spindle length
-            obj.data.cut7Amp(jTime, :)=interp1( linspace(0,1,length( cut7amp) ), cut7amp, normRange);
+            obj.data.cut7Amp(jTime, :) = interp1( linspace(0,1,length( cut7amp) ), cut7amp, normRange);
 
             % Capture frame for movie
             f = figure('visible', 'off'); 
@@ -257,7 +256,7 @@ classdef AnalysisSingleCell < handle
             set(f, 'currentaxes', h(2) );
             imagesc( h(2), max(img , [], 3) ), 
             colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
-            line( [startPos(1), endPos(1)], [startPos(2), endPos(2)], 'Color', 'm', 'LineStyle', ':', 'LineWidth', 1)
+            line( [startPos(1), endPos(1)], [startPos(2), endPos(2)], 'Color', [1 0.6 0.6 0.5], 'LineStyle', '-', 'LineWidth', 2)
             title(sprintf('feature: T = %d', obj.times(jTime) ) );
             obj.data.movCut7( jTime) = getframe( f);
             close(f)
@@ -265,6 +264,12 @@ classdef AnalysisSingleCell < handle
         % }}}
         % graphChannelCut7 {{{
         function graphChannelCut7( obj)
+
+            % normalize cut7 amplitude data over time
+            maxNorm = max( vecnorm( obj.data.cut7Amp, 2, 2) );
+            maxVal = max( max( obj.data.cut7Amp) );
+            obj.data.cut7Amp_raw = obj.data.cut7Amp;
+            obj.data.cut7Amp = obj.data.cut7Amp / maxVal;
 
             % graph cut7 intensity along the spindle averaged over time
             obj.graphCut7MeanIntensity();
@@ -435,7 +440,7 @@ classdef AnalysisSingleCell < handle
     methods ( Static = true, Access = public )
 
         % AnalyzeSingle {{{
-        function dataCell = AnalyzeSingle( resPathCell, params)
+        function anaCell = AnalyzeSingle( resPathCell, params)
             % uses AnalysisBank to analyze results from a single movie
             
             % Make sure we have the correct paths
@@ -452,6 +457,10 @@ classdef AnalysisSingleCell < handle
             % if params not provided, find the params
             if nargin < 2
                 params = initAnalysisParams();
+                fprintf('\n')
+                fprintf('-----------------------------------------------------------------\n')
+                fprintf('------------------- ANALYSIS SINGLE CELL ------------------------\n')
+                fprintf('-----------------------------------------------------------------\n\n')
             end
 
             % check if resPathCell is a fullpath, if not then make it full
@@ -459,23 +468,36 @@ classdef AnalysisSingleCell < handle
             if isempty( pth)
                 resPathCell = fullfile( params.pathParent, resPathCell);
             end
-            fprintf( 'resultsFolderPath = %s\n', resPathCell);
+            [~,cellName,~] = fileparts( resPathCell);
+            fprintf( 'Cell = %s\n', cellName);
            
             params.Cell = load( [resPathCell, filesep, 'params.mat']);
             params.resPath = resPathCell;
 
+            % Analyze if analysisData not present
+            if exist( [resPathCell, filesep, 'analysisData.mat']) ~= 2
 
-            % Initialize analysis object
-            analysisObj = AnalysisSingleCell( resPathCell, params.cellType, params.channelsToAnalyze, params.channelFeatures, params.Cell.timeStep, params.Cell.sizeVoxels);
+                % Initialize analysis object
+                anaCell = AnalysisSingleCell( resPathCell, params.cellType, params.channelsToAnalyze, params.channelFeatures, params.Cell.timeStep, params.Cell.sizeVoxels);
 
-            % analyze the cell
-            analysisObj.Analyze();
+                % analyze the cell
+                anaCell.Analyze();
         
+                % save this cell
+                save( [resPathCell, filesep, 'analysisData.mat'], 'anaCell');
+
+            else
+                
+                fprintf('      Data already exists! Loading from file...\n')
+                load( [resPathCell, filesep, 'analysisData.mat'])
+
+            end
+
         end
         % }}}
         
         % AnalyzeMulti {{{
-        function AnalyzeMulti( paramsPath, resRegExp)
+        function anaCells = AnalyzeMulti( resRegExp)
             % uses AnalysisBank to analyze results from multiple movies
             % second argument can also be a cell array of multiple
             
@@ -485,64 +507,220 @@ classdef AnalysisSingleCell < handle
             warning('on', 'MATLAB:rmpath:DirNotFound');
             addpath( pwd);
             addpath( [pwd, filesep, 'functions', filesep, 'analysis'] );
+            addpath( [pwd, filesep, 'functions', filesep, 'external'] );
             params = initAnalysisParams();
             addpath( genpath( params.pathParent) );
-%             addpath( [pwd, filesep, 'classes/']);
 
             % Get all folder names in parent
             f = dir( params.pathParent);
-            folds = folds.name;
-            folds = folds( f.isdir);
+            folds = {f.name};
+            folds = folds( [f.isdir]);
 
             % Remove all folders starting with dot 
             folds = folds( cellfun( @isempty, regexp( folds, '^[.]') ) );
 
             % Ensure that we only have the results folders in the correct format (start with YYMMDD_HHMM)
             folds = folds( cellfun( @(x) ~isempty(x), regexp( folds, '^\d{6}_\d{4}') ) );
-            
+
             % match resRegExp
-            tempExp = '1095_50msG_100msR_7Z';
-            fprintf('Note in AnalysisBank.AnalyzeMulti: temporary regexpression defined in code')
-            folds = folds( cellfun( @(x) ~isempty(x), regexp( folds, tempExp) ) );
+            folds = folds( cellfun( @(x) ~isempty(x), regexp( folds, resRegExp) ) );
             numCells = length( folds);
-            fprintf('AnalysisBank.AnalyzeMulti found %d cells to analysis', numCells);
+
+            fprintf('\n')
+            fprintf('-----------------------------------------------------------------\n')
+            fprintf('-------------------- ANALYSIS MULTI CELL ------------------------\n')
+            fprintf('-----------------------------------------------------------------\n\n')
+            fprintf('    Total Cells : %d\n', numCells);
 
             % for each cell we'll run an AnalyzeSingle function
             for jCell = 1 : numCells
-                dataCell = AnalysisBank.AnalyzeSingle( folds( jCell), params ); 
+                anaCells{jCell} = AnalysisSingleCell.AnalyzeSingle( folds{ jCell}, params ); 
             end
+
+            % Graph comparisons
+            AnalysisSingleCell.GraphMultiCell( anaCells)
+
+        end
+        % }}}
+        
+        % GraphingMultiCell {{{
+        function GraphMultiCell( Cells)
+            % Perform Multi Cell Graphing
+            
+            fprintf('Comparing analyzed cells...\n')
+            nCells = length( Cells);
+            
+            % Compare spindle length
+            AnalysisSingleCell.GraphMulti_SpindleLength( Cells)
+
+            % Compare Cut 7 distribution along the spindle
+            AnalysisSingleCell.GraphMulti_Cut7AlongSpindle( Cells)
 
         end
         % }}}
 
-        % importMovie {{{
-        function dataCell = importMovie( params)
-            % imports the movie and loads up important data about the experiment
+        % GraphMulti_SpindleLength {{{
+        function GraphMulti_SpindleLength( Cells)
+            % Compare spindle lengths between cells
 
-            if params.importedFromSummit 
-                moviePathSummit = params.Cell.params.cellinfo.moviePath;
-                moviePath = erase( moviePathSummit, params.rmStringSummit);
-                moviePath = [params.addString, moviePath];
-            else
-                moviePath = params.Cell.params.cellInfo.moviePath;
+            fprintf('Comparing spindle lengths...\n')
+            nCells = length( Cells);
+
+            % plot spindle Length
+            f = figure('NumberTitle', 'off', 'Name', 'spindle_lengths_all'); 
+            ax = axes;
+            grid on; grid minor
+            xlabel( 'Time (seconds)')
+            ylabel( 'Length (microns)')
+            set( ax, 'FontSize', 20)
+            title('Spindle lengths vs time')
+            hold on;
+
+            % Process data for plotting
+            % Spindle lengths
+            for jCell = 1 : nCells
+                spindleLengths{jCell} = Cells{jCell}.data.spindleLength;
+            end
+            % Times
+            for jCell = 1 : nCells
+                times{jCell} = Cells{jCell}.times - Cells{jCell}.times(1);
+            end
+            
+            % plot mean and shaded error
+            AnalysisSingleCell.plotAreaShadedError( spindleLengths, times, ax);
+
+            for jCell = 1 : nCells
+                saveas( f, [Cells{jCell}.path, filesep, 'spindle_lengths_all.png'])
+            end
+            [par, ~, ~] = fileparts( Cells{1}.path );
+            saveas( f, [par, filesep, 'spindle_lengths_all.png'])
+            close(f)
+
+        end
+        % }}}
+
+        % GraphMulti_Cut7AlongSpindle {{{
+        function GraphMulti_Cut7AlongSpindle( Cells)
+            % Compare Cut7 distibutions along the spindle
+
+            fprintf('Comparing cut7 distirbution along the spindle...\n')
+            nCells = length( Cells);
+
+            f = figure('NumberTitle', 'off', 'Name', 'cut7_intensity_spindle_avg_all'); 
+            ax = axes;
+            grid on; grid minor
+            xlabel( 'Distance along spindle ( normalized)')
+            ylabel( 'Mean intensity')
+            set( ax, 'FontSize', 20)
+            title('Cut7 average distribution along spindle ')
+            hold on;
+
+            % Process data for plotting
+            % cut7 intensity 
+            for jCell = 1 : nCells
+                int = mean( Cells{jCell}.data.cut7Amp, 1);
+                if mean( int(1: floor(end/3) ) ) < mean( int( ceil(2*end/3): end) )
+                    int = flip( int);
+                end
+                cut7int{jCell} = int/max(int);
+            end
+            % Distance along spindle 
+            for jCell = 1 : nCells
+                dist{jCell} = Cells{jCell}.data.cut7Range;
+            end
+            
+            % plot mean and shaded error
+            AnalysisSingleCell.plotAreaShadedError( cut7int, dist, ax);
+
+            for jCell = 1 : nCells
+                saveas( f, [Cells{jCell}.path, filesep, 'cut7_intensity_spindle_avg_all.png'])
+            end
+            [par, ~, ~] = fileparts( Cells{1}.path );
+            saveas( f, [par, filesep, 'cut7_intensity_spindle_avg_all.png'])
+            close(f)
+
+
+
+        end
+        % }}}
+
+        % plotAreaShadedError {{{
+        function plotAreaShadedError( ydata, xdata, ax)
+            % plot shaded area error given a set of unevenly sampled ordered data with varying number of observations
+            % ydata : cell array of vectors corresponding to samples (each sample can be of a different length)
+            % xdata (optional) : cell array of vectors corresponding to x values (each sample can be of a different length but must match its counterpart in ydata)
+            % ax (optional) : axes to plot in
+
+            colorError = [0.7 0.2 0.5];
+            alphaError = 0.2;
+
+            colorMean = [0.7 0.2 0.5];
+            alphaMean = 1;
+            meanWidth = 3;
+
+            colorSample = [0.7 0.2 0];
+            alphaSample = 0.6;
+            sampleWidth = 1; 
+
+            % Ensure presence of axes
+            if nargin < 3
+                f = figure('NumberTitle', 'off', 'Name', 'plotAreaShadedError');
+                ax = axes;
             end
 
-            % import the movie
-            addpath( 'functions/')
-            cellData = importSingleCell( moviePath); 
+            % Ensure presence of x data
+            nSamp = length( ydata);
+            if nargin < 2
+                xdata = cellfun( @(x) 1:length(x), ydata, 'UniformOutput', false)
+            end
 
-            % load the cell movie, voxel sizes, and calculate time steps
-            dataCell.mov = cellData.cell3D;
-            dataCell.sizeVoxels = [ cellData.metaData.sizeVoxelsX, cellData.metaData.sizeVoxelsY, cellData.metaData.sizeVoxelsZ];
+            % We will use linear interpolation to make our observations evenly and finely spaced out
 
-            % find mean time for all z-slices
-            timesTC = squeeze(mean( cellData.planeTimes, 1) ); 
-            timeSteps = diff(timesTC);
+            % find smallest x-step
+            xstep = min( cellfun( @(x) min( diff(x) ), xdata) );
+            
+            % find max and min extent of observation
+            xmax = max( cellfun( @(x) x(end), xdata) );
+            xmin = min( cellfun( @(x) x(1), xdata) );
 
-            % remove any nans and then use the median timeStep as the timeStep
-            timeSteps( isnan( timeSteps) ) = 0;
-            dataCell.timeStep = median( timeSteps);
-%             fprintf('Time Step = %4.2f sec\n', dataCell.timeStep)
+            % construct a new fine xdata vector
+            nSteps = 2*ceil( (xmax-xmin)/xstep );
+            x = linspace( xmin, xmax, nSteps);
+
+            % find ydata interpolated values for the new x data vector 
+            % Note: values outside the domain of the original xdata are set to NaN
+            for jSamp = 1 : nSamp
+                ydata_even(jSamp, :) = interp1( xdata{jSamp}, ydata{jSamp}, x, 'linear');
+            end
+
+            % find the mean of the evenly sampled ydata
+            for jT = 1 : length( x) 
+                xValues = ydata_even(:,jT);
+                goodValues = xValues( ~isnan( xValues ) );
+                ymean(jT) = mean( goodValues);
+                yerr(jT) = std( goodValues).^2;
+            end
+            max( abs( ymean - yerr) )
+
+            % construct the extended vectors to define a region for shading
+            x_vec = [x, fliplr(x)];
+            y_vec = [ ymean+yerr, fliplr( ymean-yerr) ];
+
+            % Shade the error region
+            patch = fill(x_vec, y_vec, colorError);
+            set(patch, 'Edgecolor', 'none');
+            set(patch, 'FaceAlpha', alphaError );
+
+            % Plot the samples
+            for jSamp = 1 : nSamp 
+                line( xdata{jSamp}, ydata{jSamp}, 'LineWidth', sampleWidth, 'Color', [colorSample alphaSample]) 
+            end
+            hold on;
+            
+            % Plot the mean value
+            plot( x, ymean, 'Color', [ colorMean, alphaMean], ...
+                'LineWidth', meanWidth);
+            hold off;
 
         end
         % }}}
