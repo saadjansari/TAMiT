@@ -24,49 +24,54 @@ function features = singleCell( paramsPath)
     disp(' ')
     disp('Paths:')
     disp(' ')
-    disp( ['    Run Path: ' params.CFGinfo.runPath])
+    disp( ['    Run Path: ' params.runPath])
     disp( ['    Save Path: ' params.saveDirectory])
     disp( ['    User Settings: ' params.paramsPath, '.mat' ])
     disp(' ')
     disp('--------------------------------------------------------------------------------------')
 
     % Locate the single cell movie
-    if isempty( params.cellinfo.moviePath) 
+    if isempty( params.cellInfo.moviePath) 
         [cfile, cpath] = uigetfile({'*.mat';'*.tiff'});
         if cfile == 0
             error( 'singleCell: no file was selected for import'); end
         params.moviePath = [cpath, cfile];
     end
 
-    % Import the single cell movie
-    cellData = importSingleCell( params.cellinfo.moviePath);
-
-    % Add additional data to param file that is cell specific
-    % Voxel Size
-    sizeVoxels = [ cellData.metaData.sizeVoxelsX, cellData.metaData.sizeVoxelsY, cellData.metaData.sizeVoxelsZ];
-    % Time Step 
-    % find mean time for all z-slices
-    timesTC = squeeze(mean( cellData.planeTimes, 1) ); 
-    timeSteps = diff(timesTC);
-    % remove any nans and then use the median timeStep as the timeStep
-    timeSteps( isnan( timeSteps) ) = 0;
-    timeStep = median( timeSteps);
+    % Initialize image data from single cell movie
+    imageData = ImageData.InitializeFromCell( params.cellInfo.moviePath, ...
+        'Lifetime', params.cellInfo.lifetime );
+    sizeVoxels = imageData.GetSizeVoxels;
+    timeStep = imageData.GetTimeStep;
     save( paramsPath, 'sizeVoxels', 'timeStep', '-append')
 
     % Run the specific type of cell
-    switch params.cellinfo.celltype
+    switch params.cellInfo.type
         case 'Mitosis'
             
-            % initialize a mitotic cell
-            myCell = MitoticCell( cellData.cell3D, params.cellinfo.lifetime, params.cellinfo.species, params.cellinfo.channelFeatures, params.cellinfo.channelsToFit, params );
+            % Initialize Mitotic Cell
+            myCell = MitoticCell( imageData, ...
+                params.cellInfo.channelFeatures, ...
+                params.cellInfo.channelsToFit, ...
+                params, ... 
+                'Species', params.cellInfo.species, ...
+                'Strain', params.cellInfo.strain);
 
-            % Fit features
-            myCell = myCell.fitFeatures();
+            % Find features
+            myCell = myCell.FindFeatures();
 
         case 'Monopolar'
 
-            % Not set up yet
-            error('singleCell: monopolar under construction')
+            % Initialize Monopolar Cell
+            myCell = MonopolarCell( imageData, ...
+                params.cellInfo.channelFeatures, ...
+                params.cellInfo.channelsToFit, ...
+                params, ... 
+                'Species', params.cellInfo.species, ...
+                'Strain', params.cellInfo.strain);
+
+            % Find features
+            myCell = myCell.FindFeatures();
 
         case 'Interphase'
 

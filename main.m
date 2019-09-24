@@ -1,8 +1,10 @@
-function status = main( CFG)
+function status = main( varargin)
     % ----------------------------- PREP ---------------------------
     
+    opts = parseArgs( varargin{:} );
+
     clc; close all;
-    clearvars -except CFG
+    clearvars -except CFG opts
 
     % Make sure we have the correct paths
     warning('off', 'MATLAB:rmpath:DirNotFound');
@@ -10,18 +12,13 @@ function status = main( CFG)
     warning('on', 'MATLAB:rmpath:DirNotFound');
     addpath( pwd);
 
-    if nargin == 0
-        CFG = 'Local';
-    end
-
     % check if params file exists in the current folder
-    initParams = 'initParams';
-    if exist( fullfile( pwd, [initParams '.m'] ) ) ~= 2
-        error( ['copy ' initParams '.m to the current folder location : ', pwd] );
+    if exist( fullfile( pwd, 'initParams.m' ) ) ~= 2
+        error( ['copy initParams.m to the current folder location : ', pwd] );
     end
 
     % run the settings file : creates a params.mat file in the save directory folder
-    paramsPath = feval( initParams, CFG);
+    paramsPath = feval('initParams', opts);
 
     % Define cleanup tasks
     c2 = onCleanup( @() delete( gcp('nocreate') ) );
@@ -37,5 +34,27 @@ function status = main( CFG)
     end
 
     % ---------------------------- CLEANUP -------------------------
+    
+    % parseArgs {{{
+    function opts = parseArgs( varargin)
 
+        % default
+        defaultCFG = 'RELEASE';
+        defaultLOC = 'Local';
+
+        % valid Arguments
+        validCFG = @(x) strcmpi( x, 'RELEASE') || strcmpi( x, 'DEBUG');
+        validLOC = @(x) strcmpi( x, 'Local') || strcmpi( x, 'Summit') || strcmpi( x, 'Rumor');
+
+        % Input Parser
+        p = inputParser;
+        addParameter( p, 'CFG', defaultCFG);
+        addParameter( p, 'LOC', defaultLOC);
+
+        parse( p, varargin{:});
+        opts = p.Results;
+
+    end
+    % }}}
+    
 end

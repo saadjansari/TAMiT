@@ -1,107 +1,66 @@
-function [CFG, CFGinfo] = initConfiguration( CFG)
+function params = initConfiguration( opts)
     % Configuration File: sets up the flags and the paths for running the software in different envoronments
 
-    % Configurations: { Local, Debug, Summit, Rumor}
-    if nargin == 0
-        CFG = 'Local';
+    runFit = 1;
+    runAnalysis = 1;
+    runTracking = 1;
+    
+    switch opts.CFG
+        case 'RELEASE'
+            runLocalFit = 0;
+            runGlobalFit = 1;
+            runFeatureNumberFit = 1;
+            display = 0;
+
+        case 'DEBUG'
+            runLocalFit = 1;
+            runGlobalFit = 1;
+            runFeatureNumberFit = 1;
+            display = 1;
     end
 
-    if ~strcmp(CFG, 'Local') &&  ~strcmp(CFG, 'Debug') && ~strcmp(CFG, 'Summit') && ~strcmp(CFG, 'Rumor')  
-        error('makeSettings: CFG input must be either ''Local'', ''Debug'', ''Summit'', or ''Rumor'' ');
-    end
+    % Estimate Parameters
+    estimate.display = display;
 
-    % Initialize flags
-    runFit = 0;
-    runRealTimeGraphics = 0;
-    runPostFitGraphics = 0;
-    runTracking = 0;
-    runAnalysis = 0;
-    runDebug = 0;
-    fitLocal = 0;
-    fitFeatureNumber = 1;
-    fitExploreSpeed = 0;
+    % Spindle
+    estimate.spindle.spindleMT = 1;
+    estimate.spindle.spindlePoles = 1;
+    estimate.spindle.astralMT = 0;
+    estimate.spindle.display = display;
 
-    switch CFG
-        case 'Local'
-            runFit = 1;
-            runRealTimeGraphics = 0;
-            runPostFitGraphics = 0;
-            runTracking = 1;
-            runAnalysis = 1;
-            runDebug = 0;
+    % Monopolar Spindle
+    estimate.monopolar.display = display;
+    estimate.monopolar.pole = 1;
+    estimate.monopolar.mt = 1;
 
-        case 'Debug'
-            runFit = 1;
-            runRealTimeGraphics = 1;
-            runPostFitGraphics = 1;
-            runTracking = 1;
-            runAnalysis = 1;
-            runDebug = 1;
-            fitLocal = 1;
-            fitFeatureNumber = 1;
+    % Kinetochores
+    estimate.kcbank.display = display;
 
-        case 'Summit' 
-            runFit = 1;
-            runRealTimeGraphics = 0;
-            runPostFitGraphics = 1;
-            runTracking = 1;
-            runAnalysis = 1;
-            runDebug = 0;
-            fitLocal = 1;
-            fitFeatureNumber = 1;
+    % Cut7
+    estimate.cut7dist.display = display;
 
-        case 'Rumor'
-            runFit = 0;
-            runRealTimeGraphics = 0;
-            runPostFitGraphics = 0;
-            runTracking = 0;
-            runAnalysis = 0;
-            runDebug = 0;
-            fitLocal = 1;
-            fitFeatureNumber = 1;
+    % Fit Parameters
+    fit.runFit = runFit;
+    fit.runLocalOptimization = runLocalFit;
+    fit.runGlobalOptimization = runGlobalFit;
+    fit.runFeatureNumberOptimization = runFeatureNumberFit;
+    fit.useParallel = false;
+    fit.state = opts.CFG;
+    fit.display = display;
+    fit.alpha = 0.05;
+    fit.fitExploreSpeed = 0;
 
-    end
+    % Analysis Parameters
+    analysis.runAnalysis = runAnalysis;
 
-    % Forced flags
-    if runDebug, runRealTimeGraphics=1; end
-    if runDebug, runPostFitGraphics=1; end
+    % Tracking Parameters
+    tracking.runTracking = runTracking;
 
-    % Assign paths
-    % runPath : location where the main.m file will be run from.
-    % saveParent : the parent directory where the results folder will reside
-    if strcmp( CFG, 'Local')
-
-        runPath = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell';
-        saveParent = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell/Results';
-
-    elseif strcmp( CFG, 'Debug')
-
-        runPath = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell';
-        saveParent = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell/Results';
-
-    elseif strcmp( CFG, 'Summit') 
-
-        runPath = '/projects/saan8193/ImageAnalysis/SingleCell';
-        saveParent = '/scratch/summit/saan8193/SingleCell';
-
-    elseif strcmp( CFG, 'Rumor') 
-
-        error('Rumor not setup for singleCell yet')
-        runPath = '/projects/saan8193/ImageAnalysis/SingleCell';
-        saveParent= '/scratch/summit/saan8193/ImageAnalysis/SingleCell/Results'
-
-    end
-
-    CFGinfo.runFit = runFit;
-    CFGinfo.runRealTimeGraphics = runRealTimeGraphics;
-    CFGinfo.runPostFitGraphics = runPostFitGraphics;
-    CFGinfo.runTracking = runTracking; 
-    CFGinfo.runAnalysis = runAnalysis; 
-    CFGinfo.runDebug = runDebug; 
-    CFGinfo.runPath = runPath; 
-    CFGinfo.saveParent = saveParent; 
-    CFGinfo.fitLocal = fitLocal;
-    CFGinfo.fitFeatureNumber = fitFeatureNumber;
-    CFGinfo.fitExploreSpeed = fitExploreSpeed;
+    params.estimate = estimate;
+    params.fit = fit;
+    params.tracking = tracking;
+    params.analysis = analysis;
+    params.LOC = opts.LOC;
+    params.CFG = opts.CFG;
 
 end

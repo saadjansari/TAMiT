@@ -33,8 +33,6 @@ classdef AsterMT < Organizer
             % get vectors from features
 
             % get SPB vector. Keep all its values
-            
-
             [vec_spb, vecLabels_spb] = getVec( obj.featureList{ 1}, propsSPB);
 
             vec = [vec , vec_spb];

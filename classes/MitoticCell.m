@@ -7,81 +7,87 @@ classdef MitoticCell < Cell
     methods
         
         % MitoticCell {{{
-        function obj = MitoticCell( image, lifetime, species, featuresInChannels, channelsToFit, settings)
+        function obj = MitoticCell( imageData, featuresInChannels, channelsToFit, params, varargin)
         % MitoticCell : constructor function for MitoticCell object     
 
-            obj = obj@Cell( image, lifetime, species, featuresInChannels, channelsToFit, 'Mitosis', settings);
+            obj = obj@Cell( imageData, featuresInChannels, channelsToFit, params, varargin{:}, 'Type', 'Mitosis');
 
         end
         % }}}
 
-        % findFeatures {{{
-        function obj = findFeatures( obj, cTime, cChannel, idxChannel)
+        % EstimateFeatures {{{
+        function obj = EstimateFeatures( obj, cTime, cChannel, idxChannel)
         % findFeatures : estimates and finds the features 
             
-            if cTime == obj.lifetime(1)
+            % Get feature type
+            currentFeature  = obj.featuresInChannels{ idxChannel};
 
-            % FIRST FRAME {{{
-                disp('            - DeNovo') 
+            % Get Image for estimation
+            estimationImage = obj.imageData.GetImage;
+            estimationImage = estimationImage( :,:,:,cTime, cChannel);
 
-                switch obj.featuresInChannels{ idxChannel}
+            % Get Start time 
+            lifetime = obj.imageData.GetLifetime;
+            startTime = lifetime(1);
 
-                    case 'Microtubule'
-
-                        obj.featureList{ idxChannel, cTime} = MitoticCell.findFeaturesDeNovo_MT( obj.image(:,:,:,cTime, cChannel), obj.settings.flags.debug, obj.settings.flags.fitSpindleOnly, obj.settings.flags.removeSpindleSPB);
-
-                    case 'Kinetochore'
-
-                        obj.featureList{ idxChannel, cTime} = MitoticCell.findFeaturesDeNovo_KC( obj.image(:,:,:,cTime, cChannel), obj.settings.flags.debug);
-
-                    case 'Cut7'
-
-                        obj.featureList{ idxChannel, cTime} = MitoticCell.findFeaturesDeNovo_Cut7( obj.image(:,:,:,cTime, cChannel), obj.settings.flags.debug);
-
-                        % Also try getting spindle information from microtubule channel if it exists (MICROTUBULE CHANNEL MUST BE ANALYZED FIRST FOR THIS TO WORK)
-                        mtChannel = find( strcmp( obj.featuresInChannels, 'Microtubule' ) );
-                        if ~isempty( mtChannel)
-                            obj.featureList{ idxChannel, cTime}.harvestSpindleInfo( obj.featureList{mtChannel, cTime} );
-                        end
-
-                end
-            % }}} 
-            
+            % Novel Estimation for first frame
+            if cTime == startTime
+                obj.featureList{ idxChannel, cTime} = obj.EstimateFeaturesNovel( currentFeature, estimationImage);
+            % Propagate old feature for later frames
             else 
+                obj = obj.PropagateOldFeature( idxChannel, cTime);
+            end
 
-            % NOT FIRST FRAME {{{
-
-                disp('            - Using fits from previous timestep') 
-
-                % Could be a bad frame, so we iterate back until we find a featureList ~= NaN that we can make a copy of
-                usePrevFrame = 1;
-                badFrame = 1;
-                while badFrame
-                    try
-                        badFrame = isnan( obj.featureList{ idxChannel, cTime-usePrevFrame} )
-                        usePrevFrame = usePrevFrame+1;
-                    catch 
-                        badFrame = 0;
-                        obj.featureList{ idxChannel, cTime} = obj.featureList{ idxChannel, cTime-usePrevFrame}.copyDeep();
-                        obj.featureList{ idxChannel, cTime}.image = obj.image(:,:,:,cTime, cChannel);
-
-                        % If cut7 channel, try to get spindle information from MT channel
-                        switch obj.featuresInChannels{ idxChannel}
-                            case 'Cut7'
-                                % Also try getting spindle information from microtubule channel if it exists (MICROTUBULE CHANNEL MUST BE ANALYZED FIRST FOR THIS TO WORK)
-                                mtChannel = find( strcmp( obj.featuresInChannels, 'Microtubule' ) );
-                                if ~isempty( mtChannel)
-                                    obj.featureList{ idxChannel, cTime}.harvestSpindleInfo( obj.featureList{mtChannel, cTime} );
-                                end
-
-                        end
-
-                    end
+            % Special Tasks 
+            % If cut7 channel, try to get spindle information from MT channel
+            if strcmp( obj.featuresInChannels{ idxChannel}, 'Cut7')
+                % Get spindle information from microtubule channel if possible
+                % (MICROTUBULE CHANNEL MUST BE ANALYZED FIRST FOR THIS TO WORK)
+                mtChannel = find( strcmp( obj.featuresInChannels, 'Microtubule' ) );
+                if ~isempty( mtChannel)
+                    obj.featureList{ idxChannel, cTime}.harvestSpindleInfo( obj.featureList{mtChannel, cTime} );
                 end
-            
-            % }}}
 
             end
+
+        end
+        % }}}
+
+        % EstimateFeaturesNovel {{{
+        function feature = EstimateFeaturesNovel( obj, currentFeature, image)
+            disp('- DeNovo') 
+
+            switch currentFeature
+                case 'Microtubule'
+                    feature = MitoticCell.findFeaturesDeNovo_MT( image, obj.params.estimate.spindle);
+
+                case 'Kinetochore'
+                    feature = MitoticCell.findFeaturesDeNovo_KC( image, obj.params.estimate.kcbank);
+
+                case 'Cut7'
+                    feature = MitoticCell.findFeaturesDeNovo_Cut7( image, obj.params.estimate.cut7dist);
+            end
+
+        end
+        % }}}
+
+        % PropagateOldFeature {{{
+        function obj = PropagateOldFeature(obj, cChannel, cTime)
+
+            disp('- Propagating old feature') 
+
+            % Find the most recent good frame
+            bestFrame = cTime-1;
+            while obj.featureList{ cChannel, bestFrame} ~= obj.featureList{ cChannel, bestFrame}
+                bestFrame = bestFrame - 1;
+            end
+
+            % Duplicate feature from best recent frame
+            obj.featureList{ cChannel, cTime} = obj.featureList{ cChannel, bestFrame}.copyDeep();
+
+            % Ensure the image is from the actual frame
+            Image = obj.imageData.GetImage();
+            obj.featureList{ cChannel, cTime}.image = Image(:,:,:, cTime, cChannel);
 
         end
         % }}}
@@ -93,13 +99,13 @@ classdef MitoticCell < Cell
         % Microtubules {{{
         
         % findFeaturesDeNovo_MT {{{
-        function spindleObj = findFeaturesDeNovo_MT( imageIn, displayFlag, spindleOnlyFlag, removeSpindleSPB)
+        function spindleObj = findFeaturesDeNovo_MT( imageIn, params)
 
             % Mitotic Cell:
             %   Find the Spindle microtubule
             %   From each spindle pole, find astral microtubules
 
-            displayFlag = displayFlag;
+            displayFlag = params.display;
             dim = length( size(imageIn) );
             imageIn = im2double( imageIn);
             spindleExclusionRange = deg2rad(45);
@@ -115,52 +121,46 @@ classdef MitoticCell < Cell
             bkg = median( imageIn( imageIn(:) > 0) );
 
             % Spindle
-            
             % Find the Spindle. 
-            if displayFlag
-                f = figure;
-                ax = axes;
-                imagesc( max(imageIn, [], 3) ); colormap gray; axis equal; hold on
-                [spindle, ax]  = MitoticCell.findTheSpindle( imageIn, ax);
+            spindle = MitoticCell.findTheSpindle( imageIn);
+
+            % Create the Spindle MT
+            if params.spindleMT
+                lineAmpList = Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition );
+                spindleAmp = lineAmpList( round( length(lineAmpList)/2) ) - bkg;
+                spindleMT = Line( spindle.MT.startPosition, spindle.MT.endPosition, spindleAmp, sigma, dim, props.SpindleMT, display.SpindleMT );
+                spindleMT.findVoxelsInsideMask( logical(imageIn) );
             else
-                spindle = MitoticCell.findTheSpindle( imageIn);
+                fprintf('Not estimating spindle MT\n')
             end
-            % Create the Spindle MTs
-            lineAmpList = Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition );
-%             spindleAmp = lineAmpList( round( length(lineAmpList)/2) );
-             spindleAmp = lineAmpList( round( length(lineAmpList)/2) ) - bkg;
-%             spindleAmp = min( Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition ) )-bkg;
-            spindleMT = Line( spindle.MT.startPosition, spindle.MT.endPosition, spindleAmp, sigma, dim, props.SpindleMT, display.SpindleMT );
-            spindleMT.findVoxelsInsideMask( logical(imageIn) );
 
-            % SPB
-            
-            % Create the SpindlePoleBody objects
-%             spbAmp(1) = imageIn( spindleMT.startPosition(2), spindleMT.startPosition(1), spindleMT.startPosition(3) );
-%             spbAmp(2) = imageIn( spindleMT.endPosition(2), spindleMT.endPosition(1), spindleMT.endPosition(3) );
-             spbAmp(1) = imageIn( spindleMT.startPosition(2), spindleMT.startPosition(1), spindleMT.startPosition(3) )-bkg-spindleAmp;
-             spbAmp(2) = imageIn( spindleMT.endPosition(2), spindleMT.endPosition(1), spindleMT.endPosition(3) )-bkg-spindleAmp;
-            if any(spbAmp < 0);
-                spbAmp( spbAmp < 0) = bkg;
-                warning( 'findFeaturesMT_deNovo : forcing SPBAmp to be > 0')
+            AsterObjects{1} = {};
+            AsterObjects{2} = {};
+
+            % Spindle Poles
+            if params.spindlePoles
+                % Create the SpindlePoleBody objects
+                spbAmp(1) = imageIn( spindleMT.startPosition(2), spindleMT.startPosition(1), spindleMT.startPosition(3) ) - bkg - spindleAmp;
+                spbAmp(2) = imageIn( spindleMT.endPosition(2), spindleMT.endPosition(1), spindleMT.endPosition(3) )-bkg-spindleAmp;
+                if any(spbAmp < 0);
+                    spbAmp( spbAmp < 0) = bkg;
+                    warning( 'findFeaturesMT_deNovo : forcing SPBAmp to be > 0')
+                end
+                SPB{1} = Spot( spindleMT.startPosition, spbAmp(1), sigma, dim, props.SPB, display.SPB);
+                SPB{2} = Spot( spindleMT.endPosition, spbAmp(2), sigma, dim, props.SPB, display.SPB);
+                AsterObjects{1} = SPB{1};
+                AsterObjects{2} = SPB{2};
             end
-            SPB{1} = Spot( spindleMT.startPosition, spbAmp(1), sigma, dim, props.SPB, display.SPB);
-            SPB{2} = Spot( spindleMT.endPosition, spbAmp(2), sigma, dim, props.SPB, display.SPB);
 
-            % Astral MT
-            if ~spindleOnlyFlag
+            % Astral MTs
+            if params.astralMT
 
                 % Find the angle of this spindle w.r.t to each pole
                 spindleAngle(2) = mod( atan2( spindleMT.startPosition(2)-spindleMT.endPosition(2) , spindleMT.startPosition(1)-spindleMT.endPosition(1) ) , 2*pi );
 
                 % Find Astral Microtubules
-                if displayFlag 
-                    [ spindle.Aster{1}.MT, ax] = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.startPosition, spindleAngle(1), spindleExclusionRange, ax);
-                    [ spindle.Aster{2}.MT, ax] = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.endPosition, spindleAngle(2), spindleExclusionRange, ax); 
-                else
-                    spindle.Aster{1}.MT = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.startPosition, spindleAngle(1), spindleExclusionRange);
-                    spindle.Aster{2}.MT = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.endPosition, spindleAngle(2), spindleExclusionRange); 
-                end
+                spindle.Aster{1}.MT = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.startPosition, spindleAngle(1), spindleExclusionRange);
+                spindle.Aster{2}.MT = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.endPosition, spindleAngle(2), spindleExclusionRange); 
 
                 % Create Astral MTs
                 AstralMT = cell(1,2);
@@ -179,40 +179,42 @@ classdef MitoticCell < Cell
                             AstralMT{jAster} = { AstralMT{jAster}{:}, newMT};
                         end
                     end
+                    AsterObjects{jAster} = { AsterObjects{jAster}{:}, AstralMT{jAster}{:} };
                 end
 
-            elseif spindleOnlyFlag % no astral microtubules allowed
-                AstralMT{1} = {};
-                AstralMT{2} = {};
             end
 
             % Store basic objects in object Hierarchy
+            
+            % Aster MT Objects
             % SPBs + Astral MTs stored in an AsterMT
-            % SpindleMT + 2 Asters stored in a Spindle
             for jAster = 1 : 2
-                if ~isempty( AstralMT{jAster} )
-                    AsterObjects{jAster} = AsterMT( dim, SPB{jAster}, AstralMT{jAster}{:} );
-                else
-                    AsterObjects{jAster} = AsterMT( dim, SPB{jAster} );
-                end
-
+                Asters{jAster} = AsterMT( dim, AsterObjects{jAster} );
             end
-           
-            if removeSpindleSPB
+
+            % Spindle Feature
+            % SpindleMT + 2 Asters stored in a Spindle
+            if isempty( AsterObjects) 
                 spindleObj = Spindle( dim, imageIn, {spindleMT}, props.Spindle);
             else
-                spindleObj = Spindle( dim, imageIn, {spindleMT, AsterObjects{:} }, props.Spindle);
+                spindleObj = Spindle( dim, imageIn, {spindleMT, Asters{:} }, props.Spindle);
+            end
+
+            if displayFlag
+                fName = 'estimate_spindle';
+                f = figure( 'NumberTitle', 'off', 'Name', fName); 
+                ax = axes;
+                imagesc( ax, max(imageIn, [], 3) ); colormap gray; axis equal; hold on;
+                spindleObj.displayFeature(ax)
+                %sName = [fitInfo.saveDirectory, filesep, sName];
+                %export_fig( sName, '-png', '-nocrop', '-a1') 
             end
             spindleObj.findEnvironmentalConditions();
             spindleObj.syncFeaturesWithMap();
-%             spindleObj.fillParams();
-
-            %if displayFlag
-                %spindleObj.displayFeature();
-            %end
             
         end
         % }}}
+        
         % findTheSpindle {{{
         function [spindle, ax] = findTheSpindle( imageIn, ax)
             
@@ -418,6 +420,7 @@ classdef MitoticCell < Cell
 
         end
         % }}}
+        
         % findAstralMicrotubules {{{
         function [AstralMicrotubules, ax] = findAstralMicrotubules( imageIn, startPoint, spindleAngle, spindleExclusionRange, ax)
             % Finds straight lines directed radially away from the start point
@@ -441,7 +444,7 @@ classdef MitoticCell < Cell
                 nomt = 1;
             else nomt = 0; end
 
-            if ~nomt
+            if ~isempty( spindleAngle) && ~isempty( spindleExclusionRange) && ~nomt
                 % remove the line associated with the spindle
                 spindleAngleRange = spindleExclusionRange;
 

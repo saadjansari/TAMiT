@@ -4,7 +4,6 @@ classdef Cut7Distribution < Organizer
         image
         spindlePositionStart
         spindlePositionEnd
-        featureMap
     end
 
     methods (Access = public)
@@ -23,7 +22,7 @@ classdef Cut7Distribution < Organizer
             obj.image = image;
 
             % initialize featureMap and assign IDs
-            obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
+            %obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
 
         end
         % }}}

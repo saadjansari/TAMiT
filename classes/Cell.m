@@ -1,559 +1,149 @@
 classdef Cell < handle & matlab.mixin.Copyable
 % This is a generic cell which can be specialized
     properties
-        type % type of cell (e.g. interphase or mitotis). THis allows for multiple implementations depending on cell phase
+        type % type of cell (e.g. interphase or mitotis). 
+        imageData % (X,Y,Z,T,C)
         species
         strain % any specific strain information
-        numberOfChannels
         featuresInChannels
         channelsToFit
-        lifetime % 2-element vector containing [start_time, end_time]. Should be used when accessing image
-        image % (X,Y,Z,T,C)
         featureList % cell array containing features. this is of size numberOfChannels x Time.
-        settings
+        params
         featureMap
     end
 
     methods ( Access = public )
         
         % Cell {{{
-        function obj = Cell( image, lifetime, species, featuresInChannels, channelsToFit, type, settings)
+        function obj = Cell( imageData, featuresInChannels, channelsToFit, params, varargin)
         % Cell : constructor function for Cell superclass
        
             % Store essentials
-            obj.image = Cell.img2double( image);
-            obj.lifetime = lifetime;
-            obj.species = species;
+            obj.imageData = imageData; % imageData object
             obj.featuresInChannels = featuresInChannels;
             obj.channelsToFit = channelsToFit;
-            obj.numberOfChannels = size( image, 5);
-            obj.settings = Cell.parseSettings( settings);
+            obj.params = params;
+
+            % parse options
+            opts = parseArgs( varargin{:} );
+            obj.type = opts.Type;
+            obj.species = opts.Species;
+            obj.strain = opts.Strain;
 
             % Initialize the feature list
-            obj.featureList = cell( length( obj.channelsToFit), size(image, 4) );
+            obj.featureList = cell( length( obj.channelsToFit), size( imageData.GetImage, 4) );
             
             % Initialize featureIdxMap
             obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
 
-            % Cell Type
-            if nargin < 6, obj.type = 'generic';
-            else, obj.type = type; end
-
-            % Save Directory default behaviour
-            if nargin < 7, 
-                obj.settings.saveDirectory = [pwd, filesep, 'ResultsDump'];
-                warning('off', 'MATLAB:RMDIR:RemovedFromPath')
-                rmdir( obj.settings.saveDirectory, 's');
-                warning('on', 'MATLAB:RMDIR:RemovedFromPath')
-            end
-            if exist( obj.settings.saveDirectory) ~= 7
-                mkdir( obj.settings.saveDirectory)
+            % Save Directory creation 
+            if exist( obj.params.saveDirectory) ~= 7
+                mkdir( obj.params.saveDirectory)
             end
 
-            % Displays
-            disp('    -----------------------   C E L L    I N F O   ------------------------');
-            disp('    -----------------------------------------------------------------------');disp(' ')
-            disp( ['        Type : ' obj.type ] )
-            disp( ['        Species : ' , obj.species])
-            disp( sprintf( '        Lifetime : %d - %d', lifetime(1), lifetime(2) ) );
-            disp( sprintf( '        Movie size XYZTC = %d x %d x %d x %d x %d', size(image, 1), size(image, 2), size(image, 3), size(image, 4), size( image, 5) ) )
-            disp( ['        Features = ', strjoin( featuresInChannels, ' - ') ] ) 
-            disp('     ----------------------------------------------------------------------');disp(' ')
+            Cell.PrintInfo( obj);
+
+            % parseArgs {{{
+            function opts = parseArgs( varargin)
+               
+                % default 
+                defaultType = 'generic';
+                defaultSpecies = 'Pombe';
+                defaultStrain = 'WildType';
+
+                % Input Parser
+                p = inputParser;
+                addParameter( p, 'Type', defaultType);
+                addParameter( p, 'Species', defaultSpecies);
+                addParameter( p, 'Strain', defaultStrain);
+
+                parse( p, varargin{:});
+                opts = p.Results;
+
+            end
+            % }}}
+            
+        end
+        % }}}
+        
+        % FindFeatures {{{
+        function obj = FindFeatures( obj)
+
+            for jChannel = 1 : length(obj.channelsToFit)
+
+                cChannel = obj.channelsToFit( jChannel);
+                disp( upper( sprintf( ['Channel %d = ' obj.featuresInChannels{jChannel}], cChannel ) ) )
+                disp('-----------------------------------------------------------------------')
+
+                obj.FindFeaturesChannel( jChannel);
+
+            end
 
         end
         % }}}
 
-        % fitFeatures {{{
-        function obj = fitFeatures( obj, parameters)
+        % FindFeaturesChannel {{{
+        function obj = FindFeaturesChannel( obj, jChannel)
 
-            for jChannel = 1 : length(obj.channelsToFit)
+            % get actual channel number based on channel index
+            cChannel = obj.channelsToFit( jChannel);
 
-                % get actual channel number based on channel index
-                cChannel = obj.channelsToFit( jChannel);
-                disp( upper( sprintf( ['                               Channel %d = ' obj.featuresInChannels{jChannel}], cChannel ) ) )
-                disp('    -----------------------------------------------------------------------')
+            % Get lifetime for this cell
+            lifetime = obj.imageData.GetLifetime;
 
-                for jTime = obj.lifetime(1) : obj.lifetime(2)
+            for jTime = lifetime(1) : lifetime(2)
 
-                    disp( sprintf( '    C-%d Time = %d', jChannel, jTime) )
+                disp( sprintf( 'C-%d Time = %d', jChannel, jTime) )
 
-                    % Initialize for this CT step
-                    parameters.channelTrue = cChannel;
-                    parameters.channelIdx = jChannel;
-                    parameters.time = jTime;
-                    parameters.saveDirectory = [ obj.settings.saveDirectory , filesep, sprintf( 'C%d_T%d', cChannel, jTime) ];
-                    mkdir( parameters.saveDirectory);
+                % Initialize for this CT step
+                params = obj.params;
+                params.channelTrue = cChannel;
+                params.channelIdx = jChannel;
+                params.time = jTime;
+                params.saveDirectory = [ obj.params.saveDirectory , filesep, sprintf( 'C%d_T%d', cChannel, jTime) ];
+                mkdir( params.saveDirectory);
 
-                    % Fit features for this CT frame
-                    obj.fitFeatures_Frame( parameters) 
+                % Find features for this CT frame
+                obj.FindFeaturesFrame( params) 
 
-                end
-                disp('    -----------------------------------------------------------------------')
             end
+            disp('-----------------------------------------------------------------------')
             
         end
+        % }}}
         
-        % fitFeatures_Frame {{{
-        function fitFeatures_Frame( obj, parameters)
+        % FindFeaturesFrame {{{
+        function FindFeaturesFrame( obj, parameters)
             % Find and fit features for a single CT frame
             
-            Image2Fit = obj.image(:,:,:, parameters.time, parameters.channelTrue);
+            % Get the image for this frame
+            Image = obj.imageData.GetImage();
+            Image2Fit = Image(:,:,:, parameters.time, parameters.channelTrue);
 
             % check if frame should be skipped
-            status = Cell.checkFrameViability( Image2Fit, parameters.time);
-            if status ~= 0
+            if Cell.checkFrameViability( Image2Fit, parameters.time)~= 0
                 obj.featureList{ parameters.channelIdx, parameters.time} = NaN;
                 return
             end
 
             % Estimate the features based on an estimation routine (defined in specialized sub-class )
             % Good estimation is key to good optimization in low SnR images
-            disp('        Estimation')
-            obj = findFeatures( obj, parameters.time, parameters.channelTrue, parameters.channelIdx); 
+            disp('Estimating features...')
+            obj.EstimateFeatures( parameters.time, parameters.channelTrue, parameters.channelIdx); 
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
 
+            % Prepare fit params
+            params = obj.params.fit;
+            params.channel = parameters.channelTrue;
+            params.time = parameters.time;
+            params.saveDirectory = parameters.saveDirectory;
 
-            % Optimize the features via local and global fitting, followed by optimization of feature number
-            disp('        Optimization')
-            disp('            - Regular')
-
-            % Local Fitting
-            obj.settings.flags.doFitLocal = 0;
-            if obj.settings.flags.doFitLocal
-                fitInfo.Local = fitLocal(  obj, Image2Fit, parameters);
-            end
-
-            % Global Fitting
-            fitInfo.Global = fitGlobal( obj, Image2Fit, parameters);
-
-            % Display and Save
-            if obj.settings.flags.graphRealTime
-                Cell.displayFinalFit( Image2Fit, mainFeature, fitInfo.Global);
-            end
-            Cell.saveFinalFit( Image2Fit, mainFeature, fitInfo.Global);
-
-            % HyperParameter Fitting
-            if obj.settings.flags.doFitFeatureNumber && ~obj.settings.flags.skipOptimizeNumber
-                disp('            - Feature Number')
-                fitInfo.GlobalNumber = fitFeatureNumber( obj, Image2Fit, parameters, fitInfo.Global);
-
-                % Display and Save
-                if obj.settings.flags.graphRealTime
-                    Cell.displayFinalFit( Image2Fit, obj.featureList{parameters.channelIdx, parameters.time}, fitInfo.GlobalNumber);
-                end
-                Cell.saveFinalFit( Image2Fit, mainFeature, fitInfo.GlobalNumber);
-            end
+            % Fit Features via Fit Engine.
+            fitEngine = FitEngine( Image2Fit, mainFeature, params);
+            fitEngine.Optimize();
 
             obj.updateFeatureMap( parameters.channelIdx, parameters.time);
             close all
-            
-            %fitInfo.Global.fitVecs.labels
-            %fitInfo.Global.fitVecs.vec
-            %fitInfo.Global.fitResults.vfit
-
-        end
-        % }}}
-        % fitLocal {{{
-        function fitInfo = fitLocal( obj, Image2Fit, parameters)
-
-            disp('                    Local Fitting : '); 
-
-            % Check if mainFeature should be fit. If not, then return out of method
-            if isempty( mainFeature.featureList)
-                fprintf('                       Skipping fitting for %s\n', mainFeature.type);  
-                [ ~, fitInfo] = prepareFit( obj, mainFeature, Image2Fit, parameters, 'local', 1);
-                fitInfo.featureMain = mainFeature;
-                return
-            end
-            
-            mainFeature = obj.featureList{ parameters.channelIdx, parameters.time};
-            nFeatures = mainFeature.getSubFeatureNumber();
-
-            for jFeature = 1 : nFeatures
-                disp( sprintf('                        Current Feature = %d / %d', jFeature, nFeatures) ); 
-
-                % Prepare for the Fit (specialized function)
-                [ fitProblem{jFeature}, fitInfo{jFeature}] = prepareFit( obj, mainFeature, Image2Fit, parameters, 'local', jFeature);
-
-                % run the lsqnonlin local fitting
-                [fR.vfit,fR.resnorm,fR.residual,fR.exitflag,~,~,fR.jacobian] = lsqnonlin( fitProblem{ jFeature} ); 
-                
-                % Get the errors from the jacobian
-                ci = nlparci( fR.vfit, fR.residual, 'jacobian', fR.jacobian, 'alpha', 0.07); 
-                fR.vfitError = abs( (ci(:,2)-ci(:,1) ) / 2 )';
-                fitInfo{jFeature}.fitResults = fR;
-                
-                % Update feature heirarchy to ensure all dependencies are acknowledged
-                mainFeature.updateSubFeatures( );
-
-                disp( sprintf('                            Exit Flag = %d', fR.exitflag) ); 
-            end
-
-        end
-        % }}}
-        % fitGlobal {{{
-        function fitInfo = fitGlobal( obj, Image2Fit, parameters, addRem)
-
-            if nargin == 6
-                fitScope = ['globum_' addRem];
-            else
-                fitScope = 'global';
-            end
-
-            disp('                    Global Fitting : '); 
-%             disp('                        Initiated'); 
-
-            mainFeature = obj.featureList{ parameters.channelIdx, parameters.time};
-
-            % Prepare for Fit (specialized)
-            [ fitProblem, fitInfo] = prepareFit( obj, mainFeature, Image2Fit, parameters, fitScope);
-
-            % Check if mainFeature should be fit. If not, then return out of method
-            if isempty( mainFeature.featureList)
-                fitInfo.featureMain = mainFeature;
-                fprintf('                       Skipping fitting for %s\n', mainFeature.type);  
-                return
-            end
-
-            % Run Global Fit
-            [fR.vfit,fR.resnorm,fR.residual,fR.exitflag,~,~,fR.jacobian] = lsqnonlin( fitProblem ); 
-            
-            % Get the errors from the jacobian
-            ci = nlparci( fR.vfit, fR.residual, 'jacobian', fR.jacobian, 'alpha', 0.07); fR.vfitError = abs( (ci(:,2)-ci(:,1) ) / 2 )';
-
-            % Store fit Results
-            fitInfo.fitResults = fR;
-
-            disp( sprintf('                        Exit Flag = %d', fR.exitflag) ); 
-
-        end
-        % }}}
-        % fitFeatureNumber {{{
-        function fitInfo = fitFeatureNumber( obj, Image2Fit, parameters, fitInfo)
-
-            % check if features should be added and removed
-            if obj.settings.flags.skipOptimizeNumber
-                return
-            end
-
-            cTime = parameters.time;
-            cChannel = parameters.channelIdx;
-
-            % check if mainFeature should be fit. If not, then return out of method
-            if isempty( obj.featureList{ cChannel, cTime} )
-                fprintf('                       Skipping fitting for %s\n', mainFeature.type);  
-                return
-            end
-
-            % We will iteratively add and remove features to find the optimum number
-            p = 1e-10;
-%             alpha = 0.05;
-
-            % Book-keeping
-            fitInfo.fitScope = 'globum';
-            fitInfo.Org = fitInfo;
-            fitInfo.Old = fitInfo.Org;
-            mainFeature.Org = obj.featureList{ cChannel, cTime};
-            mainFeature.Old = copyDeep( mainFeature.Org);
-
-            % Add Missing Features {{{
-            continueAdd = 1;
-            while continueAdd
-
-                refImage = abs( Image2Fit - Cell.simulateCellWithVec( fitInfo.Old.fitResults.vfit, fitInfo.Old) );
-               
-                % Create a deep copy of the new  main feature
-                mainFeature.New = mainFeature.Old.copyDeep(); 
-
-                % Add Features
-                mainFeature.New = mainFeature.New.addSubFeatures( refImage);
-                
-                % Run a global fit
-                obj.featureList{ cChannel, cTime} = mainFeature.New;
-                disp( sprintf('                - Add N = %d ---> %d ', mainFeature.Old.getSubFeatureNumber(), mainFeature.Old.getSubFeatureNumber()+1 ) )
-                fitInfo.New = fitGlobal( obj, Image2Fit, parameters, 'add');
-                
-                im1_raw = mainFeature.Old.imageSim;
-                im2_raw = mainFeature.New.imageSim;
-                im1 = mainFeature.Old.simulateFeature( size( Image2Fit) );
-                im2 = mainFeature.New.simulateFeature( size( Image2Fit) );
-                numP1 = length( fitInfo.Old.fitVecs.vec);
-                numP2 = length( fitInfo.New.fitVecs.vec);
-                
-                % Do a statistical F test to compare the two models
-                p = Cell.compareModels(im1_raw, im2_raw, im1, im2, numP1, numP2, Image2Fit, 'f');
-%                 disp(p)
-%                 error('stop')
-
-                if p > fitInfo.Org.alpha
-                    disp(sprintf('                    N = %d (p = %.3f, alpha = %.3f) . Keep old model.', mainFeature.Old.getSubFeatureNumber(), p, fitInfo.Org.alpha ) )
-%                     disp(sprintf('                    p = %.3f, alpha = %.3f, R1 = %.2f, R2 = %.2f', p, alpha, ss1, ss2 ) )
-                    obj.featureList{cChannel,cTime} = mainFeature.Old;
-                    continueAdd = 0;
-                elseif p < fitInfo.Org.alpha
-                    continueAdd = 1;
-                    disp(sprintf('                    N = %d (p = %.3f, alpha = %.3f) . Keep improving model.', mainFeature.New.getSubFeatureNumber(), p, fitInfo.Org.alpha) )
-%                     disp(sprintf('                    p = %.3f, alpha = %.3f, R1 = %.2f, R2 = %.2f', p, alpha, ss1, ss2 ) )                    
-                    fitInfo.Old = fitInfo.New;
-                    obj.featureList{cChannel,cTime} = mainFeature.New;
-                    mainFeature.Old = mainFeature.New;
-                end
-
-            end
-            % }}}
-
-            % Remove Redundant Features {{{
-            continueRemove = 1;
-            while continueRemove
-               
-                refImage = abs( Image2Fit - Cell.simulateCellWithVec( fitInfo.Old.fitResults.vfit, fitInfo.Old) );
-
-                % Create a deep copy of the new  main feature
-                mainFeature.New = copyDeep( mainFeature.Old); 
-                
-                % Remove Features
-                [ mainFeature.New, successRemove ] = mainFeature.New.removeSubFeatures( refImage);
-                
-                % A removal could fail if there are no features left to remove
-                if successRemove
-
-                    % Run a global fit
-                    disp( sprintf('                - Rem N = %d ---> %d ', mainFeature.Old.getSubFeatureNumber(), mainFeature.Old.getSubFeatureNumber()-1 ) )
-                    obj.featureList{ cChannel, cTime} = mainFeature.New;
-                    if mainFeature.New.getSubFeatureNumber() > 0
-                        fitInfo.New = fitGlobal( obj, Image2Fit, parameters, 'remove');
-                    end
-                    
-                    im1_raw = mainFeature.Old.imageSim;
-                    im2_raw = mainFeature.New.imageSim;
-                    im1 = mainFeature.Old.simulateFeature( size( Image2Fit) );
-                    im2 = mainFeature.New.simulateFeature( size( Image2Fit) );
-                    numP1 = length( fitInfo.Old.fitVecs.vec);
-                    numP2 = length( fitInfo.New.fitVecs.vec);
-                    
-                    % Do a statistical F test to compare the two models
-                    p = Cell.compareModels(im2_raw, im1_raw, im2, im1, numP2, numP1, Image2Fit, 'f');
-                    
-                    if p < fitInfo.Org.alpha
-                        disp(sprintf('                    N = %d (p = %.3f, alpha = %.3f) . Keep old model.', mainFeature.Old.getSubFeatureNumber(), p, fitInfo.Org.alpha) )
-%                         disp(sprintf('                    p = %.3f, alpha = %.3f, R1 = %.2f, R2 = %.2f', p, alpha, ss1, ss2 ) )                    
-                        obj.featureList{cChannel,cTime} = mainFeature.Old;
-                        continueRemove = 0;
-                    elseif p > fitInfo.Org.alpha
-                        continueRemove = 1;
-                        disp(sprintf('                    N = %d (p = %.3f, alpha = %.3f) . Keep improving model.', mainFeature.New.getSubFeatureNumber(), p, fitInfo.Org.alpha ) )
-%                         disp(sprintf('                    p = %.3f, alpha = %.3f, R1 = %.2f, R2 = %.2f', p, alpha, ss1, ss2 ) )                    
-                        fitInfo.Old = fitInfo.New;
-                        obj.featureList{cChannel,cTime} = mainFeature.New;
-                        mainFeature.Old = mainFeature.New;
-                    end
-
-                else
-                    continueRemove = 0;
-                    disp( sprintf('                - Rem N = %d ---> %d ', mainFeature.Old.getSubFeatureNumber(), mainFeature.Old.getSubFeatureNumber()-1 ) )
-                    disp( sprintf('                    No more removable features', mainFeature.Old.getSubFeatureNumber() ) )
-                    disp( sprintf('                    N = %d , Keep old model.', mainFeature.Old.getSubFeatureNumber() ) )
-                end
-
-            end
-            % }}}
-
-            disp( sprintf('                - FINAL N =  %d', mainFeature.Old.getSubFeatureNumber() ) )
-            fitInfo = fitInfo.Old;
-            obj.featureList{ cChannel, cTime} = mainFeature.Old;
-
-        end
-        % }}}
-        % prepareFit {{{
-        function [ fitProblem, fitInfo ] = prepareFit( obj, featureMain, imageOrg, parameters, fitScope, cFeature)
-            
-            % Input Checks
-            if length( featureMain) ~= 1
-                error('prep_fitLocal : there should only be a single main feature'), end
-            
-            if ~strcmp( fitScope, 'local') && ~strcmp( fitScope, 'global') && ~strcmp( fitScope, 'globum_add') && ~strcmp( fitScope, 'globum_remove')
-                error('prepareFit : input argument fitScope must be either ''local'' or ''global'' '); end
-
-            if strcmp( fitScope, 'local') && nargin < 6
-                error('prepareFit : for a local fit, feature number argument must be provided'); end
-
-            % The fit will be 3-dimensional
-            imageOrg = im2double( imageOrg); 
-        
-            % Set optimization options based on configuration flags
-%             opts = Cell.setOptimOpts( obj.settings.flags);
-
-            % If no features are present to be fitted, assign the essentials and return out
-            if isempty( featureMain.featureList)
-                fitInfo.channel = parameters.channelTrue;
-                fitInfo.time = parameters.time;
-                fitInfo.fitScope = fitScope;
-                fitInfo.saveDirectory = parameters.saveDirectory;
-                fitProblem = [];
-                return
-            end
-
-            % Obtain the feature to fit, its fit vector and its labels for lsqnonlin and parsing
-            if strcmp(fitScope, 'local')
-                [ fitVec, fitLabels, fitObj] = getVecLocal( featureMain);
-                fitVec = fitVec{ cFeature};
-                fitLabels = fitLabels{ cFeature};
-                fitObj = fitObj{ cFeature};
-            elseif strcmp(fitScope, 'global') || strcmp(fitScope, 'globum_add') || strcmp(fitScope, 'globum_remove')
-                [ fitVec, fitLabels ] = getVec( featureMain); 
-                fitObj = featureMain; cFeature = 1; 
-                fitInfo.Nnew = featureMain.getSubFeatureNumber();
-            end
-
-            % Record old number of features for optimization of feature number
-            if strcmp(fitScope, 'globum_add')
-                fitInfo.Nold = fitInfo.Nnew - 1;
-            elseif strcmp(fitScope, 'globum_remove')
-                fitInfo.Nold = fitInfo.Nnew + 1;
-            end
-            % Get upper and lower bounds of parameters for passing on to lsqnonlin (restricts the parameter space)
-            fitVecs = Cell.getUpperLowerBounds( fitVec, fitLabels, imageOrg);
-
-            % Scale the parameters to vary the speed of exploration in the parameter space
-            if obj.settings.flags.fitExploreSpeed
-                speedVec = Cell.getExplorationSpeedVector( fitLabels);
-                fitVecs.vec = fitVecs.vec ./ speedVec;
-                fitVecs.ub = fitVecs.ub ./ speedVec;
-                fitVecs.lb = fitVecs.lb ./ speedVec;
-                fitInfo.speedVec = speedVec;
-            end
-
-            % Set up parameters for fit
-            fitInfo.featureMain = featureMain;
-            fitInfo.featureCurrent = fitObj;
-            fitInfo.featureIndex = cFeature;
-            fitInfo.fitVecs = fitVecs;
-            fitInfo.mask = logical( imageOrg);
-            fitInfo.image = imageOrg;
-            fitInfo.numVoxels = size( imageOrg);
-            fitInfo.channel = parameters.channelTrue;
-            fitInfo.time = parameters.time;
-            fitInfo.fitScope = fitScope;
-            fitInfo.saveDirectory = parameters.saveDirectory;
-            fitInfo.alpha = 0.05;
-            % Find voxel indices for gaussian feature computation
-
-            % make the error function for lsqnonlin
-            f = Cell.makeErrorFcn( imageOrg, fitInfo );
-
-            % Crate Optimization Problem
-
-            % Set Optim Options {{{
-            flags = obj.settings.flags;
-            if flags.debug 
-
-%                                     'UseParallel', true, ...
-                opts = optimoptions( @lsqnonlin, ...
-                                    'MaxFunEvals', 2000, ...
-                                    'OptimalityTolerance', 1e-12, ...
-                                    'MaxIter', 20, ...
-                                    'TolFun', 1e-9, ...
-                                    'FiniteDifferenceStepSize', 1e-2, ...
-                                    'FiniteDifferenceType', 'central', ...
-                                    'StepTolerance', 1e-5, ...
-                                    'display', 'iter', ... 
-                                    'OutputFcn', @plotFit );
-
-            elseif flags.graphRealTime
-
-                opts = optimoptions( @lsqnonlin, ...
-                                    'MaxFunEvals', 2000, ...
-                                    'OptimalityTolerance', 1e-12, ...
-                                    'MaxIter', 10, ...
-                                    'TolFun', 1e-9, ...
-                                    'FiniteDifferenceStepSize', 1e-2, ...
-                                    'FiniteDifferenceType', 'central', ...
-                                    'StepTolerance', 1e-5, ...
-                                    'display', 'off', ... 
-                                    'OutputFcn', @plotFit );
-
-            else 
-                opts = optimoptions( @lsqnonlin, ...
-                                    'MaxFunEvals', 2000, ...
-                                    'OptimalityTolerance', 1e-12, ...
-                                    'MaxIter', 30, ...
-                                    'TolFun', 1e-9, ...
-                                    'FiniteDifferenceStepSize', 1e-2, ...
-                                    'FiniteDifferenceType', 'central', ...
-                                    'StepTolerance', 1e-5, ...
-                                    'display', 'iter', ...
-                                    'UseParallel', false);
-            end
-            % }}}
-
-            fitProblem = createOptimProblem( 'lsqnonlin', 'objective', f, 'x0', fitVecs.vec, 'ub', fitVecs.ub, 'lb', fitVecs.lb, 'options', opts);
-
-            % Create handle for plotting function
-            function stop = plotFit( x, optimV, state)
-                stop = Cell.plot_midFit(x, optimV, state, fitInfo);
-            end
-
-        end
-        % }}}
-        
-        % }}}
-        
-        % playMovie {{{
-        function playMovie( obj, cChannels, cColors)
-            % Plays the image movie of the Cell.
-            % cChannels can either be a scalar or a vector of upto 3 elements specifying the channels to play
-            % cColor can either be a string or a string array of upto 3 elements specifying the color of each of the channels. the size of cColors must match the size of cChannels
-
-            if length( cChannels) > 3
-                error('playMovie: cChannels cannot contain more than 3 elements')
-            end
-
-            if nargin == 3 && length( cChannels) ~= length( cColors)
-                error('playMovie: length of cChannels must match length of cColors')
-            end
-            
-            img = max( obj.image, [], 3);
-            img = squeeze( img);
-            img = permute( img, [ 1 2 4 3] ); % XYCT
-
-            imStack = zeros( size(img, 1), size(img,2), 3, size(img, 4) );
-            rgb = {'R', 'G', 'B'};
-
-            if nargin < 3
-                if length( cChannels) == 1
-                    % make greyscale image
-                    imStack(:,:,1,:) = mat2gray( img(:,:,cChannels, :) );
-                    imStack(:,:,2,:) = mat2gray( img(:,:,cChannels, :) );
-                    imStack(:,:,3,:) = mat2gray( img(:,:,cChannels, :) );
-                else
-                    for jC = 1 : length(cChannels)
-                        imStack(:,:,jC,:) = mat2gray( img(:,:,cChannels(jC), :) );
-                    end
-                end
-
-            elseif nargin == 3
-            
-                % Find cChannel for red color
-                cR = cChannels( find( strcmp(cColors, 'R') ) );
-                if ~isempty( cR)
-                    imStack(:,:,1,:) = mat2gray( img(:,:,cR, :) );
-                end
-
-                % Find cChannel for green color
-                cG = cChannels( find( strcmp(cColors, 'G') ) );
-                if ~isempty( cG)
-                    imStack(:,:,2,:) = mat2gray( img(:,:,cG, :) );
-                end
-                
-                % Find cChannel for blue color
-                cB = cChannels( find( strcmp(cColors, 'B') ) );
-                if ~isempty( cB)
-                    imStack(:,:,3,:) = mat2gray( img(:,:,cB, :) );
-                end
-            end
-
-            fps = 10;
-            implay( imStack, fps);
 
         end
         % }}}
@@ -920,24 +510,6 @@ classdef Cell < handle & matlab.mixin.Copyable
 
         end
         % }}}
-        % simulateCellWithVec {{{
-        function imageOut = simulateCellWithVec( vec, fitInfo)
-            % Simulates the Features in the cell
-            
-            % Apply the speedExploration vector to transform to real parameters
-            if isfield( fitInfo, 'speedVec')
-                vec = vec .* fitInfo.speedVec;
-            end
-
-            % Get current feature
-            featureCurrent = fitInfo.featureCurrent;
-            featureCurrent.absorbVec( vec, fitInfo.fitVecs.labels );
-            
-            % Simulate the feature
-            imageOut = fitInfo.featureMain.simulateAll( 0*fitInfo.image, featureCurrent.ID);
-
-        end
-        % }}}
             % checkFrameViability {{{
             function status = checkFrameViability( Image2Fit, jTime);
 
@@ -1139,183 +711,6 @@ classdef Cell < handle & matlab.mixin.Copyable
         end
         % }}}
         % }}}
-        
-        % Feature Fitting {{{
-
-        % getUpperLowerBounds {{{
-        function fitVecs = getUpperLowerBounds( vec, vecLabels, image)
-            % Get upper and lower bounds for fitting
-            
-            ub = vec; lb = vec;
-            minVox = 1;
-            maxVox = size( image);
-            estBkg = median( image( image> 0) );
-            maxBkg = max( image(:) );
-            minBkg = min( image(:) );
-            maxAmp = max( image(:) );
-            minAmp = 0; % min SnR is half of max SnR of image
-            minSig = [1.2, 1.2, 1.0];
-            maxSig = [2.0, 2.0, 2.0];
-            
-
-            % find the correct label in vecLabels, and start to place in the correct bounds in the correct places
-
-
-            % Find index of parameters 
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'amplitude') ) );
-            idxSig = find( ~cellfun( @isempty, strfind( vecLabels, 'sigma') ) );
-            idxP0 = find( ~cellfun( @isempty, strfind( vecLabels, 'startPosition') ) );
-            idxP1 = find( ~cellfun( @isempty, strfind( vecLabels, 'endPosition') ) );
-            idxP = find( ~cellfun( @isempty, strfind( vecLabels, 'position') ) );
-            idxBkg = find( ~cellfun( @isempty, strfind( vecLabels, 'background') ) );
-
-            % determine amplitude bounds
-            % halfway between background and max value?
-            %minAmp = 0.5*(maxBkg - vec(1) );
-            %idxUp = vec(idxAmp) < minAmp;
-            %vec( idxAmp(idxUp) ) = minAmp;
-
-            % Store upper and lower bounds correctly
-            if ~isempty( idxAmp), 
-                ub( idxAmp) = maxAmp;
-                lb( idxAmp) = minAmp; end
-            if ~isempty( idxSig), 
-                nF = length( idxSig)/3;
-                ub( idxSig) = repmat( maxSig, 1, nF);
-                lb( idxSig) = repmat( minSig, 1, nF); end
-            if ~isempty( idxP0), 
-                nF = length( idxP0)/3;
-                ub( idxP0 ) = repmat( [ maxVox(2) maxVox(1) maxVox(3) ], 1, nF);
-                lb( idxP0 ) = minVox; end
-            if ~isempty( idxP1), 
-                nF = length( idxP1)/3;
-                ub( idxP1 ) = repmat( [ maxVox(2) maxVox(1) maxVox(3) ], 1, nF);
-                lb( idxP1 ) = minVox; end
-            if ~isempty( idxP), 
-                nF = length( idxP)/3;
-                ub( idxP ) = repmat( [ maxVox(2) maxVox(1) maxVox(3) ], 1, nF);
-                lb( idxP ) = minVox; end
-            if ~isempty( idxBkg), 
-                ub( idxP ) = maxBkg;
-                lb( idxP ) = minBkg; end
-
-            if any( lb > ub) || any(ub < lb) || any( vec < lb) || any(vec > ub)
-                badIdx = unique([ find( lb > ub),  find(ub < lb) , find( vec < lb) , find(vec > ub)]);
-                badProps = vecLabels( badIdx)
-                disp(vecLabels)
-                disp( ub )
-                disp( vec)
-                disp( lb )
-                error('getUpperLowerBounds : bounds are wrong')
-            end
-            fitVecs.vec = vec;
-            fitVecs.ub = ub;
-            fitVecs.lb = lb;
-            fitVecs.labels = vecLabels;
-
-        end
-        % }}}
-        % getExplorationSpeedVector {{{
-        function speedVec = getExplorationSpeedVector( vecLabels)
-            % Creates a weighing vector to allow a user to assign different importance to different kinds of parameters. This will infact allow the fitting optimization engine to explore the parameters space at different speeds
-            
-            % Exlporation Speed : unassigned speeds are kept at 1.0
-%             speedAmp = 100;
-%             speedBkg = 10;
-%             speedSigma = 1;
-%             speedPos = 10;
-            speedAmp = 1000;
-            speedBkg = 10;
-            speedSigma = 1;
-            speedPos = 1;
-            speedVec = ones( size(vecLabels) );
-
-            % Find the index of these speeds
-            % Amplitude
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'amplitude') ) );
-            speedVec( idxAmp) = speedAmp;
-
-            % Background 
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'background') ) );
-            speedVec( idxAmp) = speedBkg;
-
-            % Sigma 
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'sigma') ) );
-            speedVec( idxAmp) = speedSigma;
-            
-            % Position
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'startPosition') ) );
-            speedVec( idxAmp) = speedPos;
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'endPosition') ) );
-            speedVec( idxAmp) = speedPos;
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'position') ) );
-            speedVec( idxAmp) = speedPos;
-
-        end
-        % }}}
-        % makeErrorFcn {{{
-        function errVal = makeErrorFcn( ImageFit, fitInfo)
-
-            errVal = @ErrorFcn;
-
-            function err = ErrorFcn( p)
-                    
-                err = Cell.simulateCellWithVec( p, fitInfo) - ImageFit;
-                err = err(:);
-
-            end
-
-        end
-        % }}}
-        % compareModels {{{
-        function vargout = compareModels(im1_raw, im2_raw, im1, im2, numP1, numP2, imOrig, test)
-            
-            % Assumes that feature images are without the background
-            
-            if ~strcmp( test, 'f') && ~strcmp( test, 'aic') && ~strcmp( test, 'bic')
-                error('compareModels: unknown test (must be ''f'', ''aic'' or ''bic''.')
-            end
-            
-            numObs1 = sum( im1(:) > 0);
-            numObs2 = sum( im2(:) > 0);
-            
-            dof1 = numObs1-numP1;
-            dof2 = numObs2-numP2;
-            
-            resid1 = (imOrig - im1).^2;
-            resid2 = (imOrig - im2).^2;
-            res1 = sum( resid1(:) );
-            res2 = sum( resid2(:) );
-            
-            % residual at feature regions
-            % find feature region
-            im1_raw( im1_raw < 0.001*max(im1_raw(:) ) ) = 0;
-            im2_raw( im2_raw < 0.001*max(im2_raw(:) ) ) = 0;
-            ROI = logical( im1_raw > 0 | im2_raw > 0 );
-            resR1 = sum( resid1( ROI) );
-            resR2 = sum( resid2( ROI) );
-
-            switch test
-                case 'f'
-%                     p1 = fcdf( res2/res1 , dof2, dof1);
-                    
-                    dof1 = sum( ROI(:) )-numP1;
-                    dof2 = sum( ROI(:) )-numP2;
-                    p2 = fcdf( resR2/resR1 , dof2, dof1);
-                    
-                    vargout = p2;
-                    
-                case 'aic'
-                    
-                case 'bic'
-                    
-            end
-            
-            
-        end
-        % }}}
-        
-        % }}}
             
         % Graphics {{{
         
@@ -1380,7 +775,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                         % Simulated Image
     %                     subplot(232)
                         axes( ax(2) ); 
-                        imageSim = Cell.simulateCellWithVec( vec, fitInfo);
+                        imageSim = FitEngine.SimulateImage( vec, fitInfo);
                         img = imagesc( max(imageSim, [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Simulated'); set( img, 'Tag', 'imgSim');
                         set( ax(2), 'Tag', 'ax2');
 
@@ -1418,7 +813,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                         set( f, figProps{:});
     %                     subplot(232)
                         axes( findobj('Tag', 'ax2') );
-                        imageSim = Cell.simulateCellWithVec( vec, fitInfo);
+                        imageSim = FitEngine.SimulateImage( vec, fitInfo);
                         img = findobj( get( gca,'Children'), 'Tag', 'imgSim');
                         set( img, 'CData', max( imageSim, [], 3) );
                         
@@ -1664,13 +1059,13 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Initial Simulated Image
 %             subplot(232)
             axes( ax(2) );
-            imageSimI = Cell.simulateCellWithVec( fitInfo.fitVecs.vec, fitInfo);
+            imageSimI = FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo);
             img = imagesc( max(imageSimI, [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Simulated Init'); set( img, 'Tag', 'imgSimI');
 
             % Final Simulated Image
 %             subplot(233)
             axes( ax(3) );
-            imageSimF = Cell.simulateCellWithVec( fitInfo.fitResults.vfit, fitInfo);
+            imageSimF = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
             img = imagesc( max(imageSimF, [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Simulated Final'); set( img, 'Tag', 'imgSimF');
 
             % Features
@@ -1760,8 +1155,8 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             % Images Simulated
             if ~isempty( mainFeature.featureList)
-                imageSimI = uint16( Cell.simulateCellWithVec( fitInfo.fitVecs.vec, fitInfo) );
-                imageSimF = uint16( Cell.simulateCellWithVec( fitInfo.fitResults.vfit, fitInfo) );
+                imageSimI = uint16( FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo) );
+                imageSimF = uint16( FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo) );
             else
                 imageSimI = [];
                 imageSimF = [];
@@ -1776,42 +1171,17 @@ classdef Cell < handle & matlab.mixin.Copyable
         end
         % }}}
         
-    end
+        % PrintInfo {{{
+        function PrintInfo( obj)
+            % Prints information about the cell
 
-    methods ( Static = true , Access = protected )
-
-        % parseSettings {{{
-        function settings = parseSettings( settings)
-            
-            flags.doFit = settings.CFGinfo.runFit;
-            flags.graphRealTime = settings.CFGinfo.runRealTimeGraphics;
-            flags.graphPostFit = settings.CFGinfo.runPostFitGraphics;
-            flags.track = settings.CFGinfo.runTracking;
-            flags.analyze = settings.CFGinfo.runFit;
-            flags.debug = settings.CFGinfo.runDebug; % enables all graphics
-            flags.doFitLocal = settings.CFGinfo.fitLocal;
-            flags.doFitFeatureNumber = settings.CFGinfo.fitFeatureNumber;
-            flags.fitExploreSpeed = settings.CFGinfo.fitExploreSpeed;
-            if isfield( settings, 'fitSpindleOnly')
-                flags.fitSpindleOnly = 1;
-            else
-                flags.fitSpindleOnly = 0;
-            end
-            if isfield( settings, 'skipOptimizeNumber')
-                flags.skipOptimizeNumber = settings.skipOptimizeNumber;
-            else
-                flags.skipOptimizeNumber = 0;
-            end
-            if isfield( settings, 'removeSpindleSPB')
-                flags.removeSpindleSPB = settings.removeSpindleSPB;
-            else
-                flags.removeSpindleSPB = 0;
-            end
-
-            settings.paths.saveParent = settings.CFGinfo.saveParent;
-            settings.paths.run = settings.CFGinfo.runPath;
-            settings.paths.movie = settings.cellinfo.moviePath;
-            settings.flags = flags;
+            fprintf('-----------------------   C E L L    I N F O   ------------------------\n');
+            fprintf('-----------------------------------------------------------------------\n\n');
+            fprintf( 'Type : %s\n', obj.type)
+            fprintf( 'ImageData : \n')
+            ImageData.PrintInfo( obj.imageData);
+            disp( ['Features = ', strjoin( obj.featuresInChannels, ' - ') ] ) 
+            fprintf('----------------------------------------------------------------------\n');
 
         end
         % }}}
@@ -1820,7 +1190,7 @@ classdef Cell < handle & matlab.mixin.Copyable
 
     methods ( Abstract = true )
     
-        obj = findFeatures( obj, image, time, channelTrue, channelIdx)
+        obj = EstimateFeatures( obj, image, time, channelTrue, channelIdx)
 
     end
 

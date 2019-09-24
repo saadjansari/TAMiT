@@ -72,6 +72,11 @@ classdef BasicElement < Feature
             % find the index of start positions
             for jProp = 1 : length( props2find)
                 idxProp = find( strcmp( props2find{ jProp} , vecLabels) );
+
+                % If property is not free to change, then continue to next iteration
+                if isempty( idxProp)
+                    continue;
+                end
                 
                 % Checking
                 if length( obj.( props2find{ jProp} ) ) ~= length( vec(idxProp) )
@@ -79,7 +84,6 @@ classdef BasicElement < Feature
                 end
             
                 % Set final property
-                obj.( props2find{jProp} );
                 obj.( props2find{ jProp} ) = vec( idxProp);
 
             end
