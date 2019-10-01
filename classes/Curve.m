@@ -66,12 +66,15 @@ classdef Curve < BasicElement
         function obj = absorbVec( obj, vec, vecLabels)
 
             props2find = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
-
+            
             % find the index of start positions
             for jProp = 1 : length( props2find)
                 idxProp = find( strcmp( props2find{ jProp} , vecLabels) );
                 
                 % Checking
+                if isempty( idxProp)
+                    return
+                end
                 if length( obj.( props2find{ jProp} ) ) ~= length( vec(idxProp) )
                     error( 'absorbVec: length of vector props to absorb does not match the old property size')
                 end

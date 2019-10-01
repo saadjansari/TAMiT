@@ -39,17 +39,15 @@ classdef MonopolarCell < Cell
             end
 
             % Special Tasks 
-            % If cut7 channel, try to get spindle information from MT channel
-            %if strcmp( obj.featuresInChannels{ idxChannel}, 'Cut7')
-                %% Get spindle information from microtubule channel if possible
-                %% (MICROTUBULE CHANNEL MUST BE ANALYZED FIRST FOR THIS TO WORK)
-                %mtChannel = find( strcmp( obj.featuresInChannels, 'Microtubule' ) );
-                %if ~isempty( mtChannel)
-                    %obj.featureList{ idxChannel, cTime}.harvestSpindleInfo( obj.featureList{mtChannel, cTime} );
-                %end
-
-            %end
-
+            % If cut7 channel, try to get monopolar information from MT channel
+            if strcmp( obj.featuresInChannels{ idxChannel}, 'Cut7')
+                % Get spindle information from microtubule channel if possible
+                % (MICROTUBULE CHANNEL MUST BE ANALYZED FIRST FOR THIS TO WORK)
+                mtChannel = find( strcmp( obj.featuresInChannels, 'Microtubule' ) );
+                if ~isempty( mtChannel)
+                    obj.featureList{ idxChannel, cTime}.harvestMonopolarAsterInfo( obj.featureList{mtChannel, cTime} );
+                end
+            end
         end
         % }}}
 
@@ -173,7 +171,7 @@ classdef MonopolarCell < Cell
                 %export_fig( sName, '-png', '-nocrop', '-a1') 
             end
             MonopolarObj.findEnvironmentalConditions();
-            MonopolarObj.syncFeaturesWithMap();
+            %MonopolarObj.syncFeaturesWithMap();
             
         end
         % }}}

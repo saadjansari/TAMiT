@@ -19,7 +19,7 @@ def parse_args():
     parser = argparse.ArgumentParser( prog='SimulSingleCell.py', description='Launcher for multiple matlab single cell fits on summit') 
     
     # configuration of launcher and the matlab fit program
-    parser.add_argument('-cfg', '--config', type=str, default='Summit', 
+    parser.add_argument('--loc', type=str, default='Summit', 
             help='define the configuration environment for both the launcher and the matlab fit program')
 
     # configuration of launcher and the matlab fit program
@@ -40,7 +40,7 @@ class SimulSingleCell( object):
         self.n_nodes = []
         self.n_cores = []
         self.n_jobs = []
-        self.n_cores_per_node = 12
+        self.n_cores_per_node = 24
 
         # filenames
         self.fname = {
@@ -57,7 +57,7 @@ class SimulSingleCell( object):
                 'jobname' : 'SimulSingleCell',
                 'qos' : 'condo',
                 'partition' : 'shas',
-                'time' : '05:00:00',
+                'time' : '10:00:00',
                 'output' : 'simul_single_cell.out'
         }
 
@@ -72,15 +72,15 @@ class SimulSingleCell( object):
         }
 
         # set the correct working directory
-        if self.opts.config == 'Summit':
+        if self.opts.loc == 'Summit':
             self.workdir = paths_workdir['Summit']
             self.launchdir = paths_launch['Summit']
             
-        elif self.opts.config == 'Local':
+        elif self.opts.loc == 'Local':
             self.workdir = paths_workdir['Local']
             self.launchdir = paths_launch['Summit']
             
-        elif self.opts.config == 'Rumor':
+        elif self.opts.loc == 'Rumor':
             raise ValueError('RunSimulSingleCell: rumor not set up yet.')
 
         else:
@@ -120,11 +120,13 @@ class SimulSingleCell( object):
         print( 'Initalizing parameters for the segmented cells :')
         
         # run parameter initialization and get paths to saved parameter files
+        opts_params = { 'LOC': 'SUMMIT', 'CFG': 'RELEASE'}
         eng = matlab.engine.start_matlab()
-        self.path_params = getattr( eng, self.fname['initparams'])( self.opts.config )
+        self.path_params = getattr( eng, self.fname['initparams'])( opts_params)
         for path in self.path_params:
             print('{0}'.format( path) ) 
 
+        ValueError('jesus loves you')
         # number of jobs based on length of pathParams
         self.n_jobs = len( self.path_params)
 

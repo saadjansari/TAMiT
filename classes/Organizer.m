@@ -95,6 +95,7 @@ classdef Organizer < Feature
             obj.featureList = { obj.featureList{:}, featNew};
             obj.numFeatures = obj.numFeatures + 1;
             idx = obj.numFeatures;
+            obj.syncFeatures();
 
         end
         % }}}
@@ -104,6 +105,7 @@ classdef Organizer < Feature
 
             obj.featureList( idxFeature) = [];
             obj.numFeatures = obj.numFeatures - 1;
+            obj.syncFeatures();
 
         end
         % }}}
@@ -129,7 +131,9 @@ classdef Organizer < Feature
     
             % Can i get a list of object ID's at this level? For organizers, i should probe them to search for IDs at their level
             subObj = [];
-
+            
+            searchID
+            
             % Is this object the one?
             if obj.ID == searchID
                 subObj = obj;
@@ -163,6 +167,65 @@ classdef Organizer < Feature
             for jobj = 1 : obj.numfeatures
                 obj.featurelist{jobj}.fillparams();
             end
+            
+        end
+        % }}}
+
+        % syncFeatures {{{
+        function obj = syncFeatures( obj)
+            % update the feature ids to reflect any initiliazation/additions/removals
+            % update the map with the features ids and their locations
+            
+            global COUNTER 
+
+            % Clear current feature map
+            mapLocal = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
+            
+            % Assign IDs to its subfeatures 
+            for jFeature = 1: obj.numFeatures
+                obj.featureList{ jFeature}.ID = COUNTER;
+                COUNTER = COUNTER + 1;
+            end
+
+            % Prompt subfeatures to do the same if they are organizers
+            for jFeature = 1: obj.numFeatures
+
+                % Determine if subfeature is an organizer
+                feat = obj.featureList{jFeature};
+                feat_classname = class( feat);
+                feat_superclassnames = superclasses( feat_classname); 
+
+                % If organizer, Sync subfeatures
+                if strcmp( feat_classname, 'Organizer') || any( strcmp( feat_superclassnames, 'Organizer') )
+                    feat.syncFeatures();
+                end
+
+            end
+
+            % Update featureMap
+            for jFeature = 1: obj.numFeatures
+                
+                feat = obj.featureList{jFeature};
+
+                % Determine if subfeature is an organizer
+                feat = obj.featureList{jFeature};
+                feat_classname = class( feat);
+                feat_superclassnames = superclasses( feat_classname); 
+
+                mapLocal( feat.ID) = [jFeature];
+                
+                % If organizer, also append sublocal feature map 
+                if strcmp( feat_classname, 'Organizer') || any( strcmp( feat_superclassnames, 'Organizer') )
+                    mapSubLocal = feat.featureMap;
+                    keysSubLocal = cell2mat( keys( mapSubLocal) );
+                    for key = keysSubLocal
+                            mapLocal( key) = [jFeature mapSubLocal( key)];
+                    end
+                end
+
+            end
+            obj.featureMap = mapLocal;
+
             
         end
         % }}}

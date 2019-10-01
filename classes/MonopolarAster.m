@@ -123,9 +123,6 @@ classdef MonopolarAster < Organizer
             
             % Add feature to the correct subfeature 
             idxAdd = obj.featureList{1}.addFeatureToList( feature);
-            % Add feature ID and update the featureMap
-            feature.ID = max( cell2mat( keys( obj.featureMap) ) )+1;
-            obj.featureMap( feature.ID) = [ 1 idxAdd];
                 
         end
         % }}}
@@ -150,6 +147,21 @@ classdef MonopolarAster < Organizer
             idxMT = 1+worstFeature.idx;
             obj.featureList{ 1}.removeFeatureFromList( idxMT);
                 
+        end
+        % }}}
+
+        % updateSubFeatures {{{
+        function obj = updateSubFeatures(obj)
+            
+            % ensure aster pole is same as start positions of all microtubules
+            aster = obj.featureList{1};
+            pole = aster.featureList{1};
+            pos = pole.position;
+
+            for jmt = aster.numFeatures-1
+                aster.featureList{jmt+1}.startPosition = pos;
+            end
+
         end
         % }}}
 
@@ -246,70 +258,18 @@ classdef MonopolarAster < Organizer
         end
         % }}}
         
-        % syncFeaturesWithMap {{{
-        function obj = syncFeaturesWithMap( obj)
-            % update the feature ids to reflect any initiliazation/additions/removals
-            % update the map with the features ids and their locations
-            
-            map = obj.featureMap;
-            counter = uint32(max( cell2mat( keys( map) ) ) + 1);
-            if isempty( counter)
-                % initialize it
-                counter = uint32(1);
-            end
-            
-            % assign unique ID to features
-            
-            % Depth 0 (self)
-            loc = [];
-            obj.ID = counter; 
-            map( counter) = loc; counter = counter+1;
-            
-            % Depth 1 (features)
-            for jFeat = 1 : obj.numFeatures
-                obj.featureList{jFeat}.ID = counter; 
-                map( counter) = [ loc jFeat]; counter=counter+1;
-            end
-            
-            % Depth 2 (subfeatures)
-            % assign unique ID to subfeatures
-            for j1 = 1 : obj.numFeatures
-                % if features are organizers
-                if isprop( obj.featureList{j1}, 'numFeatures')
-                    %assign unique ID to subfeatures
-                    for j2 = 1 : obj.featureList{j1}.numFeatures
-                        obj.featureList{j1}.featureList{j2}.ID = counter;
-                        map( counter) = [ loc j1 j2]; counter=counter+1;
-                    end
-                end
-            end
-            
-            % Depth 3 (subsubfeatures - overkill)
-            % assign unique ID to subsubfeatures
-            for j1 = 1 : obj.numFeatures
-                % if features are organizers
-                if isprop( obj.featureList{j1}, 'numFeatures')
-                    for j2 = 1 : obj.featureList{j1}.numFeatures
-                        % if subfeatures are organizers
-                        if isprop( obj.featureList{j1}.featureList{j2}, 'numFeatures')
-                            %assign unique ID to subsubfeatures
-                            for j3 = 1 : obj.featureList{j1}.numFeatures
-                                obj.featureList{j1}.featureList{j2}.featureList{j3}.ID = counter;
-                                map( counter) = [ loc j1 j2 j3]; counter=counter+1;
-                            end
-                        end                        
-                    end
-                end
-            end
-            
-        end
-        % }}}
-        
         % findObjectFromID {{{
         function subObj = findObjectFromID( obj, searchID)
             % use the featureMap to locate and reutrn the object with ID
             % searchID
             
+            % Check Current Object ID
+            if searchID == obj.ID
+                subObj = obj;
+                return
+            end
+            
+            % Check SubFeatures
             try
                 objLoc = obj.featureMap( searchID);
             catch
@@ -317,8 +277,6 @@ classdef MonopolarAster < Organizer
             end
             
             switch length( objLoc)
-                case 0
-                    subObj = obj;
                 case 1
                     subObj = obj.featureList{ objLoc(1)};
                 case 2
@@ -327,8 +285,10 @@ classdef MonopolarAster < Organizer
                     subObj = obj.featureList{ objLoc(1)}.featureList{ objLoc(2) }.featureList{ objLoc(3) };
                 case 4
                     subObj = obj.featureList{ objLoc(1)}.featureList{ objLoc(2) }.featureList{ objLoc(3) }.featureList{ objLoc(4) };
+                case 5
+                    subObj = obj.featureList{ objLoc(1)}.featureList{ objLoc(2) }.featureList{ objLoc(3) }.featureList{ objLoc(4) }.featureList{ objLoc(5) };
                 otherwise
-                    error('findObjectFromID : your object is too deep for this function')
+                    error('findObjectFromID : your object is too deep for this function. And jesus loves you.')
             end
                 
         end

@@ -210,7 +210,7 @@ classdef MitoticCell < Cell
                 %export_fig( sName, '-png', '-nocrop', '-a1') 
             end
             spindleObj.findEnvironmentalConditions();
-            spindleObj.syncFeaturesWithMap();
+            %spindleObj.syncFeaturesWithMap();
             
         end
         % }}}

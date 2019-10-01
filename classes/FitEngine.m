@@ -24,7 +24,7 @@ classdef FitEngine
         function image = GetImage(obj)
             image = obj.image;
         end
-        function SetImage(obj, image)
+        function obj = SetImage(obj, image)
             obj.image = image;
         end
 
@@ -32,7 +32,7 @@ classdef FitEngine
         function feature = GetFeature( obj)
             feature = obj.feature;
         end
-        function SetFeature(obj, feature)
+        function obj = SetFeature(obj, feature)
             obj.feature = feature;
         end
 
@@ -40,7 +40,7 @@ classdef FitEngine
         function parameters = GetParameters( obj)
             parameters = obj.parameters;
         end
-        function SetParameters(obj, parameters)
+        function obj = SetParameters(obj, parameters)
             obj.parameters = parameters;
         end
         % }}}
@@ -164,19 +164,18 @@ classdef FitEngine
             fitInfo.fitScope = 'globum';
             fitInfo.Org = fitInfoOld;
             fitInfo.Old = fitInfoOld;
-            mainFeature.Org = obj.feature;
-            mainFeature.Old = copyDeep( mainFeature.Org);
+            mainFeature.Org = obj.feature.copyDeep();
             
             % We will iteratively add and remove features to find the optimum number
-            fitInfo.Old = obj.IncreaseFeatureNumber( mainFeature.Old, fitInfo.Old);
-            fitInfo.Old = obj.DecreaseFeatureNumber( mainFeature.Old, fitInfo.Old);
+            [obj, fitInfo.Old] = obj.IncreaseFeatureNumber( obj.feature, fitInfo.Old);
+            [obj, fitInfo.Old] = obj.DecreaseFeatureNumber( obj.feature, fitInfo.Old);
 
             fprintf('- FINAL N =  %d\n', obj.feature.getSubFeatureNumber() )
             fitInfo = fitInfo.Old;
         end
         % }}}
         % IncreaseFeatureNumber {{{
-        function [fitInfoFinal] = IncreaseFeatureNumber( obj, feature, fitInfoOld)
+        function [obj, fitInfoFinal] = IncreaseFeatureNumber( obj, feature, fitInfoOld)
             % Increase feature number until statistically insignificant
             
             continueAdd = 1;
@@ -187,11 +186,12 @@ classdef FitEngine
                 refImage = abs( obj.image - FitEngine.SimulateImage( fitInfoOld.fitResults.vfit, fitInfoOld) );
                
                 % Create a deep copy main feature
-                featureNew = feature.copyDeep(); 
+                featureNew = feature.copyDeep();
 
                 % Add Features
                 featureNew.addSubFeatures( refImage);
-                obj.SetFeature( featureNew);
+                featureNew.syncFeatures();
+                obj = SetFeature( obj, featureNew);
                 
                 fprintf('- Add N = %d ---> %d\n', feature.getSubFeatureNumber(), feature.getSubFeatureNumber()+1 )
 
@@ -215,16 +215,17 @@ classdef FitEngine
                 % if new feature was statiscally significant, stop
                 if p > obj.parameters.alpha
                     fprintf('N = %d (p = %.3f, alpha = %.3f). Keep old model.\n', feature.getSubFeatureNumber(), p, obj.parameters.alpha )
-
-                    obj.SetFeature( feature);
+                    
+                    obj = SetFeature( obj, feature);
                     fitInfoFinal = fitInfoOld;
                     continueAdd = 0;
 
                 elseif p < obj.parameters.alpha
-                    fprintf('N = %d (p = %.3f, alpha = %.3f). Keep improving model.\n',feature.getSubFeatureNumber(), p, obj.parameters.alpha)
+                    fprintf('N = %d (p = %.3f, alpha = %.3f). Keep improving model.\n',featureNew.getSubFeatureNumber(), p, obj.parameters.alpha)
 
                     fitInfoOld = fitInfo;
                     continueAdd = 1;
+                    feature = featureNew;
 
                 end
 
@@ -233,7 +234,7 @@ classdef FitEngine
         end
         % }}}
         % DecreaseFeatureNumber {{{
-        function [fitInfoFinal] = DecreaseFeatureNumber( obj, feature, fitInfoOld)
+        function [obj, fitInfoFinal] = DecreaseFeatureNumber( obj, feature, fitInfoOld)
             % Increase feature number until statistically insignificant
             
             continueRemove = 1;
@@ -247,16 +248,17 @@ classdef FitEngine
 
                 % Remove Features
                 [~, successRemove ] = featureNew.removeSubFeatures( refImage);
+                featureNew.syncFeatures();
                 
                 % A removal could fail if there are no features left to remove
                 if successRemove
 
                     % Run a global fit
-                    obj.SetFeature( featureNew);
-                    fprintf('- Rem N = %d ---> %d\n', featureNew.getSubFeatureNumber(), featureNew.getSubFeatureNumber()-1 )
+                    obj = SetFeature( obj, featureNew);
+                    fprintf('- Rem N = %d ---> %d\n', featureNew.getSubFeatureNumber()+1, featureNew.getSubFeatureNumber() )
 
                     % Run a global fit
-                    [ obj, fitProblem, fitInfo] = obj.PrepareOptimizeFeatureNumber('remove');
+                    [ fitProblem, fitInfo] = obj.PrepareOptimizeFeatureNumber('remove');
 
                     % Solve Optimization Problem
                     fitInfo.fitResults = obj.SolveOptimizationProblem( fitProblem );
@@ -270,20 +272,21 @@ classdef FitEngine
                     numP2 = length( fitInfo.fitVecs.vec);
 
                     % Do a statistical F test to compare the two models
-                    p = Cell.compareModels(im2_raw, im1_raw, im2, im1, numP2, numP1, obj.image, 'f');
+                    p = FitEngine.CompareModels(im2_raw, im1_raw, im2, im1, numP2, numP1, obj.image, 'f');
 
                     if p < obj.parameters.alpha
                         fprintf('N = %d (p = %.3f, alpha = %.3f). Keep old model.\n', feature.getSubFeatureNumber(), p, obj.parameters.alpha )
 
-                        obj.SetFeature( feature);
+                        obj = SetFeature( obj, feature);
                         fitInfoFinal = fitInfoOld;
                         continueRemove = 0;
 
                     elseif p > obj.parameters.alpha
-                        fprintf('N = %d (p = %.3f, alpha = %.3f). Keep improving model.\n',feature.getSubFeatureNumber(), p, obj.parameters.alpha)
+                        fprintf('N = %d (p = %.3f, alpha = %.3f). Keep improving model.\n',featureNew.getSubFeatureNumber(), p, obj.parameters.alpha)
 
                         fitInfoOld = fitInfo;
                         continueRemove = 1;
+                        feature = featureNew;
 
                     end
 
@@ -482,7 +485,7 @@ classdef FitEngine
         function [ fitProblem, fitInfo] = PrepareOptimizeFeatureNumber( obj, routine)
             % routine = 'add' or 'remove'
             
-            [ fitProblem, fitInfo] = PrepareOptimizeGlobal( obj);
+            [ fitProblem, fitInfo] = obj.PrepareOptimizeGlobal;
 
             switch routine
                 case 'add'
@@ -523,14 +526,6 @@ classdef FitEngine
     end
 
     methods (Static = true)
-
-        % PrepareFitEngine {{{
-        function params = PrepareFitEngine()
-
-            params = 1;
-
-        end
-        % }}}
 
         % SetOptimOptions {{{
         function opts = SetOptimOptions( config)

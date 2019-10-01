@@ -54,6 +54,17 @@ classdef Cut7Distribution < Organizer
         end
         % }}}
 
+        % harvestMonopolarAsterInfo {{{
+        function harvestMonopolarAsterInfo( obj, asterObj)
+            % gets spindle information from spindleObj and stores it
+            
+            obj.spindlePositionStart = asterObj.featureList{1}.featureList{1}.position;
+            obj.spindlePositionEnd = asterObj.featureList{1}.featureList{1}.position;
+            disp( 'Harvested monopolar aster information')
+
+        end
+        % }}}
+
     end
 
     methods( Static = true )

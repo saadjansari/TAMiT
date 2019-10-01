@@ -9,7 +9,7 @@ classdef Cell < handle & matlab.mixin.Copyable
         channelsToFit
         featureList % cell array containing features. this is of size numberOfChannels x Time.
         params
-        featureMap
+        featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
     end
 
     methods ( Access = public )
@@ -32,14 +32,14 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             % Initialize the feature list
             obj.featureList = cell( length( obj.channelsToFit), size( imageData.GetImage, 4) );
-            
-            % Initialize featureIdxMap
-            obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
 
             % Save Directory creation 
             if exist( obj.params.saveDirectory) ~= 7
                 mkdir( obj.params.saveDirectory)
             end
+            
+            % Define a global counter for objects
+            global counter; counter = -1;
 
             Cell.PrintInfo( obj);
 
@@ -120,9 +120,10 @@ classdef Cell < handle & matlab.mixin.Copyable
             Image = obj.imageData.GetImage();
             Image2Fit = Image(:,:,:, parameters.time, parameters.channelTrue);
 
-            % check if frame should be skipped
+            % check if frame is bad. In this case, we'll use the previous fitted frame and then skip fitting
             if Cell.checkFrameViability( Image2Fit, parameters.time)~= 0
-                obj.featureList{ parameters.channelIdx, parameters.time} = NaN;
+                obj.featureList{ parameters.channelIdx, parameters.time} = obj.featureList{ parameters.channelIdx, parameters.time-1};
+                fprintf( 'Encountered a bad frame. Using previous frame features and skipping fitting...\n')
                 return
             end
 
@@ -131,6 +132,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             disp('Estimating features...')
             obj.EstimateFeatures( parameters.time, parameters.channelTrue, parameters.channelIdx); 
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
+            obj.syncFeatureMap( parameters.channelIdx, parameters.time);
 
             % Prepare fit params
             params = obj.params.fit;
@@ -142,7 +144,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             fitEngine = FitEngine( Image2Fit, mainFeature, params);
             fitEngine.Optimize();
 
-            obj.updateFeatureMap( parameters.channelIdx, parameters.time);
+            obj.syncFeatureMap( parameters.channelIdx, parameters.time);
             close all
 
         end
@@ -161,6 +163,48 @@ classdef Cell < handle & matlab.mixin.Copyable
 
         end
         % }}}
+        
+        % syncFeatureMap {{{
+        function obj = syncFeatureMap( obj, channel, time)
+            % Updates the counter and assigns IDs to all subfeatures
+           
+            global COUNTER 
+            mapGlobal = obj.featureMap;
+            keysGlobal = keys( mapGlobal);
+            valsGlobal = values( mapGlobal);
+            mainFeature = obj.featureList{ channel, time}; 
+
+            % Remove any entries for this channel and time
+            for jKey = 1 : length( keysGlobal)
+                if all( valsGlobal{ jKey}(1:2) == [channel time])
+                    remove( mapGlobal, keysGlobal( jKey) );
+                    disp( 'removed channeltime')
+                end
+            end
+
+            % Get current counter value
+            COUNTER = uint32(max( cell2mat( keysGlobal ) ) + 1);
+            if isempty( COUNTER), COUNTER = uint32(1); end
+            
+            % Assign an ID to its main feature. and prompt it to assign IDs to its sub features
+            mainFeature.ID = COUNTER; 
+            COUNTER = COUNTER + 1;
+            mainFeature.syncFeatures();
+
+            % Update global map
+            % Get mainFeature local map, append current channel and time and add it to our map
+            mapLocal = mainFeature.featureMap;
+            keysLocal = cell2mat( keys( mapLocal) );
+            valsLocal = values( mapLocal);
+
+            for jKey = 1 : length( keysLocal)
+                mapGlobal( keysLocal( jKey) ) = [ channel time valsLocal{ jKey}];
+            end
+            obj.featureMap = mapGlobal;
+            mainFeature.featureMap;
+            
+        end
+        % }}} 
         
         % updateFeatureMap {{{
         function obj = updateFeatureMap( obj, channel, time)
@@ -413,6 +457,10 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             % Check that everything is in 3D
             if numel( size(imageIn) ) ~= 3 || length(startPos)~=3 || length(endPos)~=3 || length(sigma)~=3
+                startPos
+                endPos
+                sigma
+                size(imageIn)
                 error('drawGaussianLine3D: all data must be 3-dimensional')
             end
 
