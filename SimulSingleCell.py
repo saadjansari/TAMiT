@@ -120,7 +120,7 @@ class SimulSingleCell( object):
         print( 'Initalizing parameters for the segmented cells :')
         
         # run parameter initialization and get paths to saved parameter files
-        opts_params = { 'LOC': 'SUMMIT', 'CFG': 'RELEASE'}
+        opts_params = { 'LOC': 'Summit', 'CFG': 'RELEASE'}
         eng = matlab.engine.start_matlab()
         self.path_params = getattr( eng, self.fname['initparams'])( opts_params)
         for path in self.path_params:
