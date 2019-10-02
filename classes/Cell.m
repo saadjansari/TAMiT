@@ -178,7 +178,6 @@ classdef Cell < handle & matlab.mixin.Copyable
             for jKey = 1 : length( keysGlobal)
                 if all( valsGlobal{ jKey}(1:2) == [channel time])
                     remove( mapGlobal, keysGlobal( jKey) );
-                    disp( 'removed channeltime')
                 end
             end
 
@@ -202,45 +201,6 @@ classdef Cell < handle & matlab.mixin.Copyable
             end
             obj.featureMap = mapGlobal;
             mainFeature.featureMap;
-            
-        end
-        % }}} 
-        
-        % updateFeatureMap {{{
-        function obj = updateFeatureMap( obj, channel, time)
-           
-            % Initialize the counter. Get all the keys from featureIdxList
-            % and add 1
-            mapGlobal = obj.featureMap;
-            counter = max( cell2mat( keys( mapGlobal) ) );
-            if isempty( counter)
-                counter = 0;
-            end
-            
-            % Get local book, its keys, and its values
-            mapLocal = obj.featureList{channel,time}.featureMap;
-            keysLocal = keys( mapLocal);
-            valsLocal = values( mapLocal);
-            
-            % update local keys by counter
-            % add values to the global map
-            if ~isempty( keysLocal);
-                keysLocalNew = cell2mat(keysLocal) + counter;
-            end
-            remove( mapLocal, keysLocal);
-            for jKey = cell2mat(keysLocal)
-                % add to local map
-                mapLocal( jKey) = valsLocal{jKey};
-                % add to global map
-                 % Now with the updated local hashmap, we will prepend the
-                % channel and time to the values and add the new keys and new
-                % values to the global hashmap
-                mapGlobal( jKey) = [ channel time valsLocal{jKey}];
-            end
-            
-            % ----------------------------------------------------
-            % FORCE SUBFEATURE ID UPDATES WHEN MAPLOCAL KEYS CHANGE
-            % ----------------------------------------------------
             
         end
         % }}} 
@@ -407,6 +367,43 @@ classdef Cell < handle & matlab.mixin.Copyable
 
         end
         % }}}
+        % phiIntegrate2D {{{
+        function [radIntensity, radValues] = phiIntegrate2D( imageIn, startPoint)
+
+            if length( size(imageIn) ) ~= 2
+                error( 'radIntegrate2D : input image must be 2-dimensional')
+            end
+
+            % Radially integrate around startPoint 
+            radStep = 0.25;
+            rmin = 1;
+            rmax = 150;
+            radValues = rmin: radStep : rmax;
+
+            numVoxelsX = size( imageIn, 2);
+            numVoxelsY = size( imageIn, 1);
+            x0 = startPoint(1);
+            y0 = startPoint(2);
+
+            % Define the step sizes to use for the angular sweep in phi. 
+            PhiStep = deg2rad(2);
+            phiValues = 0 : PhiStep : 2*pi - PhiStep;
+
+            % Pre-allocate array for storing intensity data with varying phi.
+            phiIntensity = zeros( 1, length( phiValues) );
+
+            % Get coordinates of circle perimeter for varying radia 
+            Xcirc = x0 + rValues'.*cos( phiValues);
+            Ycirc = y0 + rValues'.*sin( phiValues);
+
+            % Get intensity values of these scattered points in 2D space
+            Intcirc = interp2( im2double( imageIn), Xcirc, Ycirc, 'linear', 0);
+           
+            % Sum over phi to get a vector of Intensity values at varying radia
+            radIntensity = sum( Intcirc, 2)';
+
+        end
+        % }}}
         % drawGaussianPoint3D {{{
         function imagePoint = drawGaussianPoint3D( pos, sigma, imageIn, idx, x, y, z)
             % Draws a gaussian point using an analytical framework
@@ -567,7 +564,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                 minVox = min( Image2Fit(:) );
 
                 if maxVox == minVox
-                    status = 1
+                    status = 1;
                     disp( sprintf( 'Unviable frame %d, Skipping it...', jTime) )
                 end
 
@@ -668,7 +665,6 @@ classdef Cell < handle & matlab.mixin.Copyable
 
                 % get the z coord of the maxidx at this position, and calculate theta based on this value.
                 z0 = startPoint(3);
-%                 z0 = idx3Max( startPoint(2), startPoint(1) );
                 z1 = interp2( idx3Max, x1, y1, 'Linear');
                 zdist = abs( z1 - z0);
                 theta = atan( abs( z1 - z0) ./ RadVec);
@@ -682,6 +678,8 @@ classdef Cell < handle & matlab.mixin.Copyable
                 Line.theta = mean(theta);
                 
                 z1 = z0 + Line.length*cos( Line.theta);
+                z1( z1 > size(imageIn, 3) ) = size( imageIn, 3);
+                z1( z1 < 1) = 1;
                 Line.startPosition = [ Line.startPosition , z0 ];
                 Line.endPosition = [ Line.endPosition , z1 ];
             end
