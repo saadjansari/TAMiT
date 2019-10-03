@@ -321,15 +321,12 @@ classdef MonopolarAster < Organizer
             end
 
             % Load all the features from their structures recursively
-            featureList{ 1} = Line.loadFromStruct( S.featureList{ 1} ); 
-            for jFeat = 2 : length( S.featureList)
-                featureList{ jFeat} = AsterMT.loadFromStruct( S.featureList{ jFeat} ); 
-            end
+            featureList{ 1} = AsterMT.loadFromStruct( S.featureList{ 1} ); 
 
-            obj = Spindle( S.dim, S.image, featureList, S.props2Fit);
+            obj = MonopolarAster( S.dim, S.image, featureList, S.props2Fit);
 %             obj = obj@Organizer( S.dim, featureList, S.type);
             obj.findEnvironmentalConditions();
-            obj.syncFeaturesWithMap();
+            %obj.syncFeaturesWithMap();
 
         end
         % }}}

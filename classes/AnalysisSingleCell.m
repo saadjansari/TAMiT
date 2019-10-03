@@ -148,7 +148,6 @@ classdef AnalysisSingleCell < handle
                     obj.data.spindle = obj.analyzeSpindle( mainFeature, jTime);
                 case 'MonopolarAster'
                     obj.data.monopolar = obj.analyzeMonopolar( mainFeature, jTime);
-                    error('analyzeFeatureMicrotubule: Monopolar still in development')
                 case 'InterphaseBank'
                     error('analyzeFeatureMicrotubule: InterphaseBank still in development')
                 otherwise
@@ -297,7 +296,6 @@ classdef AnalysisSingleCell < handle
                     obj.data.spindle = obj.analyzeCut7_Spindle( mainFeature, jTime);
                 case 'Monopolar'
                     obj.data.monopolar = obj.analyzeCut7_Monopolar( mainFeature, jTime);
-                    error('analyzeFeatureMicrotubule: Monopolar still in development')
                 case 'Interphase'
                     error('analyzeFeatureMicrotubule: InterphaseBank still in development')
                 otherwise
@@ -305,6 +303,9 @@ classdef AnalysisSingleCell < handle
             end
 
             % Capture frame for movie
+            img = mainFeature.image;
+            startPos = mainFeature.spindlePositionStart;
+            endPos = mainFeature.spindlePositionEnd;
             f = figure('visible', 'off'); 
             h = tight_subplot(1,2);
             set(f, 'currentaxes', h(1) );
@@ -318,6 +319,7 @@ classdef AnalysisSingleCell < handle
             title(sprintf('feature: T = %d', obj.times(jTime) ) );
             obj.data.movCut7( jTime) = getframe( f);
             close(f)
+
         end
         % }}}
         % analyzeCut7_Spindle {{{
@@ -350,7 +352,7 @@ classdef AnalysisSingleCell < handle
             cTime = obj.times( jTime);
 
             % get pole of monopolar spindle
-            pole = mainFeature.pole;
+            pole = mainFeature.spindlePositionStart;
 
             % get cut7 frame 
             img = mainFeature.image;
@@ -576,15 +578,13 @@ classdef AnalysisSingleCell < handle
             rmpath( genpath(pwd) );
             warning('on', 'MATLAB:rmpath:DirNotFound');
             addpath( pwd);
-            addpath( [pwd, filesep, 'functions', filesep, 'analysis'] );
             params = initAnalysisParams();
             addpath( genpath( params.pathParent) );
-            addpath( [pwd, filesep, 'classes/']);
-            addpath( genpath( [pwd, filesep, 'functions/external']) );
+            addpath( genpath( [pwd, filesep, 'classes']) );
 
             % if params not provided, find the params
             if nargin < 2
-                params = initAnalysisParams();
+                %params = initAnalysisParams();
                 fprintf('\n')
                 fprintf('-----------------------------------------------------------------\n')
                 fprintf('------------------- ANALYSIS SINGLE CELL ------------------------\n')
@@ -601,12 +601,14 @@ classdef AnalysisSingleCell < handle
            
             params.Cell = load( [resPathCell, filesep, 'params.mat']);
             params.resPath = resPathCell;
+            params
+            params.Cell.params
 
             % Analyze if analysisData not present
             if exist( [resPathCell, filesep, 'analysisData.mat']) ~= 2
 
                 % Initialize analysis object
-                anaCell = AnalysisSingleCell( resPathCell, params.Cell.cellInfo.type, params.channelsToAnalyze, params.channelFeatures, params.Cell.timeStep, params.Cell.sizeVoxels);
+                anaCell = AnalysisSingleCell( resPathCell, params.Cell.params.cellInfo.type, params.channelsToAnalyze, params.channelFeatures, params.Cell.timeStep, params.Cell.sizeVoxels);
 
                 % analyze the cell
                 anaCell.Analyze();
@@ -634,8 +636,8 @@ classdef AnalysisSingleCell < handle
             rmpath( genpath(pwd) );
             warning('on', 'MATLAB:rmpath:DirNotFound');
             addpath( pwd);
-            addpath( [pwd, filesep, 'functions', filesep, 'analysis'] );
-            addpath( [pwd, filesep, 'functions', filesep, 'external'] );
+            %addpath( [pwd, filesep, 'functions', filesep, 'analysis'] );
+            addpath( [pwd, filesep, 'external'] );
             params = initAnalysisParams();
             addpath( genpath( params.pathParent) );
 

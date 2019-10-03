@@ -124,6 +124,10 @@ classdef Cell < handle & matlab.mixin.Copyable
             if Cell.checkFrameViability( Image2Fit, parameters.time)~= 0
                 obj.featureList{ parameters.channelIdx, parameters.time} = obj.featureList{ parameters.channelIdx, parameters.time-1};
                 fprintf( 'Encountered a bad frame. Using previous frame features and skipping fitting...\n')
+
+                % save Final fit
+                p.channel = parameters.channelTrue; p.time = parameters.time; p.fitScope = 'global';
+                Cell.saveFinalFit( Image2Fit, obj.featureList{ parameters.channelIdx, parameters.time}, p);
                 return
             end
 
