@@ -1204,7 +1204,7 @@ classdef Cell < handle & matlab.mixin.Copyable
 %             Image2Fit = uint16 (Image2Fit);
 
             % Images Simulated
-            if ~isempty( mainFeature.featureList)
+            if ~isempty( mainFeature.featureList) && Cell.checkFrameViability( Image2Fit, time)
                 imageSimI = uint16( FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo) );
                 imageSimF = uint16( FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo) );
             else
