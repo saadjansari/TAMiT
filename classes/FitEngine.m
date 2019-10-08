@@ -60,6 +60,11 @@ classdef FitEngine
             % Hyper Parameters Optimization
             fitInfo = obj.OptimizeHyperParameters( fitInfo);
 
+            % Save final optimized data
+            fitInfo.fitScope = 'final';
+            Cell.saveFinalFit( obj.image, obj.feature, fitInfo);
+
+
         end
         % }}}
 
@@ -124,7 +129,7 @@ classdef FitEngine
             if obj.parameters.display
                 Cell.displayFinalFit( obj.image, obj.feature, fitInfo);
             end
-            Cell.saveFinalFit( obj.image, obj.feature, fitInfo);
+            %Cell.saveFinalFit( obj.image, obj.feature, fitInfo);
 
         end
         % }}}
@@ -139,7 +144,7 @@ classdef FitEngine
             if obj.parameters.display
                 Cell.displayFinalFit( obj.image, obj.feature, fitInfo);
             end
-            Cell.saveFinalFit( obj.image, obj.feature, fitInfo);
+            %Cell.saveFinalFit( obj.image, obj.feature, fitInfo);
 
         end
         % }}}
@@ -537,7 +542,7 @@ classdef FitEngine
             opts = optimoptions( @lsqnonlin, ...
                                 'MaxFunEvals', 2000, ...
                                 'OptimalityTolerance', 1e-12, ...
-                                'MaxIter', 5, ...
+                                'MaxIter', 20, ...
                                 'TolFun', 1e-9, ...
                                 'FiniteDifferenceStepSize', 1e-2, ...
                                 'FiniteDifferenceType', 'central', ...

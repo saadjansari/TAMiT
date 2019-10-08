@@ -107,14 +107,14 @@ classdef AnalysisSingleCell < handle
 
             % Load the data file if available
             try
-                timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_global.mat']; 
+                timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_final.mat']; 
                 timeData = load( timeDataFile);
                 obj.goodFrame = jTime;
             catch
                 % If data file does not exist, use the last good frame available
                 disp('oops')
                 time = obj.times( obj.goodFrame);
-                timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_global.mat']; 
+                timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_final.mat']; 
                 timeData = load( timeDataFile);
             end
 

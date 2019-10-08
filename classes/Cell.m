@@ -126,7 +126,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                 fprintf( 'Encountered a bad frame. Using previous frame features and skipping fitting...\n')
 
                 % save Final fit
-                p.channel = parameters.channelTrue; p.time = parameters.time; p.fitScope = 'global';
+                p.channel = parameters.channelTrue; p.time = parameters.time; p.fitScope = 'final';
                 p.saveDirectory = parameters.saveDirectory;
                 p.featureMain = obj.featureList{ parameters.channelIdx, parameters.time};
                 Cell.saveFinalFit( Image2Fit, obj.featureList{ parameters.channelIdx, parameters.time}, p);
