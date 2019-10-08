@@ -10,6 +10,7 @@ classdef AnalysisSingleCell < handle
         sizeVoxels = [0.1067 0.1067 0.5]; %default
         data
         folderName
+        goodFrame = 1
     end
 
     methods (Access = public )
@@ -104,11 +105,18 @@ classdef AnalysisSingleCell < handle
             channel = obj.channels( jChannel);
             time = obj.times( jTime);
 
-            % construct data file name and load it
-            timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_global.mat']; 
-
-            % Load data file
-            timeData = load( timeDataFile);
+            % Load the data file if available
+            try
+                timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_global.mat']; 
+                timeData = load( timeDataFile);
+                obj.goodFrame = jTime;
+            catch
+                % If data file does not exist, use the last good frame available
+                disp('oops')
+                time = obj.times( obj.goodFrame);
+                timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_global.mat']; 
+                timeData = load( timeDataFile);
+            end
 
             % Initialize main feature from loaded data
             eval( ['mainFeature = ' timeData.featureMainStruct.type '.loadFromStruct( timeData.featureMainStruct);'] );
@@ -145,9 +153,9 @@ classdef AnalysisSingleCell < handle
             switch mainFeature.type
                 case 'Spindle'
                     % get spindle lengths
-                    obj.data.spindle = obj.analyzeSpindle( mainFeature, jTime);
+                    obj.data.spindle.mt = obj.analyzeSpindle( mainFeature, jTime);
                 case 'MonopolarAster'
-                    obj.data.monopolar = obj.analyzeMonopolar( mainFeature, jTime);
+                    obj.data.monopolar.mt = obj.analyzeMonopolar( mainFeature, jTime);
                 case 'InterphaseBank'
                     error('analyzeFeatureMicrotubule: InterphaseBank still in development')
                 otherwise
@@ -177,6 +185,7 @@ classdef AnalysisSingleCell < handle
             % analyze a microtubule spindle            
 
             % Find spindle lengths
+            try; data = obj.data.spindle.mt; end
             data.spindleLength(jTime) = norm( (mainFeature.featureList{1}.startPosition - mainFeature.featureList{1}.endPosition) .* obj.sizeVoxels );
 
             % Any other things?
@@ -184,10 +193,11 @@ classdef AnalysisSingleCell < handle
         end
         % }}}
         % analyzeMonopolar {{{
-        function data = analyzeMonopolar( obj, mainFeature, jTime)
+        function data = analyzeMonopolar( obj, mainFeature, jTime, data)
             % analyze a microtubule spindle            
 
             % Find monopolar pole position
+            try; data = obj.data.monopolar.mt; end
             data.pole(jTime, :) = mainFeature.featureList{1}.featureList{1}.position;
 
             % Find microtubule number
@@ -199,7 +209,7 @@ classdef AnalysisSingleCell < handle
                 endDst = norm( mainFeature.featureList{1}.featureList{1+jmt}.startPosition - mainFeature.featureList{1}.featureList{1+jmt}.endPosition );
                 if endDst > dst, dst = endDst; end 
             end
-            data.distEndTip(jTime) = dst
+            data.distEndTip(jTime) = dst;
 
         end
         % }}}
@@ -228,7 +238,7 @@ classdef AnalysisSingleCell < handle
             times = [ 1 : length(obj.times) ]* mean(obj.timeStep);
             % plot spindle Length
             f = figure('NumberTitle', 'off', 'Name', 'spindle_length'); 
-            plot( times, obj.data.spindle.spindleLength, 'LineWidth', 2, 'Color', 'm') 
+            plot( times, obj.data.spindle.mt.spindleLength, 'LineWidth', 2, 'Color', 'm') 
             grid on
             grid minor
             xlabel( 'Time (seconds)')
@@ -249,7 +259,7 @@ classdef AnalysisSingleCell < handle
             times = [ 1 : length(obj.times) ]* mean(obj.timeStep);
             % plot spindle Length
             f = figure('NumberTitle', 'off', 'Name', 'mt_number'); 
-            plot( times, obj.data.monopolar.numMT, 'LineWidth', 2, 'Color', 'm') 
+            plot( times, obj.data.monopolar.mt.numMT, 'LineWidth', 2, 'Color', 'm') 
             grid on
             grid minor
             xlabel( 'Time (seconds)')
@@ -270,7 +280,7 @@ classdef AnalysisSingleCell < handle
             times = [ 1 : length(obj.times) ]* mean(obj.timeStep);
             % plot spindle Length
             f = figure('NumberTitle', 'off', 'Name', 'distance_mt_tip'); 
-            plot( times, obj.data.monopolar.distEndTip, 'LineWidth', 2, 'Color', 'm') 
+            plot( times, obj.data.monopolar.mt.distEndTip, 'LineWidth', 2, 'Color', 'm') 
             grid on
             grid minor
             xlabel( 'Time (seconds)')
@@ -293,9 +303,9 @@ classdef AnalysisSingleCell < handle
             
             switch obj.cellType
                 case 'Mitosis'
-                    obj.data.spindle = obj.analyzeCut7_Spindle( mainFeature, jTime);
+                    obj.data.spindle.cut7 = obj.analyzeCut7_Spindle( mainFeature, jTime);
                 case 'Monopolar'
-                    obj.data.monopolar = obj.analyzeCut7_Monopolar( mainFeature, jTime);
+                    obj.data.monopolar.cut7 = obj.analyzeCut7_Monopolar( mainFeature, jTime);
                 case 'Interphase'
                     error('analyzeFeatureMicrotubule: InterphaseBank still in development')
                 otherwise
@@ -336,21 +346,20 @@ classdef AnalysisSingleCell < handle
             cut7amp = Cell.findAmplitudeAlongLine( max( img, [], 3), startPos(1:2), endPos(1:2));
 
             % normalize it from 0 to 1
+            try; data = obj.data.spindle.cut7; end
             normRange = 0:0.02:1;
             if ~isfield( obj.data, 'cut7Range');
-                data.cut7Range = normRange;
+                data.range = normRange;
             end
 
             % Store amplitude data normalized against spindle length
-            data.cut7Amp(jTime, :) = interp1( linspace(0,1,length( cut7amp) ), cut7amp, normRange);
+            data.spindleInt(jTime, :) = interp1( linspace(0,1,length( cut7amp) ), cut7amp, normRange);
 
         end
         % }}}
         % analyzeCut7_Monopolar {{{
         function data = analyzeCut7_Monopolar( obj, mainFeature, jTime)
             
-            cTime = obj.times( jTime);
-
             % get pole of monopolar spindle
             pole = mainFeature.spindlePositionStart;
 
@@ -359,8 +368,10 @@ classdef AnalysisSingleCell < handle
             % sum image in z direction
             imgSum = sum( img, 3);
 
+            try; data = obj.data.monopolar.cut7; end
             % get cut7 distribution away from pole
-            [data.cut7RadialInt, data.cut7RadialVal] = Cell.radIntegrate2D( imgSum, pole(1:2) );
+            [data.radialInt_raw(jTime, :), data.radialVal(jTime, :)] = Cell.phiIntegrate2D( imgSum, pole(1:2) );
+            data.radialInt(jTime, :) = data.radialInt_raw(jTime, :) / max( data.radialInt_raw(jTime, :) );
 
         end
         % }}}
@@ -370,10 +381,10 @@ classdef AnalysisSingleCell < handle
             switch obj.cellType
                 case 'Mitosis'
                     % normalize cut7 amplitude data over time
-                    maxNorm = max( vecnorm( obj.data.spindle.cut7Amp, 2, 2) );
-                    maxVal = max( max( obj.data.spindle.cut7Amp) );
-                    obj.data.spindle.cut7Amp_raw = obj.data.spindle.cut7Amp;
-                    obj.data.spindle.cut7Amp = obj.data.spindle.cut7Amp / maxVal;
+                    maxNorm = max( vecnorm( obj.data.spindle.cut7.spindleInt, 2, 2) );
+                    maxVal = max( max( obj.data.spindle.cut7.spindleInt) );
+                    obj.data.spindle.cut7.spindleInt_raw = obj.data.spindle.cut7.spindleInt;
+                    obj.data.spindle.cut7.spindleInt = obj.data.spindle.cut7.spindleInt / maxVal;
 
                     % graph cut7 intensity along the spindle averaged over time
                     obj.graphCut7MeanIntensity;
@@ -394,12 +405,12 @@ classdef AnalysisSingleCell < handle
         function graphCut7IntensityVsTime_Overlay( obj)
 
             times = [ 1 : length(obj.times) ] .* mean(obj.timeStep);
-            distSpindle = obj.data.spindle.cut7Range;
+            distSpindle = obj.data.spindle.cut7.range;
 
             f = figure('NumberTitle', 'off', 'Name', 'cut7_intensity_spindle_time_overlay'); 
             hold on;
             for j = 1 : length(times)
-                plot( distSpindle, obj.data.spindle.cut7Amp(j, :) );
+                plot( distSpindle, obj.data.spindle.cut7.spindleInt(j, :) );
             end
             hold off
             xlabel( 'Distance along spindle ( normalized)')
@@ -417,9 +428,9 @@ classdef AnalysisSingleCell < handle
         function graphCut7IntensityVsTime_Surf( obj)
 
             times = [ 1 : length(obj.times) ] .* mean(obj.timeStep);
-            distSpindle = obj.data.spindle.cut7Range;
+            distSpindle = obj.data.spindle.cut7.range;
             f = figure('NumberTitle', 'off', 'Name', 'cut7_intensity_spindle_time_surf'); 
-            surf( distSpindle, times, obj.data.spindle.cut7Amp, 'LineStyle', ':', 'FaceColor', 'interp');
+            surf( distSpindle, times, obj.data.spindle.cut7.spindleInt, 'LineStyle', ':', 'FaceColor', 'interp');
             xlabel( 'Distance along spindle ( normalized)')
             ylabel( 'Time')
             zlabel( 'Mean intensity')
@@ -435,8 +446,8 @@ classdef AnalysisSingleCell < handle
         % graphCut7MeanIntensity{{{
         function graphCut7MeanIntensity( obj)
 
-            distSpindle = obj.data.spindle.cut7Range;
-            cut7AmpAvg = mean( obj.data.spindle.cut7Amp, 1);
+            distSpindle = obj.data.spindle.cut7.range;
+            cut7AmpAvg = mean( obj.data.spindle.cut7.spindleInt, 1);
             f = figure('NumberTitle', 'off', 'Name', 'cut7_intensity_spindle_avg'); 
             plot( distSpindle, cut7AmpAvg, 'LineWidth', 2, 'Color', 'm') 
             grid on
@@ -455,10 +466,11 @@ classdef AnalysisSingleCell < handle
         % graphCut7RadialIntensity_Monopolar {{{
         function graphCut7RadialIntensity_Monopolar(obj)
 
-            radInt = obj.data.monopolar.cut7RadialInt;
-            radV = obj.data.monopolar.cut7RadialVal;
+            radInt = obj.data.monopolar.cut7.radialInt;
+            radIntMean = mean( radInt, 1);
+            radV = obj.data.monopolar.cut7.radialVal;
             f = figure('NumberTitle', 'off', 'Name', 'cut7_radial_intensity_monopolar'); 
-            plot( radV, radInt, 'LineWidth', 2, 'Color', 'm') 
+            plot( radV, radIntMean, 'LineWidth', 2, 'Color', 'm') 
             grid on
             grid minor
             xlabel( 'Distance from pole ( voxels)')
@@ -574,12 +586,12 @@ classdef AnalysisSingleCell < handle
             % uses AnalysisBank to analyze results from a single movie
             
             % Make sure we have the correct paths
-            warning('off', 'MATLAB:rmpath:DirNotFound');
-            rmpath( genpath(pwd) );
-            warning('on', 'MATLAB:rmpath:DirNotFound');
+            %warning('off', 'MATLAB:rmpath:DirNotFound');
+            %rmpath( genpath(pwd) );
+            %warning('on', 'MATLAB:rmpath:DirNotFound');
             addpath( pwd);
             params = initAnalysisParams();
-            addpath( genpath( params.pathParent) );
+%             addpath( genpath( params.pathParent) );
             addpath( genpath( [pwd, filesep, 'classes']) );
 
             % if params not provided, find the params
@@ -601,8 +613,6 @@ classdef AnalysisSingleCell < handle
            
             params.Cell = load( [resPathCell, filesep, 'params.mat']);
             params.resPath = resPathCell;
-            params
-            params.Cell.params
 
             % Analyze if analysisData not present
             if exist( [resPathCell, filesep, 'analysisData.mat']) ~= 2
@@ -636,8 +646,7 @@ classdef AnalysisSingleCell < handle
             rmpath( genpath(pwd) );
             warning('on', 'MATLAB:rmpath:DirNotFound');
             addpath( pwd);
-            %addpath( [pwd, filesep, 'functions', filesep, 'analysis'] );
-            addpath( [pwd, filesep, 'external'] );
+            addpath( genpath( [pwd, filesep, 'classes']) );
             params = initAnalysisParams();
             addpath( genpath( params.pathParent) );
 
@@ -712,7 +721,7 @@ classdef AnalysisSingleCell < handle
             % Process data for plotting
             % Spindle lengths
             for jCell = 1 : nCells
-                spindleLengths{jCell} = Cells{jCell}.data.spindle.spindleLength;
+                spindleLengths{jCell} = Cells{jCell}.data.spindle.mt.spindleLength;
             end
             % Times
             for jCell = 1 : nCells
@@ -751,7 +760,7 @@ classdef AnalysisSingleCell < handle
             % Process data for plotting
             % cut7 intensity 
             for jCell = 1 : nCells
-                int = mean( Cells{jCell}.data.spindle.cut7Amp, 1);
+                int = mean( Cells{jCell}.data.spindle.cut7.spindleInt, 1);
                 if mean( int(1: floor(end/3) ) ) < mean( int( ceil(2*end/3): end) )
                     int = flip( int);
                 end
@@ -759,7 +768,7 @@ classdef AnalysisSingleCell < handle
             end
             % Distance along spindle 
             for jCell = 1 : nCells
-                dist{jCell} = Cells{jCell}.data.spindle.cut7Range;
+                dist{jCell} = Cells{jCell}.data.spindle.cut7.range;
             end
             
             % plot mean and shaded error
@@ -796,12 +805,12 @@ classdef AnalysisSingleCell < handle
             % Process data for plotting
             % cut7 intensity 
             for jCell = 1 : nCells
-                cut7int{jCell} = Cells{jCell}.data.monopolar.cut7RadialInt;
+                cut7int{jCell} = Cells{jCell}.data.monopolar.cut7.radialInt;
             end
 
             % Distance from pole 
             for jCell = 1 : nCells
-                dist{jCell} = Cells{jCell}.data.monopolar.cut7RadialVal;
+                dist{jCell} = Cells{jCell}.data.monopolar.cut7.radialVal;
             end
             
             % plot mean and shaded error

@@ -122,11 +122,13 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             % check if frame is bad. In this case, we'll use the previous fitted frame and then skip fitting
             if Cell.checkFrameViability( Image2Fit, parameters.time)~= 0
-                obj.featureList{ parameters.channelIdx, parameters.time} = obj.featureList{ parameters.channelIdx, parameters.time-1};
+                obj.featureList{ parameters.channelIdx, parameters.time} = obj.featureList{ parameters.channelIdx, parameters.time-1}.copyDeep;
                 fprintf( 'Encountered a bad frame. Using previous frame features and skipping fitting...\n')
 
                 % save Final fit
                 p.channel = parameters.channelTrue; p.time = parameters.time; p.fitScope = 'global';
+                p.saveDirectory = parameters.saveDirectory;
+                p.featureMain = obj.featureList{ parameters.channelIdx, parameters.time};
                 Cell.saveFinalFit( Image2Fit, obj.featureList{ parameters.channelIdx, parameters.time}, p);
                 return
             end
@@ -397,8 +399,8 @@ classdef Cell < handle & matlab.mixin.Copyable
             phiIntensity = zeros( 1, length( phiValues) );
 
             % Get coordinates of circle perimeter for varying radia 
-            Xcirc = x0 + rValues'.*cos( phiValues);
-            Ycirc = y0 + rValues'.*sin( phiValues);
+            Xcirc = x0 + radValues'.*cos( phiValues);
+            Ycirc = y0 + radValues'.*sin( phiValues);
 
             % Get intensity values of these scattered points in 2D space
             Intcirc = interp2( im2double( imageIn), Xcirc, Ycirc, 'linear', 0);
@@ -1204,7 +1206,7 @@ classdef Cell < handle & matlab.mixin.Copyable
 %             Image2Fit = uint16 (Image2Fit);
 
             % Images Simulated
-            if ~isempty( mainFeature.featureList) && Cell.checkFrameViability( Image2Fit, time)
+            if ~isempty( mainFeature.featureList) && Cell.checkFrameViability( Image2Fit, time)==0
                 imageSimI = uint16( FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo) );
                 imageSimF = uint16( FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo) );
             else
