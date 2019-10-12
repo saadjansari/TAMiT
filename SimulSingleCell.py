@@ -5,6 +5,7 @@ import sys
 import pdb
 import matlab.engine
 import argparse
+import re
 from subprocess import call
 
 '''
@@ -22,9 +23,13 @@ def parse_args():
     parser.add_argument('--loc', type=str, default='Summit', 
             help='define the configuration environment for both the launcher and the matlab fit program')
 
-    # configuration of launcher and the matlab fit program
+    # Launch option: this must be enabled for launching runs
     parser.add_argument('-L', '--launch', action='store_true',  
             help='launch the jobs via sbatch')
+
+    # Analyze flag: this must be enabled to run analysis on each cell after completion of fitting.
+    parser.add_argument('-A', '--analyzeDir', type=str, nargs='?', default = 'TBD',
+            help='Analyze the fitted cell data present in cells in specified directory.')
 
     opts = parser.parse_args()
     return opts
@@ -104,11 +109,10 @@ class SimulSingleCell( object):
         # create a bash script for executing the jobs
         self.WriteLaunchScript()
 
-        # Launch the fits
-        if self.opts.launch:
-            print( 'Launching simulataneous cell fits...')
-            # os.chdir( self.launchdir) 
-            status = call(['sbatch', self.fname['launch']])  
+        # Launch and Analyze the fits
+        if self.opts.launch or self.opts.analyze:
+           status = call(['sbatch', self.fname['launch']])  
+
 
     def InitializeParams(self):
         # initialize params for the different cells  and save their path locations
@@ -126,7 +130,6 @@ class SimulSingleCell( object):
         for path in self.path_params:
             print('{0}'.format( path) ) 
 
-        ValueError('jesus loves you')
         # number of jobs based on length of pathParams
         self.n_jobs = len( self.path_params)
 
@@ -140,6 +143,82 @@ class SimulSingleCell( object):
 
         print('Number of Jobs = {0}\nNumber of Nodes = {1}\nNumber of Cores = {2}'.format(self.n_jobs, self.n_nodes, self.n_cores) )
 
+    def WriteJobsFile(self):
+        # writes a list of bash commands for each Cell to be executed by loadbalancer
+
+        # open file
+        f_jobs = open(self.fname['jobs'], "w+")
+        print( 'Writing jobs file : {0}'.format(self.fname['jobs']) )
+        self.WriteLaunchAnalyze
+        print( 'Successful write to jobs file!') 
+
+
+    def WriteLaunchAnalyze(self):
+        # write launch and subsequent analysis jobs information 
+
+        # Loop over cells and echo command into jobs file
+        for idx, ppath in enumerate( self.path_params):
+
+            # Prefix for job command
+            cmd_pre = 'matlab -nodesktop -r "clear all; addpath( genpath( "classes"));'
+
+            # Suffix for job command
+            cmd_post = '"\n'
+
+            # Launch command
+            cmd_launch = 'singleCell({0});'.format( repr(ppath) )
+
+            # Analyze command 
+            if self.opts.analyzeDir:
+                self.GetPathsAnalysis
+                cmd_analysis = 'AnalysisSingleCell.AnalyzeSingle({0});'.format( repr( self.path_analysis[idx] ) )
+
+            # Write launch or analysis command
+            if self.opts.launch and self.opts.analyzeDir:
+                job_cmd = cmd_pre + cmd_launch + cmd_analysis + cmd_post
+
+            elif self.opts.launch:
+                job_cmd = cmd_pre + cmd_launch + cmd_post
+
+            elif self.opts.analyze:
+                job_cmd = cmd_pre + cmd_analysis + cmd_post
+
+            # write this out and close the file
+            f_jobs.write( job_cmd) 
+        
+        f_jobs.close()
+
+    def GetPathsAnalysis(self):
+        # use the analysisDir argument to get paths of cells to analyze if possible
+
+        # If also launching fits, then just use the path to saved params to get the parent directory where analysis will be run
+        if self.opts.launch:
+            for idx, ppath in enumerate( self.path_params):
+                self.path_analysis[idx] = os.path.dirname( ppath)
+
+
+        # Otherwise, if directory not specified, prompt an error.
+        elif not self.opts.analyzeDir:
+            ValueError('For analysis only without launching fits, user must specify directory string to match to')
+
+        # Otherwise, use input argument to match folder names
+        else:
+
+            # Parent path where cell of interest is located 
+            apath = os.path.dirname( self.opts.analyzeDir)
+            apath = os.path.abspath( apath)
+
+            # Get all folders in the parent directory of interested file
+            alldirs = [os.path.join(apath, o) for o in os.listdir(apath) if os.path.isdir(os.path.join(apath,o))]
+
+            # match the regex( possibly) analyzeDir name to folders that exist in apath
+            self.path_analysis = [ cell for cell in alldirs if re.findall( self.opts.analyzeDir, cell) ];
+
+            if not self.path_analysis:
+                ValueError('There were no matching directories for analysis in directory specified in argument')
+                     
+        print( self.path_analysis)
+                    
 
     def WriteLaunchScript(self):
         # create sbatch bash script for execution on summit
@@ -147,6 +226,24 @@ class SimulSingleCell( object):
         # open file
         f_launch = open(self.fname['launch'], "w+")
         print( 'Writing launch file : {0}'.format(self.fname['launch']) )
+
+        # write sbatch options
+        self.WriteSbatchHeader
+
+        # job execution command
+        f_launch.write( '\n# launch cell fitting jobs\n')
+        f_launch.write( 'mpirun lb {0}'.format( self.fname['jobs']) )
+
+        # close the file
+        f_launch.close()
+        print( 'Successful write to launch file!') 
+
+
+    def WriteSbatchHeader(self):
+        # create sbatch bash script for execution on summit
+        
+        # open file
+        f_launch = open(self.fname['launch'], "w+")
 
         # identiy bash evironment and define sbatch options
         f_launch.write( '#!/bin/bash\n\n')
@@ -164,42 +261,15 @@ class SimulSingleCell( object):
         # modules to load
         modules = ['intel', 'impi', 'python', 'loadbalance', 'matlab']
 
+        # load modules
         f_launch.write( '\n# clearing all modules\n')
         f_launch.write( 'module purge\n')
         f_launch.write( '\n# load required modules\n')
         for module in modules:
             f_launch.write( 'module load {0}\n'.format(module) )
 
-        # job execution command
-        f_launch.write( '\n# launch cell fitting jobs\n')
-        f_launch.write( 'mpirun lb {0}'.format( self.fname['jobs']) )
-
         # close the file
         f_launch.close()
-        print( 'Successful write to launch file!') 
-
-
-    def WriteJobsFile(self):
-        # writes a list of bash commands for each Cell to be executed by loadbalancer
-
-        # set working directory
-        # os.chdir( '/projects/saan8193/')
-
-        # open file
-        f_jobs = open(self.fname['jobs'], "w+")
-        print( 'Writing jobs file : {0}'.format(self.fname['jobs']) )
-
-        # Loop over cells and echo command into jobs file
-        for path in self.path_params:
-
-            # command for launching a single job
-            job_cmd = 'matlab -nodesktop -r "clear all; singleCell({0});"\n'.format( repr(path) )
-
-            # write this out and close the file
-            f_jobs.write( job_cmd) 
-        
-        f_jobs.close()
-        print( 'Successful write to jobs file!') 
 
 
 if __name__ == '__main__':
@@ -212,6 +282,4 @@ if __name__ == '__main__':
 
     # launch single cell jobs 
     simulCells.Launch()
-
-
 

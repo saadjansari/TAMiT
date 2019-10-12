@@ -11,4 +11,7 @@ function params = initAnalysisParams();
     params.channelFeatures = {'Cut7', 'Microtubule'};
     params.timeStep = 8; % Can be overwritten in analysis code
 
+    params.flags.movie = 1;
+    params.flags.graph = 1;
+
 end
