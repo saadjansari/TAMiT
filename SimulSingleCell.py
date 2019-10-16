@@ -6,6 +6,7 @@ import pdb
 import matlab.engine
 import argparse
 import re
+import pdb
 from subprocess import call
 
 '''
@@ -19,19 +20,28 @@ def parse_args():
 
     parser = argparse.ArgumentParser( prog='SimulSingleCell.py', description='Launcher for multiple matlab single cell fits on summit') 
     
-    # configuration of launcher and the matlab fit program
-    parser.add_argument('--loc', type=str, default='Summit', 
-            help='define the configuration environment for both the launcher and the matlab fit program')
+    # Fit option: Run fits
+    parser.add_argument('-F', '--fit', action='store_true',  
+            help='launch fit jobs via sbatch')
 
-    # Launch option: this must be enabled for launching runs
-    parser.add_argument('-L', '--launch', action='store_true',  
-            help='launch the jobs via sbatch')
+    # Analyze flag: Run analysis 
+    parser.add_argument('-A', '--analyze', action='store_true', 
+            help='Analyze the cells either post fit or in specified directory if fit flag false.')
 
-    # Analyze flag: this must be enabled to run analysis on each cell after completion of fitting.
-    parser.add_argument('-A', '--analyzeDir', type=str, nargs='?', default = 'TBD',
-            help='Analyze the fitted cell data present in cells in specified directory.')
+    # Analyze directory: directory for analysis, used when fit flag is not enabled
+    parser.add_argument('--dir', type=str, 
+            help='Directory for analysis, used when the fit flag is disabled.')
+
+    # DryRun option: Run normal and create jobs but don't launch the jobs
+    parser.add_argument('-n', '--dryrun', action='store_true',  
+            help='run normal except dont launch the jobs')
 
     opts = parser.parse_args()
+
+    # ensure dir is specified if certain conditions are met
+    if not opts.fit and opts.analyze and not opts.dir:
+        raise Exception('dir must be specified with analysis flag if fit flag is disabled')
+
     return opts
 
 
@@ -40,6 +50,8 @@ class SimulSingleCell( object):
     def __init__(self, opts):
 
         self.opts = opts 
+        self.path_params = []
+        self.path_analysis = []
 
         # number of jobs, nodes and cores for this job
         self.n_nodes = []
@@ -77,17 +89,15 @@ class SimulSingleCell( object):
         }
 
         # set the correct working directory
+        self.opts.loc = 'Summit'
         if self.opts.loc == 'Summit':
             self.workdir = paths_workdir['Summit']
             self.launchdir = paths_launch['Summit']
-            
         elif self.opts.loc == 'Local':
             self.workdir = paths_workdir['Local']
             self.launchdir = paths_launch['Summit']
-            
         elif self.opts.loc == 'Rumor':
             raise ValueError('RunSimulSingleCell: rumor not set up yet.')
-
         else:
             raise ValueError('RunSimulSingleCell: acceptable configuration input argument options are Summit, Local and Rumor.')
 
@@ -97,8 +107,15 @@ class SimulSingleCell( object):
     def Launch(self):
         # Launcher for multiple single cell fits
 
-        # initialize params for the different cells
-        self.InitializeParams()
+        # Prepare fits
+        if self.opts.fit:
+            # Initialize params for the different cells
+            self.InitializeFit()
+            
+        # Prepare fits
+        if self.opts.analyze:
+            # Initialize params for the different cells
+            self.InitializeAnalysis()
 
         # Find the number of cores and nodes these jobs should utilize
         self.FindNumberCoresNodes()
@@ -110,21 +127,25 @@ class SimulSingleCell( object):
         self.WriteLaunchScript()
 
         # Launch and Analyze the fits
-        if self.opts.launch or self.opts.analyze:
+        if not self.opts.dryrun and (self.opts.fit or self.opts.analyze):
            status = call(['sbatch', self.fname['launch']])  
 
 
-    def InitializeParams(self):
-        # initialize params for the different cells  and save their path locations
+    def InitializeFit(self):
+        # initialize fit : initialize params.mat for the different cells and get their path locations
 
         # check if initParams exists in the current directory
         if os.path.exists( self.fname['initparams']+'.m' ) == False:
             raise ImportError('RunSimulSingleCell: {0}.m does not exist in the current working directory'.format( self.fname['initparams'] ) )
         
-        print( 'Initalizing parameters for the segmented cells :')
+        print( 'Initializing Fit: running initParams.m to save parameters for the segmented cells :')
         
         # run parameter initialization and get paths to saved parameter files
-        opts_params = { 'LOC': 'Summit', 'CFG': 'RELEASE'}
+        if self.opts.loc == 'Summit':
+            opts_params = { 'LOC': 'Summit', 'CFG': 'RELEASE'}
+        elif self.opts.loc == 'Rumor':
+            opts_params = { 'LOC': 'Rumor', 'CFG': 'RELEASE'}
+
         eng = matlab.engine.start_matlab()
         self.path_params = getattr( eng, self.fname['initparams'])( opts_params)
         for path in self.path_params:
@@ -132,6 +153,39 @@ class SimulSingleCell( object):
 
         # number of jobs based on length of pathParams
         self.n_jobs = len( self.path_params)
+
+
+    def InitializeAnalysis(self):
+        # initialize analysis : get the paths of the cells to analyze
+
+        print( 'Initializing Analysis : getting paths for analysis :')
+
+        # If also launching fits, then just use the path to saved params to get the parent directory where analysis will be run
+        if self.opts.fit:
+            [self.path_analysis.append( os.path.dirname( ppath) ) for ppath in self.path_params]
+
+        # Otherwise, if directory not specified, prompt an error.
+        elif not self.opts.dir:
+            raise ValueError('For analysis only without launching fits, user must specify directory string to match to')
+
+        # Otherwise, use input argument to match folder names
+        else:
+
+            # Parent path where cell of interest is located 
+            apath = os.path.dirname( self.opts.dir)
+            apath = os.path.abspath( apath)
+
+            # Get all folders in the parent directory of interested file
+            alldirs = [os.path.join(apath, o) for o in os.listdir(apath) if os.path.isdir(os.path.join(apath,o))]
+
+            # match the regex( possibly) analyzeDir name to folders that exist in apath
+            self.path_analysis = [ cell for cell in alldirs if re.findall( self.opts.dir, cell) ];
+
+            if not self.path_analysis:
+                raise ValueError('There were no matching directories for analysis in directory specified in argument')
+
+            # number of jobs based on length of analysis paths 
+            self.n_jobs = len( self.path_analysis)
 
 
     def FindNumberCoresNodes(self):
@@ -146,95 +200,71 @@ class SimulSingleCell( object):
     def WriteJobsFile(self):
         # writes a list of bash commands for each Cell to be executed by loadbalancer
 
+        print( 'Writing jobs file : {0}'.format(self.fname['jobs']) )
+
         # open file
         f_jobs = open(self.fname['jobs'], "w+")
-        print( 'Writing jobs file : {0}'.format(self.fname['jobs']) )
-        self.WriteLaunchAnalyze
+
+        # Prefix for job command
+        cmd_pre = 'matlab -nodesktop -r "clear all; addpath( genpath( "classes"));'
+
+        # Suffix for job command
+        cmd_post = '"\n'
+
+        # Fit and Analyze
+        if self.opts.fit and self.opts.analyze:
+            
+            for pathp, patha in zip(self.path_params, self.path_analysis):
+
+                cmd_launch = 'singleCell({0});'.format( repr(pathp) )
+                cmd_analysis = 'AnalysisSingleCell.AnalyzeSingle({0});'.format( repr( patha ) )
+                job_cmd = cmd_pre + cmd_launch + cmd_analysis + cmd_post
+                f_jobs.write( job_cmd) 
+        
+        # Fit Only
+        elif self.opts.fit:
+            
+            for pathp in self.path_params:
+
+                cmd_launch = 'singleCell({0});'.format( repr(pathp) )
+                job_cmd = cmd_pre + cmd_launch + cmd_post
+                f_jobs.write( job_cmd) 
+        
+        # Analyze Only
+        elif self.opts.analyze:
+
+            for patha in self.path_analysis:
+
+                cmd_analysis = 'AnalysisSingleCell.AnalyzeSingle({0});'.format( repr( patha ) )
+                job_cmd = cmd_pre + cmd_analysis + cmd_post
+                f_jobs.write( job_cmd) 
+
+        f_jobs.close()
         print( 'Successful write to jobs file!') 
 
-
-    def WriteLaunchAnalyze(self):
-        # write launch and subsequent analysis jobs information 
-
-        # Loop over cells and echo command into jobs file
-        for idx, ppath in enumerate( self.path_params):
-
-            # Prefix for job command
-            cmd_pre = 'matlab -nodesktop -r "clear all; addpath( genpath( "classes"));'
-
-            # Suffix for job command
-            cmd_post = '"\n'
-
-            # Launch command
-            cmd_launch = 'singleCell({0});'.format( repr(ppath) )
-
-            # Analyze command 
-            if self.opts.analyzeDir:
-                self.GetPathsAnalysis
-                cmd_analysis = 'AnalysisSingleCell.AnalyzeSingle({0});'.format( repr( self.path_analysis[idx] ) )
-
-            # Write launch or analysis command
-            if self.opts.launch and self.opts.analyzeDir:
-                job_cmd = cmd_pre + cmd_launch + cmd_analysis + cmd_post
-
-            elif self.opts.launch:
-                job_cmd = cmd_pre + cmd_launch + cmd_post
-
-            elif self.opts.analyze:
-                job_cmd = cmd_pre + cmd_analysis + cmd_post
-
-            # write this out and close the file
-            f_jobs.write( job_cmd) 
-        
-        f_jobs.close()
-
-    def GetPathsAnalysis(self):
-        # use the analysisDir argument to get paths of cells to analyze if possible
-
-        # If also launching fits, then just use the path to saved params to get the parent directory where analysis will be run
-        if self.opts.launch:
-            for idx, ppath in enumerate( self.path_params):
-                self.path_analysis[idx] = os.path.dirname( ppath)
-
-
-        # Otherwise, if directory not specified, prompt an error.
-        elif not self.opts.analyzeDir:
-            ValueError('For analysis only without launching fits, user must specify directory string to match to')
-
-        # Otherwise, use input argument to match folder names
-        else:
-
-            # Parent path where cell of interest is located 
-            apath = os.path.dirname( self.opts.analyzeDir)
-            apath = os.path.abspath( apath)
-
-            # Get all folders in the parent directory of interested file
-            alldirs = [os.path.join(apath, o) for o in os.listdir(apath) if os.path.isdir(os.path.join(apath,o))]
-
-            # match the regex( possibly) analyzeDir name to folders that exist in apath
-            self.path_analysis = [ cell for cell in alldirs if re.findall( self.opts.analyzeDir, cell) ];
-
-            if not self.path_analysis:
-                ValueError('There were no matching directories for analysis in directory specified in argument')
-                     
-        print( self.path_analysis)
-                    
 
     def WriteLaunchScript(self):
         # create sbatch bash script for execution on summit
         
-        # open file
-        f_launch = open(self.fname['launch'], "w+")
         print( 'Writing launch file : {0}'.format(self.fname['launch']) )
 
-        # write sbatch options
-        self.WriteSbatchHeader
+        # Write sbatch options
+        self.WriteSbatchHeader()
 
-        # job execution command
+        f_launch = open(self.fname['launch'], "a")
+        # Load modules
+        modules = ['intel', 'impi', 'python', 'loadbalance', 'matlab']
+        f_launch.write( '\n# clearing all modules\n')
+        f_launch.write( 'module purge\n')
+        f_launch.write( '\n# load required modules\n')
+        for module in modules:
+            f_launch.write( 'module load {0}\n'.format(module) )
+
+        # Job execution command
         f_launch.write( '\n# launch cell fitting jobs\n')
         f_launch.write( 'mpirun lb {0}'.format( self.fname['jobs']) )
 
-        # close the file
+        # Close the file
         f_launch.close()
         print( 'Successful write to launch file!') 
 
@@ -257,16 +287,6 @@ class SimulSingleCell( object):
         f_launch.write( '#SBATCH --output {0}\n'.format( self.sbatch['output']) )
         f_launch.write( '#SBATCH --nodes {0}\n'.format(self.n_nodes) )
         f_launch.write( '#SBATCH --ntasks {0}\n'.format(self.n_jobs) )
-
-        # modules to load
-        modules = ['intel', 'impi', 'python', 'loadbalance', 'matlab']
-
-        # load modules
-        f_launch.write( '\n# clearing all modules\n')
-        f_launch.write( 'module purge\n')
-        f_launch.write( '\n# load required modules\n')
-        for module in modules:
-            f_launch.write( 'module load {0}\n'.format(module) )
 
         # close the file
         f_launch.close()
