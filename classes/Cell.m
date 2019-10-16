@@ -374,7 +374,7 @@ classdef Cell < handle & matlab.mixin.Copyable
         end
         % }}}
         % phiIntegrate2D {{{
-        function [radIntensity, radValues] = phiIntegrate2D( imageIn, startPoint)
+        function [radIntensity, radValues] = phiIntegrate2D( imageIn, startPoint, rmax)
 
             if length( size(imageIn) ) ~= 2
                 error( 'radIntegrate2D : input image must be 2-dimensional')
@@ -383,7 +383,9 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Radially integrate around startPoint 
             radStep = 0.25;
             rmin = 1;
-            rmax = 150;
+            if nargin < 3
+                rmax = 100;
+            end
             radValues = rmin: radStep : rmax;
 
             numVoxelsX = size( imageIn, 2);

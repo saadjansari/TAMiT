@@ -11,12 +11,14 @@ classdef AnalysisSingleCell < handle
         data
         folderName
         goodFrame = 1
+        flagMovie
+        flagGraph
     end
 
     methods (Access = public )
 
         % AnalysisSingleCell {{{
-        function obj = AnalysisSingleCell( pathResCell, cellType, channels, features, timeStep, sizeVoxels)
+        function obj = AnalysisSingleCell( pathResCell, cellType, channels, features, timeStep, sizeVoxels, flagMovie, flagGraph)
             % Contruct the Analysis Object
             
             obj.path = pathResCell;
@@ -44,6 +46,11 @@ classdef AnalysisSingleCell < handle
 
             [~, obj.folderName, ~] = fileparts( pathResCell);
 
+            if nargin > 6
+                obj.flagMovie = flagMovie;
+                obj.flagGraph = flagGraph;
+            end
+
         end
         % }}}
         
@@ -51,23 +58,33 @@ classdef AnalysisSingleCell < handle
         function Analyze( obj)
             % Analyze the object
 
-            fprintf('Analyzing cell results for cell : %s\n', obj.folderName);
-
             % Analyze each channel
             for jChannel = 1: length( obj.channels)
 
-                channel = obj.channels( jChannel);
-                feature = obj.features{ jChannel};
-                fprintf('   Analyzing channel %d with feature %s...\n', channel, feature); 
-
-                % analyze a single channel
-                obj.analyzeChannel( jChannel);
+                % Find times for analysis
+                obj.times = obj.findTimes( obj.channels( jChannel));
+            
+                % Analysis
+                fname = [obj.path,filesep,'analysisData_',num2str(jChannel),'.mat'];
+                if exist(fname) ~= 2
+                    fprintf('   Analysis: channel %d with feature %s...\n', obj.channels( jChannel), obj.features{ jChannel}); 
+                    dat = obj.analyzeChannel( jChannel); save( fname, 'dat', '-v7.3'); 
+                else
+                    fprintf('   Analysis: data exists, loading from file...\n')
+                    load( fname); obj.data{jChannel} = dat;
+                end
 
                 % graph channel analysis
-                obj.graphChannel( jChannel);
+                if obj.flagGraph
+                    fprintf('   Graphing...\n')
+                    obj.graphChannel( jChannel);
+                end
 
                 % Make movie
-                obj.makeMovie( jChannel);
+                if obj.flagMovie 
+                    fprintf('   Directing movies...\n')
+                    obj.makeMovie( jChannel);
+                end
 
             end
 
@@ -75,24 +92,17 @@ classdef AnalysisSingleCell < handle
         % }}}
 
         % analyzeChannel{{{
-        function analyzeChannel( obj, jChannel)
+        function data = analyzeChannel( obj, jChannel)
 
-            % Current channel 
-            channel = obj.channels( jChannel);
+            
 
-            % find times for which analysis will be performed
-            obj.times = obj.findTimes( channel);
-
+            % Analyze this frame
             for jFrame = 1 : length( obj.times)
-
-                % Current time frame
-                jTime = obj.times( jFrame);
-                fprintf('      Analyzing time %d...\n', jTime); 
-
-                % Analyze this frame
+                fprintf('      Analyzing time %d...\n', obj.times( jFrame)); 
                 obj.analyzeFrame( jChannel, jFrame);
-
             end
+            obj.data{jChannel}.tag = obj.features{jChannel};
+            data = obj.data{jChannel};
             
         end
         % }}}
@@ -106,23 +116,18 @@ classdef AnalysisSingleCell < handle
             time = obj.times( jTime);
 
             % Load the data file if available
-            try
-                timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_final.mat']; 
-                timeData = load( timeDataFile);
-                obj.goodFrame = jTime;
-            catch
-                % If data file does not exist, use the last good frame available
-                disp('oops')
-                time = obj.times( obj.goodFrame);
-                timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_final.mat']; 
-                timeData = load( timeDataFile);
-            end
+            timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_final.mat']; 
+            timeData = load( timeDataFile);
+            obj.goodFrame = jTime;
 
             % Initialize main feature from loaded data
             eval( ['mainFeature = ' timeData.featureMainStruct.type '.loadFromStruct( timeData.featureMainStruct);'] );
 
             % Run Feature Specific analysis
             obj.analyzeFeature( mainFeature, jChannel, jTime);
+
+            % Save information for making movies
+            obj.data{jChannel}.features{jTime} = mainFeature;
 
         end
         % }}}
@@ -133,11 +138,11 @@ classdef AnalysisSingleCell < handle
 
             switch obj.features{jChannel}
                 case 'Microtubule'
-                    obj.analyzeFeatureMicrotubule( mainFeature, jTime);
+                    obj.analyzeFeatureMicrotubule( mainFeature, jChannel, jTime);
                 case 'Kinetochore'
-                    obj.analyzeFeatureKinetochore( mainFeature, jTime);
+                    obj.analyzeFeatureKinetochore( mainFeature, jChannel, jTime);
                 case 'Cut7'
-                    obj.analyzeFeatureCut7( mainFeature, jTime);
+                    obj.analyzeFeatureCut7( mainFeature, jChannel, jTime);
                 otherwise
                     error('analyzeFrame: unknown feature')
             end
@@ -147,61 +152,48 @@ classdef AnalysisSingleCell < handle
         
         % Microtubules {{{
         % analyzeFeatureMicrotubule {{{
-        function analyzeFeatureMicrotubule( obj, mainFeature, jTime)
+        function analyzeFeatureMicrotubule( obj, mainFeature, jChannel, jTime)
             % Analyze some type of microtubule feature (e.g. Spindle, Monopolar, InterphaseBank)
             
             switch mainFeature.type
                 case 'Spindle'
-                    % get spindle lengths
-                    obj.data.spindle.mt = obj.analyzeSpindle( mainFeature, jTime);
+
+                    % Spindle Length
+                    [ obj.data{jChannel}.spindleLength(jTime) ] = obj.analyzeSpindle( mainFeature, jTime);
+
                 case 'MonopolarAster'
-                    obj.data.monopolar.mt = obj.analyzeMonopolar( mainFeature, jTime);
+
+                    % Pole position, number of microtubules and tip distance
+                    [ obj.data{jChannel}.pole(jTime, :),  ...
+                        obj.data{jChannel}.numMT(jTime, :), ...
+                        obj.data{jChannel}.tipDistance(jTime)] = obj.analyzeMonopolar( mainFeature, jTime);
+
                 case 'InterphaseBank'
                     error('analyzeFeatureMicrotubule: InterphaseBank still in development')
                 otherwise
                     error('analyzeFeatureMicrotubule: unknown mainFeature type')
             end
 
-            % Capture frame for movie
-            img = mainFeature.image;
-            f = figure('visible', 'off'); 
-            h = tight_subplot(1,2);
-            set(f, 'currentaxes', h(1) );
-            imagesc( h(1), max(img , [], 3) ), 
-            colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
-            title(sprintf('ref: T = %d', obj.times(jTime) ) );
-            set(f, 'currentaxes', h(2) );
-            imagesc( h(2), max(img , [], 3) ), 
-            colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
-            mainFeature.displayFeature( h(2) );
-            title(sprintf('feature: T = %d', obj.times(jTime) ) );
-            obj.data.movSpindle( jTime) = getframe( f);
-            close(f)
-
         end
         % }}}
         % analyzeSpindle {{{
-        function data = analyzeSpindle( obj, mainFeature, jTime)
+        function spindleLength = analyzeSpindle( obj, mainFeature, jTime)
             % analyze a microtubule spindle            
 
             % Find spindle lengths
-            try; data = obj.data.spindle.mt; end
-            data.spindleLength(jTime) = norm( (mainFeature.featureList{1}.startPosition - mainFeature.featureList{1}.endPosition) .* obj.sizeVoxels );
-
-            % Any other things?
+            spindleLength = norm( (mainFeature.featureList{1}.startPosition - mainFeature.featureList{1}.endPosition) .* obj.sizeVoxels );
 
         end
         % }}}
         % analyzeMonopolar {{{
-        function data = analyzeMonopolar( obj, mainFeature, jTime, data)
+        function [pole, numMT, dst] = analyzeMonopolar( obj, mainFeature, jTime, data)
             % analyze a microtubule spindle            
 
             % Find monopolar pole position
-            try; data = obj.data.monopolar.mt; end
-            data.pole(jTime, :) = mainFeature.featureList{1}.featureList{1}.position;
+            pole = mainFeature.featureList{1}.featureList{1}.position;
 
             % Find microtubule number
-            data.numMT(jTime) = mainFeature.featureList{1}.numFeatures - 1;
+            numMT = mainFeature.featureList{1}.numFeatures - 1;
 
             % Distance to Furthest Microtubule Tip
             dst = 0;
@@ -209,36 +201,35 @@ classdef AnalysisSingleCell < handle
                 endDst = norm( mainFeature.featureList{1}.featureList{1+jmt}.startPosition - mainFeature.featureList{1}.featureList{1+jmt}.endPosition );
                 if endDst > dst, dst = endDst; end 
             end
-            data.distEndTip(jTime) = dst;
 
         end
         % }}}
         % graphChannelMicrotubule {{{
-        function graphChannelMicrotubule( obj)
+        function graphChannelMicrotubule( obj, jChannel)
             % graph analysis plots for the microtubule channel
             
             switch obj.cellType
                 case 'Mitosis'
-                    obj.graphSpindleLength();
+                    obj.graphSpindleLength( obj.data{jChannel}.spindleLength);
 
                 case 'Interphase'
 
                 case 'Monopolar'
-                    obj.graphMicrotubuleNumber();
-                    obj.graphDistanceToTip();
+                    obj.graphMicrotubuleNumber( obj.data{jChannel}.numMT);
+                    obj.graphDistanceToTip( obj.data{jChannel}.tipDistance);
 
             end
 
         end
         % }}}
         % graphSpindleLength {{{
-        function graphSpindleLength( obj)
+        function graphSpindleLength( obj, dat)
             % graph the spindle length vs time
 
             times = [ 1 : length(obj.times) ]* mean(obj.timeStep);
             % plot spindle Length
             f = figure('NumberTitle', 'off', 'Name', 'spindle_length'); 
-            plot( times, obj.data.spindle.mt.spindleLength, 'LineWidth', 2, 'Color', 'm') 
+            plot( times, dat, 'LineWidth', 2, 'Color', 'm') 
             grid on
             grid minor
             xlabel( 'Time (seconds)')
@@ -253,13 +244,13 @@ classdef AnalysisSingleCell < handle
         end
         % }}}
         % graphMicrotubuleNumber {{{
-        function graphMicrotubuleNumber( obj)
+        function graphMicrotubuleNumber( obj, dat)
             % graph the spindle length vs time
 
             times = [ 1 : length(obj.times) ]* mean(obj.timeStep);
             % plot spindle Length
             f = figure('NumberTitle', 'off', 'Name', 'mt_number'); 
-            plot( times, obj.data.monopolar.mt.numMT, 'LineWidth', 2, 'Color', 'm') 
+            plot( times, dat, 'LineWidth', 2, 'Color', 'm') 
             grid on
             grid minor
             xlabel( 'Time (seconds)')
@@ -274,13 +265,13 @@ classdef AnalysisSingleCell < handle
         end
         % }}}
         % graphDistanceToTip{{{
-        function graphDistanceToTip( obj)
+        function graphDistanceToTip( obj, dat)
             % graph the spindle length vs time
 
             times = [ 1 : length(obj.times) ]* mean(obj.timeStep);
             % plot spindle Length
-            f = figure('NumberTitle', 'off', 'Name', 'distance_mt_tip'); 
-            plot( times, obj.data.monopolar.mt.distEndTip, 'LineWidth', 2, 'Color', 'm') 
+            f = figure('NumberTitle', 'off', 'Name', 'mt_tip_distance'); 
+            plot( times, dat, 'LineWidth', 2, 'Color', 'm') 
             grid on
             grid minor
             xlabel( 'Time (seconds)')
@@ -289,7 +280,7 @@ classdef AnalysisSingleCell < handle
             title('Tip Distance vs time')
             hold off;
             drawnow 
-            saveas( f, [obj.path, filesep, 'distance_mt_tip.png'])
+            saveas( f, [obj.path, filesep, 'mt_tip_distance.png'])
             close(f)
 
         end
@@ -298,42 +289,32 @@ classdef AnalysisSingleCell < handle
        
         % Cut7 {{{
         % analyzeFeatureCut7 {{{
-        function analyzeFeatureCut7( obj, mainFeature, jTime)
+        function analyzeFeatureCut7( obj, mainFeature, jChannel, jTime)
             % do cut7 analysis
             
             switch obj.cellType
                 case 'Mitosis'
-                    obj.data.spindle.cut7 = obj.analyzeCut7_Spindle( mainFeature, jTime);
+
+                    [ obj.data{jChannel}.cut7SpindleInt(jTime,:), ...
+                        obj.data{jChannel}.cut7SpindleInt_raw(jTime,:), ...
+                        obj.data{jChannel}.cut7Range] = obj.analyzeCut7_Spindle( mainFeature, jTime);
+
                 case 'Monopolar'
-                    obj.data.monopolar.cut7 = obj.analyzeCut7_Monopolar( mainFeature, jTime);
+
+                    [ obj.data{jChannel}.cut7RadialInt(jTime,:), ...
+                        obj.data{jChannel}.cut7RadialInt_raw(jTime,:), ...
+                        obj.data{jChannel}.cut7RadialVal(jTime,:)] = obj.analyzeCut7_Monopolar( mainFeature, jTime);
+
                 case 'Interphase'
                     error('analyzeFeatureMicrotubule: InterphaseBank still in development')
                 otherwise
                     error('analyzeFeatureMicrotubule: unknown mainFeature type')
             end
 
-            % Capture frame for movie
-            img = mainFeature.image;
-            startPos = mainFeature.spindlePositionStart;
-            endPos = mainFeature.spindlePositionEnd;
-            f = figure('visible', 'off'); 
-            h = tight_subplot(1,2);
-            set(f, 'currentaxes', h(1) );
-            imagesc( h(1), max(img , [], 3) ), 
-            colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
-            title(sprintf('ref: T = %d', obj.times(jTime) ) );
-            set(f, 'currentaxes', h(2) );
-            imagesc( h(2), max(img , [], 3) ), 
-            colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
-            line( [startPos(1), endPos(1)], [startPos(2), endPos(2)], 'Color', [1 0.6 0.6 0.5], 'LineStyle', '-', 'LineWidth', 2)
-            title(sprintf('feature: T = %d', obj.times(jTime) ) );
-            obj.data.movCut7( jTime) = getframe( f);
-            close(f)
-
         end
         % }}}
         % analyzeCut7_Spindle {{{
-        function data = analyzeCut7_Spindle( obj, mainFeature, jTime)
+        function [spindleInt, spindleInt_raw, normRange] = analyzeCut7_Spindle( obj, mainFeature, jTime)
             
             cTime = obj.times( jTime);
 
@@ -346,71 +327,80 @@ classdef AnalysisSingleCell < handle
             cut7amp = Cell.findAmplitudeAlongLine( max( img, [], 3), startPos(1:2), endPos(1:2));
 
             % normalize it from 0 to 1
-            try; data = obj.data.spindle.cut7; end
             normRange = 0:0.02:1;
-            if ~isfield( obj.data, 'cut7Range');
-                data.range = normRange;
-            end
 
             % Store amplitude data normalized against spindle length
-            data.spindleInt(jTime, :) = interp1( linspace(0,1,length( cut7amp) ), cut7amp, normRange);
+            spindleInt_raw = interp1( linspace(0,1,length( cut7amp) ), cut7amp, normRange);
+            maxVal = max( spindleInt_raw); 
+            spindleInt = spindleInt_raw / maxVal;
 
         end
         % }}}
         % analyzeCut7_Monopolar {{{
-        function data = analyzeCut7_Monopolar( obj, mainFeature, jTime)
+        function [radialInt, radialInt_raw, radialVal] = analyzeCut7_Monopolar( obj, mainFeature, jTime)
             
             % get pole of monopolar spindle
             pole = mainFeature.spindlePositionStart;
 
-            % get cut7 frame 
-            img = mainFeature.image;
-            % sum image in z direction
-            imgSum = sum( img, 3);
+            % get cut7 frame  2D max projection
+            imgZ = sum( mainFeature.image, 3);
 
-            try; data = obj.data.monopolar.cut7; end
             % get cut7 distribution away from pole
-            [data.radialInt_raw(jTime, :), data.radialVal(jTime, :)] = Cell.phiIntegrate2D( imgSum, pole(1:2) );
-            data.radialInt(jTime, :) = data.radialInt_raw(jTime, :) / max( data.radialInt_raw(jTime, :) );
+            [radialInt_raw, radialVal] = Cell.phiIntegrate2D( imgZ, pole(1:2), 30);
+
+            % normalize intensity distribution
+            radialInt = radialInt_raw / max(radialInt_raw);
 
         end
         % }}}
         % graphChannelCut7 {{{
-        function graphChannelCut7( obj)
+        function graphChannelCut7( obj, jChannel)
 
             switch obj.cellType
                 case 'Mitosis'
-                    % normalize cut7 amplitude data over time
-                    maxNorm = max( vecnorm( obj.data.spindle.cut7.spindleInt, 2, 2) );
-                    maxVal = max( max( obj.data.spindle.cut7.spindleInt) );
-                    obj.data.spindle.cut7.spindleInt_raw = obj.data.spindle.cut7.spindleInt;
-                    obj.data.spindle.cut7.spindleInt = obj.data.spindle.cut7.spindleInt / maxVal;
 
                     % graph cut7 intensity along the spindle averaged over time
-                    obj.graphCut7MeanIntensity;
+                    obj.graphCut7MeanIntensity( obj.data{jChannel}.cut7SpindleInt, obj.data{jChannel}.cut7NormRange);
                     
                     % graph cut7 intensity along the spindle with 3rd dimension corresponding to time 
-                    obj.graphCut7IntensityVsTime_Overlay;
-                    obj.graphCut7IntensityVsTime_Surf;
+                    obj.graphCut7IntensityVsTime_Overlay( obj.data{jChannel}.cut7SpindleInt, obj.data{jChannel}.cut7NormRange);
+                    obj.graphCut7IntensityVsTime_Surf( obj.data{jChannel}.cut7SpindleInt, obj.data{jChannel}.cut7NormRange);
+
                 
                 case 'Monopolar'
-                    
-                    obj.graphCut7RadialIntensity_Monopolar;
+                    obj.graphCut7RadialIntensity_Monopolar( obj.data{jChannel}.cut7RadialInt, obj.data{jChannel}.cut7RadialVal);
 
             end
 
         end
         % }}}
+        % graphCut7MeanIntensity{{{
+        function graphCut7MeanIntensity( obj, ydat, xdat)
+
+            f = figure('NumberTitle', 'off', 'Name', 'cut7_intensity_spindle_avg'); 
+            plot( xdat, mean( ydat, 1), 'LineWidth', 2, 'Color', 'm') 
+            grid on
+            grid minor
+            xlabel( 'Distance along spindle ( normalized)')
+            ylabel( 'Mean intensity')
+            set(gca, 'FontSize', 20)
+            title('Cut7 average distribution along spindle ')
+            drawnow
+
+            saveas( f, [obj.path, filesep, 'cut7_intensity_avg.png'])
+            close(f)
+
+        end
+        % }}}
         % graphCut7IntensityVsTime_Overlay {{{
-        function graphCut7IntensityVsTime_Overlay( obj)
+        function graphCut7IntensityVsTime_Overlay( obj, ydat, xdat)
 
             times = [ 1 : length(obj.times) ] .* mean(obj.timeStep);
-            distSpindle = obj.data.spindle.cut7.range;
 
             f = figure('NumberTitle', 'off', 'Name', 'cut7_intensity_spindle_time_overlay'); 
             hold on;
             for j = 1 : length(times)
-                plot( distSpindle, obj.data.spindle.cut7.spindleInt(j, :) );
+                plot( xdat, ydat(j, :) );
             end
             hold off
             xlabel( 'Distance along spindle ( normalized)')
@@ -425,12 +415,11 @@ classdef AnalysisSingleCell < handle
         end
         % }}}
         % graphCut7IntensityVsTime_Surf {{{
-        function graphCut7IntensityVsTime_Surf( obj)
+        function graphCut7IntensityVsTime_Surf( obj, ydat, xdat)
 
             times = [ 1 : length(obj.times) ] .* mean(obj.timeStep);
-            distSpindle = obj.data.spindle.cut7.range;
             f = figure('NumberTitle', 'off', 'Name', 'cut7_intensity_spindle_time_surf'); 
-            surf( distSpindle, times, obj.data.spindle.cut7.spindleInt, 'LineStyle', ':', 'FaceColor', 'interp');
+            surf( xdat, times, ydat, 'LineStyle', ':', 'FaceColor', 'interp');
             xlabel( 'Distance along spindle ( normalized)')
             ylabel( 'Time')
             zlabel( 'Mean intensity')
@@ -443,34 +432,11 @@ classdef AnalysisSingleCell < handle
 
         end
         % }}}
-        % graphCut7MeanIntensity{{{
-        function graphCut7MeanIntensity( obj)
-
-            distSpindle = obj.data.spindle.cut7.range;
-            cut7AmpAvg = mean( obj.data.spindle.cut7.spindleInt, 1);
-            f = figure('NumberTitle', 'off', 'Name', 'cut7_intensity_spindle_avg'); 
-            plot( distSpindle, cut7AmpAvg, 'LineWidth', 2, 'Color', 'm') 
-            grid on
-            grid minor
-            xlabel( 'Distance along spindle ( normalized)')
-            ylabel( 'Mean intensity')
-            set(gca, 'FontSize', 20)
-            title('Cut7 average distribution along spindle ')
-            drawnow
-
-            saveas( f, [obj.path, filesep, 'cut7_intensity_avg.png'])
-            close(f)
-
-        end
-        % }}}
         % graphCut7RadialIntensity_Monopolar {{{
-        function graphCut7RadialIntensity_Monopolar(obj)
+        function graphCut7RadialIntensity_Monopolar(obj, ydat, xdat)
 
-            radInt = obj.data.monopolar.cut7.radialInt;
-            radIntMean = mean( radInt, 1);
-            radV = obj.data.monopolar.cut7.radialVal;
             f = figure('NumberTitle', 'off', 'Name', 'cut7_radial_intensity_monopolar'); 
-            plot( radV, radIntMean, 'LineWidth', 2, 'Color', 'm') 
+            plot( xdat, mean( ydat,1) , 'LineWidth', 2, 'Color', 'm') 
             grid on
             grid minor
             xlabel( 'Distance from pole ( voxels)')
@@ -514,11 +480,11 @@ classdef AnalysisSingleCell < handle
 
                 case 'Microtubule'
 
-                    obj.graphChannelMicrotubule( )
+                    obj.graphChannelMicrotubule(jChannel )
 
                 case 'Cut7'
 
-                    obj.graphChannelCut7( )
+                    obj.graphChannelCut7( jChannel)
 
             end
 
@@ -527,52 +493,63 @@ classdef AnalysisSingleCell < handle
 
         % makeMovie {{{
         function makeMovie( obj, jChannel)
+            % Create frames for a movie
             
-            if find( strcmp( obj.features, 'Microtubule') ) == jChannel % if microtubule channel
+            for jTime = 1 : length( obj.times)
+                
+                % get feature
+                feat = obj.data{jChannel}.features{jTime};
+                img = feat.image;
 
-                writerObj = VideoWriter([obj.path, filesep, 'mt_video.avi']);
-                writerObj.FrameRate = 10;
-
-                % open the video writer
-                open(writerObj);
-
-                % write the frames to the video
-                for i=1:length(obj.data.movSpindle)
-
-                    % convert the image to a frame
-                    frame = obj.data.movSpindle(i) ;    
-                    writeVideo(writerObj, frame);
-
-                end
-
-                % close the writer object
-                close(writerObj);
-
-            elseif find( strcmp( obj.features, 'Cut7') ) == jChannel % if microtubule channel
-
-                writerObj = VideoWriter([obj.path, filesep, 'cut7_video.avi']);
-                writerObj.FrameRate = 10;
-
-                % open the video writer
-                open(writerObj);
-
-                % write the frames to the video
-                for i=1:length(obj.data.movCut7)
-
-                    % convert the image to a frame
-                    frame = obj.data.movCut7(i) ;    
-                    writeVideo(writerObj, frame);
-
-                end
-
-                % close the writer object
-                close(writerObj);
-
-            else
-
-                error('unknown feature channel')
+                % make figure
+                f = figure('visible', 'off'); 
+                h = tight_subplot(1,2);
+                set(f, 'currentaxes', h(1) );
+                imagesc( h(1), max(img , [], 3) ), 
+                colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
+                title(sprintf('ref: T = %d', obj.times(jTime) ) );
+                set(f, 'currentaxes', h(2) );
+                imagesc( h(2), max(img , [], 3) ), hold on
+                colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
+                feat.displayFeature( h(2) );
+                title(sprintf('feature: T = %d', obj.times(jTime) ) );
+                obj.data{jChannel}.mov( jTime) = getframe(f);
+                close(f)
 
             end
+
+        end
+        % }}}
+
+        % writeMovie {{{
+        function writeMovie( obj, jChannel)
+            % Write the frame to a movie file
+            
+            switch obj.features{jChannel}
+                case 'Microtubule'
+                    mname = 'mt_video.avi';
+                case 'Kinetochore'
+                    mname = 'kc_video.avi';
+                case 'Cut7'
+                    mname = 'cut7_video.avi';
+                otherwise
+                    error('analyzeFrame: unknown feature')
+            end
+
+            writerObj = VideoWriter([obj.path, filesep, mname]);
+            writerObj.FrameRate = 10;
+
+            % open the video writer
+            open(writerObj);
+
+            % write the frames to the video
+            for frame = 1 : length( obj.data{jChannel}.mov)
+                % convert the image to a frame
+                writeVideo( writerObj, obj.data{jChannel}.mov(frame) );
+            end
+
+            % close the writer object
+            close(writerObj);
 
         end
         % }}}
@@ -614,24 +591,11 @@ classdef AnalysisSingleCell < handle
             params.Cell = load( [resPathCell, filesep, 'params.mat']);
             params.resPath = resPathCell;
 
-            % Analyze if analysisData not present
-            if exist( [resPathCell, filesep, 'analysisData.mat']) ~= 2
+            % Initialize analysis object
+            anaCell = AnalysisSingleCell( resPathCell, params.Cell.params.cellInfo.type, params.channelsToAnalyze, params.channelFeatures, params.Cell.timeStep, params.Cell.sizeVoxels, params.flagMovie, params.flagGraph);
 
-                % Initialize analysis object
-                anaCell = AnalysisSingleCell( resPathCell, params.Cell.params.cellInfo.type, params.channelsToAnalyze, params.channelFeatures, params.Cell.timeStep, params.Cell.sizeVoxels);
-
-                % analyze the cell
-                anaCell.Analyze();
-        
-                % save this cell
-                save( [resPathCell, filesep, 'analysisData.mat'], 'anaCell');
-
-            else
-                
-                fprintf('      Data already exists! Loading from file...\n')
-                load( [resPathCell, filesep, 'analysisData.mat'])
-
-            end
+            % analyze the cell
+            anaCell.Analyze();
 
         end
         % }}}
@@ -642,13 +606,13 @@ classdef AnalysisSingleCell < handle
             % second argument can also be a cell array of multiple
             
             % Make sure we have the correct paths
-            warning('off', 'MATLAB:rmpath:DirNotFound');
-            rmpath( genpath(pwd) );
-            warning('on', 'MATLAB:rmpath:DirNotFound');
-            addpath( pwd);
+            %warning('off', 'MATLAB:rmpath:DirNotFound');
+            %rmpath( genpath(pwd) );
+            %warning('on', 'MATLAB:rmpath:DirNotFound');
+            %addpath( pwd);
             addpath( genpath( [pwd, filesep, 'classes']) );
             params = initAnalysisParams();
-            addpath( genpath( params.pathParent) );
+            addpath( params.pathParent);
 
             % Get all folder names in parent
             f = dir( params.pathParent);
@@ -673,6 +637,7 @@ classdef AnalysisSingleCell < handle
 
             % for each cell we'll run an AnalyzeSingle function
             for jCell = 1 : numCells
+                addpath( genpath( folds{jCell} ) );
                 anaCells{jCell} = AnalysisSingleCell.AnalyzeSingle( folds{ jCell}, params ); 
             end
 
@@ -688,21 +653,40 @@ classdef AnalysisSingleCell < handle
             
             fprintf('Comparing analyzed cells...\n')
             nCells = length( Cells);
-            
-            % Compare spindle length
-            %AnalysisSingleCell.GraphMulti_SpindleLength( Cells)
 
-            % Compare Cut 7 distribution along the spindle
-            %AnalysisSingleCell.GraphMulti_Cut7AlongSpindle( Cells)
+            for jf = 1: length( Cells{1}.features)
+                switch Cells{1}.features{jf}
+                    case 'Microtubule'
+                        channel_mt = jf;
+                    case 'Cut7'
+                        channel_cut7 = jf;
+                    case 'KC'
+                        channel_kc = jf;
+                end
+            end
 
-            % Compare Cut 7 distribution away from pole
-            AnalysisSingleCell.GraphMulti_Cut7DistributionAwayFromPole( Cells)
+            % Compare Spindle Cells
+            switch Cells{1}.cellType
+                case 'Spindle'
+
+                    % Compare spindle length
+                    AnalysisSingleCell.GraphMulti_SpindleLength( Cells, channel_mt)
+
+                    % Compare Cut 7 distribution along the spindle
+                    AnalysisSingleCell.GraphMulti_Cut7AlongSpindle( Cells, channel_cut7)
+
+                case 'Monopolar'
+
+                    % Compare Cut 7 distribution away from pole
+                    AnalysisSingleCell.GraphMulti_Cut7DistributionAwayFromPole( Cells, channel_cut7)
+
+            end
             
         end
         % }}}
 
         % GraphMulti_SpindleLength {{{
-        function GraphMulti_SpindleLength( Cells)
+        function GraphMulti_SpindleLength( Cells, channel)
             % Compare spindle lengths between cells
 
             fprintf('Comparing spindle lengths...\n')
@@ -721,7 +705,7 @@ classdef AnalysisSingleCell < handle
             % Process data for plotting
             % Spindle lengths
             for jCell = 1 : nCells
-                spindleLengths{jCell} = Cells{jCell}.data.spindle.mt.spindleLength;
+                spindleLengths{jCell} = Cells{jCell}.data{channel}.spindleLength;
             end
             % Times
             for jCell = 1 : nCells
@@ -742,7 +726,7 @@ classdef AnalysisSingleCell < handle
         % }}}
 
         % GraphMulti_Cut7AlongSpindle {{{
-        function GraphMulti_Cut7AlongSpindle( Cells)
+        function GraphMulti_Cut7AlongSpindle( Cells, channel)
             % Compare Cut7 distibutions along the spindle
 
             fprintf('Comparing cut7 distirbution along the spindle...\n')
@@ -760,7 +744,7 @@ classdef AnalysisSingleCell < handle
             % Process data for plotting
             % cut7 intensity 
             for jCell = 1 : nCells
-                int = mean( Cells{jCell}.data.spindle.cut7.spindleInt, 1);
+                int = mean( Cells{jCell}.data{channel}.cut7SpindleInt, 1);
                 if mean( int(1: floor(end/3) ) ) < mean( int( ceil(2*end/3): end) )
                     int = flip( int);
                 end
@@ -768,7 +752,7 @@ classdef AnalysisSingleCell < handle
             end
             % Distance along spindle 
             for jCell = 1 : nCells
-                dist{jCell} = Cells{jCell}.data.spindle.cut7.range;
+                dist{jCell} = Cells{jCell}.data{channel}.cut7Range;
             end
             
             % plot mean and shaded error
@@ -787,7 +771,7 @@ classdef AnalysisSingleCell < handle
         % }}}
 
         % GraphMulti_Cut7DistributionAwayFromPole{{{
-        function GraphMulti_Cut7DistributionAwayFromPole( Cells)
+        function GraphMulti_Cut7DistributionAwayFromPole( Cells, channel)
             % Compare Cut7 distibutions along the spindle
 
             fprintf('Comparing cut7 distirbution away from pole...\n')
@@ -805,12 +789,15 @@ classdef AnalysisSingleCell < handle
             % Process data for plotting
             % cut7 intensity 
             for jCell = 1 : nCells
-                cut7int{jCell} = Cells{jCell}.data.monopolar.cut7.radialInt;
+                cut7int{jCell} = Cells{jCell}.data{channel}.cut7RadialInt;
+                cut7int{jCell} = mean( cut7int{jCell}, 1);
+                cut7int{jCell} = cut7int{jCell}/ max( cut7int{jCell});
             end
 
             % Distance from pole 
             for jCell = 1 : nCells
-                dist{jCell} = Cells{jCell}.data.monopolar.cut7.radialVal;
+                dist{jCell} = Cells{jCell}.data{channel}.cut7RadialVal;
+                dist{jCell} = mean( dist{jCell}, 1);
             end
             
             % plot mean and shaded error
@@ -853,7 +840,7 @@ classdef AnalysisSingleCell < handle
             % Ensure presence of x data
             nSamp = length( ydata);
             if nargin < 2
-                xdata = cellfun( @(x) 1:length(x), ydata, 'UniformOutput', false)
+                xdata = cellfun( @(x) 1:length(x), ydata, 'UniformOutput', false);
             end
 
             % We will use linear interpolation to make our observations evenly and finely spaced out
@@ -882,8 +869,7 @@ classdef AnalysisSingleCell < handle
                 ymean(jT) = mean( goodValues);
                 yerr(jT) = std( goodValues).^2;
             end
-            max( abs( ymean - yerr) )
-
+            
             % construct the extended vectors to define a region for shading
             x_vec = [x, fliplr(x)];
             y_vec = [ ymean+yerr, fliplr( ymean-yerr) ];
