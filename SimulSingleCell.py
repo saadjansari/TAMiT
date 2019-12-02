@@ -206,7 +206,7 @@ class SimulSingleCell( object):
         f_jobs = open(self.fname['jobs'], "w+")
 
         # Prefix for job command
-        cmd_pre = 'matlab -nodesktop -r "clear all; addpath( genpath( "classes"));'
+        cmd_pre = 'matlab -nodesktop -r "clear all; addpath({0});'.format( repr( 'classes') )
 
         # Suffix for job command
         cmd_post = '"\n'

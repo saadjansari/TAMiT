@@ -91,6 +91,9 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Get lifetime for this cell
             lifetime = obj.imageData.GetLifetime;
 
+            % Check for existence of images in all the frames and duplicate images if necessary
+            [obj, imgNew] = CheckUpdateImages( obj, cChannel)
+
             for jTime = lifetime(1) : lifetime(2)
 
                 disp( sprintf( 'C-%d Time = %d', jChannel, jTime) )
@@ -104,7 +107,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                 mkdir( params.saveDirectory);
 
                 % Find features for this CT frame
-                obj.FindFeaturesFrame( params) 
+                obj.FindFeaturesFrame( imgNew, params) 
 
             end
             disp('-----------------------------------------------------------------------')
@@ -112,30 +115,128 @@ classdef Cell < handle & matlab.mixin.Copyable
         end
         % }}}
         
+        % CheckUpdateImages {{{
+        function [obj, imgNew] = CheckUpdateImages( obj, channel)
+
+            % Get Image
+            imgOld = obj.imageData.GetImage();
+            imgNew = 0*imgOld;
+
+            % Get lifetime
+            lifetime = obj.imageData.GetLifetime();
+            life_vec = lifetime(1) : lifetime(2);
+
+            % Find good frames
+            frames_good = Cell.FindGoodFrames( imgOld(:,:,:,:,channel), life_vec);
+
+            % Print good frames
+            disp( 'Printing good frames...')
+            disp( life_vec( find(frames_good) ) )
+
+            if sum( frames_good) == 0
+                error('no good frames over here. Something must be wrong...')
+            end
+
+            % Loop over time and select the new image for bad frames using good frames
+            for jt = 1: length( life_vec )
+
+                % if frame is good, do nothing
+                if frames_good( jt)
+                    imgNew(:,:,:, life_vec( jt), channel) = imgOld(:,:,:, life_vec( jt), channel);
+                    continue
+
+                % If frame is bad, then update the image to one of a good frame
+                else
+                    % find next good frame
+                    jt_next = (jt-1) + find( frames_good( jt: end), 1, 'first');
+
+                    % find prev good frame
+                    jt_prev = find( frames_good( 1: jt), 1, 'last');
+
+                    % If no prev good frame, then set image to the next good frame
+                    if isempty( jt_prev)
+                        imgNew(:,:,:, life_vec( jt), channel) = imgOld(:,:,:, life_vec( jt_next), channel);
+                        continue
+                    % If no next good frame, then set image to the prev good frame
+                    elseif isempty( jt_next) 
+                        imgNew(:,:,:, life_vec( jt), channel) = imgOld(:,:,:, life_vec( jt_prev), channel);
+                        continue
+                    end
+
+                    % If both prev and next good frames exist, use the one closest in time 
+                    if abs(jt-jt_prev) < abs(jt-jt_next)
+                        imgNew(:,:,:, life_vec( jt), channel) = imgOld(:,:,:, life_vec( jt_prev), channel);
+                    else
+                        imgNew(:,:,:, life_vec( jt), channel) = imgOld(:,:,:, life_vec( jt_next), channel);
+                    end
+                end
+            end
+        
+        end
+        % }}}
+
+        % DecideToFit {{{
+        function [obj, status] = DecideToFit( obj, Image, parameters)
+            % In the case of missing frames, fitting must be skipped and features must be copied.
+
+            status = 1;
+            channel = parameters.channelTrue;
+            channelIdx = parameters.channelIdx;
+            time = parameters.time;
+            
+            % Get lifetimes
+            lifetime = obj.imageData.GetLifetime();
+            life_vec = lifetime(1): lifetime(2);
+
+            % Check if this is the first frame:
+            % If yes, then fit it
+            % If not first frame:
+            %   Then check if frame is the same as last frame. If it is, then do the following:
+            %       1. Skip fitting
+            %       2. Copy features from old frame to current frame
+            %       3. Save the final fit
+            
+            currFrame = Image(:,:,:,time,channel);
+            prevFrame = Image(:,:,:,time-1,channel);
+
+            if time ~= life_vec(1) && currFrame(:) == prevFrame(:)
+
+                % Skip fitting
+                status = 0;
+
+                % Copy features from the previous frame
+                obj.featureList{ channelIdx, time} = obj.featureList{ channelIdx, time-1}.copyDeep();
+
+                % Prepare to save the fit
+                p.channel = channel;
+                p.time = time; 
+                p.fitScope = 'final'; 
+                p.saveDirectory = parameters.saveDirectory;
+                p.featureMain = obj.featureList{ channelIdx, time};
+
+                % Save the final fit
+                Cell.saveFinalFit( Image, obj.featureList{ channelIdx, time}, p);
+                    
+            end
+        end
+        % }}}
+
         % FindFeaturesFrame {{{
-        function FindFeaturesFrame( obj, parameters)
+        function FindFeaturesFrame( obj, Image, parameters)
             % Find and fit features for a single CT frame
             
-            % Get the image for this frame
-            Image = obj.imageData.GetImage();
-            Image2Fit = Image(:,:,:, parameters.time, parameters.channelTrue);
-
-            % check if frame is bad. In this case, we'll use the previous fitted frame and then skip fitting
-            if Cell.checkFrameViability( Image2Fit, parameters.time)~= 0
-                obj.featureList{ parameters.channelIdx, parameters.time} = obj.featureList{ parameters.channelIdx, parameters.time-1}.copyDeep;
-                fprintf( 'Encountered a bad frame. Using previous frame features and skipping fitting...\n')
-
-                % save Final fit
-                p.channel = parameters.channelTrue; p.time = parameters.time; p.fitScope = 'final';
-                p.saveDirectory = parameters.saveDirectory;
-                p.featureMain = obj.featureList{ parameters.channelIdx, parameters.time};
-                Cell.saveFinalFit( Image2Fit, obj.featureList{ parameters.channelIdx, parameters.time}, p);
+            % Decide if fit should be performed. Skip otherwise
+            [obj, status] = DecideToFit( obj, Image, parameters);
+            if ~status
                 return
             end
 
+            % Get the image for this frame
+            Image2Fit = Image(:,:,:, parameters.time, parameters.channelTrue);
+
             % Estimate the features based on an estimation routine (defined in specialized sub-class )
-            % Good estimation is key to good optimization in low SnR images
             disp('Estimating features...')
+            % Good estimation is key to good optimization in low SnR images
             obj.EstimateFeatures( parameters.time, parameters.channelTrue, parameters.channelIdx); 
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
@@ -214,6 +315,23 @@ classdef Cell < handle & matlab.mixin.Copyable
     end
     
     methods ( Static = true , Access = public )
+        
+        % FindGoodFrames {{{
+        function frames_good = FindGoodFrames( Image, lifetimes)
+
+            % find all good frames
+            frames_good = 0*lifetimes;
+
+            for j = 1: length(lifetimes)
+                
+                jt = lifetimes( j);
+                Img = Image(:,:,:, jt);
+                if max( Img(:)) ~= min( Img(:)) 
+                    frames_good( j) = 1;
+                end
+            end
+        end
+        % }}}
         
        % Common Functions {{{
        
@@ -374,11 +492,13 @@ classdef Cell < handle & matlab.mixin.Copyable
         end
         % }}}
         % phiIntegrate2D {{{
-        function [radIntensity, radValues] = phiIntegrate2D( imageIn, startPoint, rmax)
+        function [radIntensityMean, radValues] = phiIntegrate2D( imageIn, startPoint, rmax)
 
             if length( size(imageIn) ) ~= 2
                 error( 'radIntegrate2D : input image must be 2-dimensional')
             end
+
+            ignoreZerosInMean = 1;
 
             % Radially integrate around startPoint 
             radStep = 0.25;
@@ -409,6 +529,13 @@ classdef Cell < handle & matlab.mixin.Copyable
            
             % Sum over phi to get a vector of Intensity values at varying radia
             radIntensity = sum( Intcirc, 2)';
+
+            % Find a mean
+            if ignoreZerosInMean
+                radIntensityMean = radIntensity ./ sum( logical( Intcirc), 2)';
+            else
+                radIntensityMean = radIntensity / size( Intcirc,2); 
+            end
 
         end
         % }}}

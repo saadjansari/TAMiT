@@ -8,11 +8,13 @@ classdef AnalysisSingleCell < handle
         times = []
         timeStep
         sizeVoxels = [0.1067 0.1067 0.5]; %default
+        numVoxels 
         data
         folderName
         goodFrame = 1
         flagMovie
         flagGraph
+        simImageMT
     end
 
     methods (Access = public )
@@ -155,6 +157,9 @@ classdef AnalysisSingleCell < handle
         function analyzeFeatureMicrotubule( obj, mainFeature, jChannel, jTime)
             % Analyze some type of microtubule feature (e.g. Spindle, Monopolar, InterphaseBank)
             
+            % Simulate the mt image
+            obj.simImageMT(:,:,:,jTime) = mainFeature.simulateFeature( size(mainFeature.image) );
+
             switch mainFeature.type
                 case 'Spindle'
 
@@ -166,13 +171,16 @@ classdef AnalysisSingleCell < handle
                     % Pole position, number of microtubules and tip distance
                     [ obj.data{jChannel}.pole(jTime, :),  ...
                         obj.data{jChannel}.numMT(jTime, :), ...
-                        obj.data{jChannel}.tipDistance(jTime)] = obj.analyzeMonopolar( mainFeature, jTime);
+                        obj.data{jChannel}.mtRadialInt_raw(jTime,:),...
+                        obj.data{jChannel}.mtRadialInt(jTime,:),...
+                        obj.data{jChannel}.mtRadialVal(jTime,:)] = obj.analyzeMonopolar( mainFeature, jTime);
 
                 case 'InterphaseBank'
                     error('analyzeFeatureMicrotubule: InterphaseBank still in development')
                 otherwise
                     error('analyzeFeatureMicrotubule: unknown mainFeature type')
             end
+
 
         end
         % }}}
@@ -186,7 +194,7 @@ classdef AnalysisSingleCell < handle
         end
         % }}}
         % analyzeMonopolar {{{
-        function [pole, numMT, dst] = analyzeMonopolar( obj, mainFeature, jTime, data)
+        function [pole, numMT, radialInt_raw, radialInt, radialVal] = analyzeMonopolar( obj, mainFeature, jTime, data)
             % analyze a microtubule spindle            
 
             % Find monopolar pole position
@@ -195,12 +203,23 @@ classdef AnalysisSingleCell < handle
             % Find microtubule number
             numMT = mainFeature.featureList{1}.numFeatures - 1;
 
-            % Distance to Furthest Microtubule Tip
-            dst = 0;
-            for jmt = 1 : mainFeature.featureList{1}.numFeatures-1
-                endDst = norm( mainFeature.featureList{1}.featureList{1+jmt}.startPosition - mainFeature.featureList{1}.featureList{1+jmt}.endPosition );
-                if endDst > dst, dst = endDst; end 
-            end
+             %{
+             {% Distance to Furthest Microtubule Tip
+             {dst = 0;
+             {for jmt = 1 : mainFeature.featureList{1}.numFeatures-1
+             {    endDst = norm( mainFeature.featureList{1}.featureList{1+jmt}.startPosition - mainFeature.featureList{1}.featureList{1+jmt}.endPosition );
+             {    if endDst > dst, dst = endDst; end 
+             {end
+             %}
+
+            % get mt distribution away from pole
+            img = mat2gray( max(mainFeature.image, [], 3) );
+            [radialInt_raw, radialVal] = Cell.phiIntegrate2D( img, pole(1:2), 30);
+            % subtract background noise
+            radialInt_raw = radialInt_raw - median( img( img > 0) );
+
+            % normalize intensity distribution
+            radialInt = radialInt_raw / max(radialInt_raw);
 
         end
         % }}}
@@ -345,8 +364,19 @@ classdef AnalysisSingleCell < handle
             % get cut7 frame  2D max projection
             imgZ = sum( mainFeature.image, 3);
 
+            % get mt sim image if it exists
+            if ~isempty( obj.simImageMT)
+                imMT = obj.simImageMT( :,:,:,jTime);
+                imMT = max( imMT, [], 3);
+                imMT( imMT < 0.01*max(imMT(:)) ) = 0;
+                imMT = logical( imMT);
+                imgZ = imgZ .* imMT;
+            end
+
             % get cut7 distribution away from pole
             [radialInt_raw, radialVal] = Cell.phiIntegrate2D( imgZ, pole(1:2), 30);
+            % subtract background noise
+            radialInt_raw = radialInt_raw - median( imgZ( imgZ > 0) );
 
             % normalize intensity distribution
             radialInt = radialInt_raw / max(radialInt_raw);
@@ -502,7 +532,7 @@ classdef AnalysisSingleCell < handle
                 img = feat.image;
 
                 % make figure
-                f = figure('visible', 'off'); 
+                f = figure('visible', 'on'); 
                 h = tight_subplot(1,2);
                 set(f, 'currentaxes', h(1) );
                 imagesc( h(1), max(img , [], 3) ), 
@@ -677,8 +707,11 @@ classdef AnalysisSingleCell < handle
 
                 case 'Monopolar'
 
+                    % Compare MT  distribution away from pole
+                    AnalysisSingleCell.GraphMulti_MTDistributionAwayFromPoleMicrons( Cells, channel_mt)
+
                     % Compare Cut 7 distribution away from pole
-                    AnalysisSingleCell.GraphMulti_Cut7DistributionAwayFromPole( Cells, channel_cut7)
+                    AnalysisSingleCell.GraphMulti_Cut7DistributionAwayFromPoleMicrons( Cells, channel_cut7)
 
             end
             
@@ -770,18 +803,63 @@ classdef AnalysisSingleCell < handle
         end
         % }}}
 
-        % GraphMulti_Cut7DistributionAwayFromPole{{{
-        function GraphMulti_Cut7DistributionAwayFromPole( Cells, channel)
+        % GraphMulti_MTDistributionAwayFromPoleMicrons{{{
+        function GraphMulti_MTDistributionAwayFromPoleMicrons( Cells, channel)
             % Compare Cut7 distibutions along the spindle
 
-            fprintf('Comparing cut7 distirbution away from pole...\n')
+            fprintf('Comparing tubulin distribution away from pole...\n')
             nCells = length( Cells);
 
-            f = figure('NumberTitle', 'off', 'Name', 'cut7_intensity_monopolar_all'); 
+            f = figure('NumberTitle', 'off', 'Name', 'tub_intensity_monopolar_all_um'); 
             ax = axes;
             grid on; grid minor
-            xlabel( 'Distance away from pole (voxels)')
-            ylabel( 'Total intensity')
+            xlabel( 'Distance from pole [\mum]', 'interpreter', 'Tex')
+            ylabel( 'Mean intensity')
+            set( ax, 'FontSize', 20)
+            title('Tub intensity vs distance from pole')
+            hold on;
+
+            % Process data for plotting
+            % cut7 intensity 
+            for jCell = 1 : nCells
+                mtint{jCell} = Cells{jCell}.data{channel}.mtRadialInt_raw;
+                mtint{jCell} = mean( mtint{jCell}, 1);
+                %cut7int{jCell} = cut7int{jCell}/ max( cut7int{jCell});
+            end
+
+            % Distance from pole 
+            for jCell = 1 : nCells
+                dist{jCell} = Cells{jCell}.data{channel}.mtRadialVal;
+                dist{jCell} = mean( dist{jCell}, 1);
+                dist{jCell} = dist{jCell}.*Cells{jCell}.sizeVoxels(1);
+            end
+            
+            % plot mean and shaded error
+            AnalysisSingleCell.plotAreaShadedError( mtint, dist, ax);
+
+            for jCell = 1 : nCells
+                saveas( f, [Cells{jCell}.path, filesep, 'tub_intensity_monopolar_all_um.png'])
+            end
+            [par, ~, ~] = fileparts( Cells{1}.path );
+            saveas( f, [par, filesep, 'tub_intensity_monopolar_all_um.png'])
+            close(f)
+            save([par,filesep,'tubdist.mat'], 'mtint', 'dist', '-v7.3')
+
+        end
+        % }}}
+        
+        % GraphMulti_Cut7DistributionAwayFromPoleMicrons{{{
+        function GraphMulti_Cut7DistributionAwayFromPoleMicrons( Cells, channel)
+            % Compare Cut7 distibutions along the spindle
+
+            fprintf('Comparing cut7 distribution away from pole...\n')
+            nCells = length( Cells);
+
+            f = figure('NumberTitle', 'off', 'Name', 'cut7_intensity_monopolar_all_um'); 
+            ax = axes;
+            grid on; grid minor
+            xlabel( 'Distance from pole [\mum]', 'interpreter', 'Tex')
+            ylabel( 'Mean intensity')
             set( ax, 'FontSize', 20)
             title('Cut7 intensity vs distance from pole')
             hold on;
@@ -789,26 +867,28 @@ classdef AnalysisSingleCell < handle
             % Process data for plotting
             % cut7 intensity 
             for jCell = 1 : nCells
-                cut7int{jCell} = Cells{jCell}.data{channel}.cut7RadialInt;
+                cut7int{jCell} = Cells{jCell}.data{channel}.cut7RadialInt_raw;
                 cut7int{jCell} = mean( cut7int{jCell}, 1);
-                cut7int{jCell} = cut7int{jCell}/ max( cut7int{jCell});
+                %cut7int{jCell} = cut7int{jCell}/ max( cut7int{jCell});
             end
 
             % Distance from pole 
             for jCell = 1 : nCells
                 dist{jCell} = Cells{jCell}.data{channel}.cut7RadialVal;
                 dist{jCell} = mean( dist{jCell}, 1);
+                dist{jCell} = dist{jCell}.*Cells{jCell}.sizeVoxels(1);
             end
             
             % plot mean and shaded error
             AnalysisSingleCell.plotAreaShadedError( cut7int, dist, ax);
 
             for jCell = 1 : nCells
-                saveas( f, [Cells{jCell}.path, filesep, 'cut7_intensity_monopolar_all.png'])
+                saveas( f, [Cells{jCell}.path, filesep, 'cut7_intensity_monopolar_all_um.png'])
             end
             [par, ~, ~] = fileparts( Cells{1}.path );
-            saveas( f, [par, filesep, 'cut7_intensity_monopolar_all.png'])
+            saveas( f, [par, filesep, 'cut7_intensity_monopolar_all_um.png'])
             close(f)
+            save([par,filesep,'cut7dist.mat'], 'cut7int', 'dist', '-v7.3')
 
         end
         % }}}
@@ -867,7 +947,7 @@ classdef AnalysisSingleCell < handle
                 xValues = ydata_even(:,jT);
                 goodValues = xValues( ~isnan( xValues ) );
                 ymean(jT) = mean( goodValues);
-                yerr(jT) = std( goodValues).^2;
+                yerr(jT) = std( goodValues);
             end
             
             % construct the extended vectors to define a region for shading
