@@ -153,6 +153,7 @@ classdef FitEngine
             % Optimize the number of features
 
             if ~obj.parameters.runFeatureNumberOptimization
+                fitInfo = fitInfoOld;
                 return
             end
 

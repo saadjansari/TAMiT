@@ -1,4 +1,4 @@
-classdef Cell < handle & matlab.mixin.Copyable
+    classdef Cell < handle & matlab.mixin.Copyable
 % This is a generic cell which can be specialized
     properties
         type % type of cell (e.g. interphase or mitotis). 
@@ -92,7 +92,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             lifetime = obj.imageData.GetLifetime;
 
             % Check for existence of images in all the frames and duplicate images if necessary
-            [obj, imgNew] = CheckUpdateImages( obj, cChannel)
+            [obj, imgNew] = CheckUpdateImages( obj, cChannel);
 
             for jTime = lifetime(1) : lifetime(2)
 
@@ -199,7 +199,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             currFrame = Image(:,:,:,time,channel);
             prevFrame = Image(:,:,:,time-1,channel);
 
-            if time ~= life_vec(1) && currFrame(:) == prevFrame(:)
+            if time ~= life_vec(1) && all( currFrame(:) == prevFrame(:) )
 
                 % Skip fitting
                 status = 0;
@@ -1335,10 +1335,10 @@ classdef Cell < handle & matlab.mixin.Copyable
 %             Image2Fit = uint16 (Image2Fit);
 
             % Images Simulated
-            if ~isempty( mainFeature.featureList) && Cell.checkFrameViability( Image2Fit, time)==0
+            try
                 imageSimI = uint16( FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo) );
                 imageSimF = uint16( FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo) );
-            else
+            catch
                 imageSimI = [];
                 imageSimF = [];
             end
