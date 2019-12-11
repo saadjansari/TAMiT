@@ -197,7 +197,11 @@
             %       3. Save the final fit
             
             currFrame = Image(:,:,:,time,channel);
-            prevFrame = Image(:,:,:,time-1,channel);
+            if time == 1
+                prevFrame = 0*currFrame;
+            else
+                prevFrame = Image(:,:,:,time-1,channel);
+            end
 
             if time ~= life_vec(1) && all( currFrame(:) == prevFrame(:) )
 
