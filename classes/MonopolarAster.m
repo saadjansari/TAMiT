@@ -299,7 +299,7 @@ classdef MonopolarAster < Organizer
 
             S.type = obj.type;
             S.dim = obj.dim;
-            S.image = uint16( obj.image);
+            S.image = im2uint16( obj.image);
             S.props2Fit = obj.props2Fit;
 
             for jFeat = 1 : length( obj.featureList)
