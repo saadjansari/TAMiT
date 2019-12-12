@@ -241,7 +241,7 @@
             % Estimate the features based on an estimation routine (defined in specialized sub-class )
             disp('Estimating features...')
             % Good estimation is key to good optimization in low SnR images
-            obj.EstimateFeatures( parameters.time, parameters.channelTrue, parameters.channelIdx); 
+            obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx); 
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
 

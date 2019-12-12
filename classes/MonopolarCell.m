@@ -16,15 +16,15 @@ classdef MonopolarCell < Cell
         % }}}
 
         % EstimateFeatures {{{
-        function obj = EstimateFeatures( obj, cTime, cChannel, idxChannel)
+        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel)
         % findFeatures : estimates and finds the features 
             
             % Get feature type
             currentFeature  = obj.featuresInChannels{ idxChannel};
 
             % Get Image for estimation
-            estimationImage = obj.imageData.GetImage;
-            estimationImage = estimationImage( :,:,:,cTime, cChannel);
+%             estimationImage = obj.imageData.GetImage();
+%             estimationImage = img( :,:,:,cTime, cChannel);
 
             % Get Start time 
             lifetime = obj.imageData.GetLifetime;
