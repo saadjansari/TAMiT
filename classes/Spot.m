@@ -26,9 +26,19 @@ classdef Spot < BasicElement
             % Simulate a gaussian spot
             imageOut = zeros( sizeImage);
             if isfield( 'idxVoxels', obj.params)
-                imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint3D( obj.position, obj.sigma, imageOut, obj.params.idxVoxels.idx, obj.params.idxVoxels.X, obj.params.idxVoxels.Y, obj.params.idxVoxels.Z) );
+                if obj.dim == 2
+                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint2D( obj.position, obj.sigma, ...
+                        imageOut, obj.params.idxVoxels.idx, obj.params.idxVoxels.X, obj.params.idxVoxels.Y) );
+                elseif obj.dim == 3
+                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint3D( obj.position, obj.sigma, ...
+                        imageOut, obj.params.idxVoxels.idx, obj.params.idxVoxels.X, obj.params.idxVoxels.Y, obj.params.idxVoxels.Z) );
+                end
             else
-                imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint3D( obj.position, obj.sigma, imageOut) );
+                if obj.dim == 2
+                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint2D( obj.position, obj.sigma, imageOut) );
+                elseif obj.dim == 3
+                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint3D( obj.position, obj.sigma, imageOut) );
+                end
             end
 
             % FIXME
@@ -53,7 +63,38 @@ classdef Spot < BasicElement
 
         end
         % }}}
+        
+        % displayFeatureXZ {{{
+        function ax = displayFeatureXZ( obj, ax)
 
+            if nargin < 2
+                error('displayFeatureXZ: must provide axes handle to display the feature in')
+            end
+            
+            if obj.dim == 2
+                error('displayFeatureXZ: must be 3-dimensional')
+            end
+
+            plot( obj.position(3), obj.position(1), obj.display{:} ) 
+
+        end
+        % }}}
+        
+        % displayFeatureXZ {{{
+        function ax = displayFeatureYZ( obj, ax)
+
+            if nargin < 2
+                error('displayFeatureYZ: must provide axes handle to display the feature in')
+            end
+            
+            if obj.dim == 2
+                error('displayFeatureYZ: must be 3-dimensional')
+            end
+
+            plot( obj.position(3), obj.position(2), obj.display{:} ) 
+
+        end
+        % }}}
         % BleachSpot {{{
         function imgBleached = BleachSpot( obj, imgIn, bleachRadius)
             % Bleaches the Spot location with a circle of zeros of radius bleachRad
@@ -75,9 +116,10 @@ classdef Spot < BasicElement
         % }}}
 
         % fillparams {{{
-        function obj = fillParams( obj)
+        function obj = fillParams( obj, sizeImage)
             
-            obj.params.idxVoxels = Spot.findVoxelsNearSpot( obj.position, obj.image, 15);
+            obj.params = Spot.findVoxelsNearSpot( obj.position, sizeImage, 10);
+%             [obj.params.y, obj.params.x, obj.params.z] = ind2sub( sizeImage, obj.params.idx);
             
         end
         % }}}
@@ -93,6 +135,44 @@ classdef Spot < BasicElement
             S.sigma = obj.sigma;
             S.display = obj.display;
 
+        end
+        % }}}
+        
+        % GetProjection2DSpecific {{{
+        function obj = GetProjection2DSpecific( obj)
+            % Get 2D projection of feature
+            
+            % Check object dimensionality
+            if obj.dim == 2
+                warning('object dimensionality is already 2')
+            end
+            
+            obj.position = obj.position(1:2);
+            
+        end
+        % }}}
+        
+        % GetProjection3DSpecific {{{
+        function obj = GetProjection3DSpecific( obj)
+            % Get 3D projection of feature
+            
+            % Check object dimensionality
+            if obj.dim == 3
+                warning('object dimensionality is already 3')
+            end
+            
+            obj.position(3) = 1;
+            
+        end
+        % }}}
+        
+        % Update3DFrom2D {{{
+        function obj = Update3DFrom2D(obj, obj2D)
+            
+            obj.position(1:2) = obj2D.position(1:2);
+            obj.sigma(1:2) = obj2D.sigma(1:2);
+            obj.amplitude = obj2D.amplitude;
+            
         end
         % }}}
         
@@ -114,7 +194,7 @@ classdef Spot < BasicElement
         % }}}
         
         % findVoxelsNearSpot {{{
-        function spotVox = findVoxelsNearSpot( pos, imageFind, radDilate)
+        function spotVox = findVoxelsNearSpot( pos, sizeImage, radDilate)
             
             dim = numel( pos );
             if dim ~= 2 && dim ~= 3
@@ -122,7 +202,7 @@ classdef Spot < BasicElement
             end
             
             % Draw the spot in empty space
-            imSpot = 0*imageFind;
+            imSpot = zeros( sizeImage);
             if dim == 2
                 imSpot( round(pos(2)), round( pos(1) ) ) = 1;
             elseif dim == 3
@@ -132,14 +212,16 @@ classdef Spot < BasicElement
             % dilate the line with a sphere of large size
 %             imSpot = imdilate( imSpot, strel( 'sphere', radDilate) );
             imSpot = imdilate( max( imSpot, [], 3), strel('disk', radDilate) );
-            imSpot = repmat( imSpot, 1, 1, size(imageFind, 3) );
+            if dim == 3
+                imSpot = repmat( imSpot, 1, 1, sizeImage(3) );
+            end
             
             % return voxel indices for the dilated line
             spotVox.idx = find( imSpot(:) );
             if dim == 2
-                [spotVox.Y, spotVox.X] = ind2sub( size(imSpot), spotVox.idx);
+                [spotVox.y, spotVox.x] = ind2sub( size(imSpot), spotVox.idx);
             elseif dim == 3
-                [spotVox.Y, spotVox.X, spotVox.Z] = ind2sub( size(imSpot), spotVox.idx);
+                [spotVox.y, spotVox.x, spotVox.z] = ind2sub( size(imSpot), spotVox.idx);
             end
             
             

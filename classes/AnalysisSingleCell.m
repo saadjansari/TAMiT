@@ -68,13 +68,16 @@ classdef AnalysisSingleCell < handle
             
                 % Analysis
                 fname = [obj.path,filesep,'analysisData_',num2str(jChannel),'.mat'];
-                if exist(fname) ~= 2
-                    fprintf('   Analysis: channel %d with feature %s...\n', obj.channels( jChannel), obj.features{ jChannel}); 
-                    dat = obj.analyzeChannel( jChannel); save( fname, 'dat', '-v7.3'); 
-                else
-                    fprintf('   Analysis: data exists, loading from file...\n')
-                    load( fname); obj.data{jChannel} = dat;
-                end
+                disp( 'temp bypass of analysis file check')
+                fprintf('   Analysis: channel %d with feature %s...\n', obj.channels( jChannel), obj.features{ jChannel}); 
+                dat = obj.analyzeChannel( jChannel); save( fname, 'dat', '-v7.3');
+%                 if exist(fname) ~= 2
+%                     fprintf('   Analysis: channel %d with feature %s...\n', obj.channels( jChannel), obj.features{ jChannel}); 
+%                     dat = obj.analyzeChannel( jChannel); save( fname, 'dat', '-v7.3'); 
+%                 else
+%                     fprintf('   Analysis: data exists, loading from file...\n')
+%                     load( fname); obj.data{jChannel} = dat;
+%                 end
 
                 % graph channel analysis
                 if obj.flagGraph
@@ -95,9 +98,6 @@ classdef AnalysisSingleCell < handle
 
         % analyzeChannel{{{
         function data = analyzeChannel( obj, jChannel)
-
-            
-
             % Analyze this frame
             for jFrame = 1 : length( obj.times)
                 fprintf('      Analyzing time %d...\n', obj.times( jFrame)); 
@@ -164,19 +164,19 @@ classdef AnalysisSingleCell < handle
                 case 'Spindle'
 
                     % Spindle Length
-                    [ obj.data{jChannel}.spindleLength(jTime) ] = obj.analyzeSpindle( mainFeature, jTime);
+                    %[ obj.data{jChannel}.spindleLength(jTime) ] = obj.analyzeSpindle( mainFeature, jTime);
 
                 case 'MonopolarAster'
 
                     % Pole position, number of microtubules and tip distance
-                    [ obj.data{jChannel}.pole(jTime, :),  ...
-                        obj.data{jChannel}.numMT(jTime, :), ...
-                        obj.data{jChannel}.mtRadialInt_raw(jTime,:),...
-                        obj.data{jChannel}.mtRadialInt(jTime,:),...
-                        obj.data{jChannel}.mtRadialVal(jTime,:)] = obj.analyzeMonopolar( mainFeature, jTime);
+                    %[ obj.data{jChannel}.pole(jTime, :),  ...
+                        %obj.data{jChannel}.numMT(jTime, :), ...
+                        %obj.data{jChannel}.mtRadialInt_raw(jTime,:),...
+                        %obj.data{jChannel}.mtRadialInt(jTime,:),...
+                        %obj.data{jChannel}.mtRadialVal(jTime,:)] = obj.analyzeMonopolar( mainFeature, jTime);
 
-                case 'InterphaseBank'
-                    error('analyzeFeatureMicrotubule: InterphaseBank still in development')
+                case 'IMTBank'
+                    %error('analyzeFeatureMicrotubule: InterphaseBank still in development')
                 otherwise
                     error('analyzeFeatureMicrotubule: unknown mainFeature type')
             end
@@ -213,6 +213,10 @@ classdef AnalysisSingleCell < handle
              %}
 
             % get mt distribution away from pole
+            if jTime == 50
+                disp('here')
+            end
+            
             img = mat2gray( max(mainFeature.image, [], 3) );
             [radialInt_raw, radialVal] = Cell.phiIntegrate2D( img, pole(1:2), 30);
             % subtract background noise
@@ -363,15 +367,19 @@ classdef AnalysisSingleCell < handle
 
             % get cut7 frame  2D max projection
             imgZ = sum( mainFeature.image, 3);
-
-            % get mt sim image if it exists
-            if ~isempty( obj.simImageMT)
-                imMT = obj.simImageMT( :,:,:,jTime);
-                imMT = max( imMT, [], 3);
-                imMT( imMT < 0.01*max(imMT(:)) ) = 0;
-                imMT = logical( imMT);
-                imgZ = imgZ .* imMT;
+            
+            if jTime == 50
+                disp('here')
             end
+            
+            % get mt sim image if it exists
+%             if ~isempty( obj.simImageMT)
+%                 imMT = obj.simImageMT( :,:,:,jTime);
+%                 imMT = max( imMT, [], 3);
+%                 imMT( imMT < 0.01*max(imMT(:)) ) = 0;
+%                 imMT = logical( imMT);
+%                 imgZ = imgZ .* imMT;
+%             end
 
             % get cut7 distribution away from pole
             [radialInt_raw, radialVal] = Cell.phiIntegrate2D( imgZ, pole(1:2), 30);
@@ -867,12 +875,18 @@ classdef AnalysisSingleCell < handle
             % Process data for plotting
             % cut7 intensity 
             for jCell = 1 : nCells
-                cut7int{jCell} = Cells{jCell}.data{channel}.cut7RadialInt_raw;
-                cut7int{jCell} = mean( cut7int{jCell}, 1);
+                try
+                    cut7int{jCell} = Cells{jCell}.data{channel}.cut7RadialInt_raw;
+                    cut7int{jCell} = mean( cut7int{jCell}, 1);
+                catch
+                    disp('here')
+                    cut7int{jCell} = Cells{jCell}.data{channel}.cut7RadialInt_raw;
+                    cut7int{jCell} = mean( cut7int{jCell}, 1);
+                end
                 %cut7int{jCell} = cut7int{jCell}/ max( cut7int{jCell});
             end
 
-            % Distance from pole 
+            % Distance from pole J
             for jCell = 1 : nCells
                 dist{jCell} = Cells{jCell}.data{channel}.cut7RadialVal;
                 dist{jCell} = mean( dist{jCell}, 1);
@@ -961,7 +975,7 @@ classdef AnalysisSingleCell < handle
 
             % Plot the samples
             for jSamp = 1 : nSamp 
-                line( xdata{jSamp}, ydata{jSamp}, 'LineWidth', sampleWidth, 'Color', [colorSample alphaSample]) 
+                line( xdata{jSamp}, ydata{jSamp}, 'LineWidth', sampleWidth, 'Color', [colorSample alphaSample], 'LineStyle', ':') 
             end
             hold on;
             

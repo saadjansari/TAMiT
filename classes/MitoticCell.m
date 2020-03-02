@@ -16,15 +16,15 @@ classdef MitoticCell < Cell
         % }}}
 
         % EstimateFeatures {{{
-        function obj = EstimateFeatures( obj, cTime, cChannel, idxChannel)
+        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel)
         % findFeatures : estimates and finds the features 
             
             % Get feature type
             currentFeature  = obj.featuresInChannels{ idxChannel};
 
             % Get Image for estimation
-            estimationImage = obj.imageData.GetImage;
-            estimationImage = estimationImage( :,:,:,cTime, cChannel);
+%             estimationImage = obj.imageData.GetImage;
+%             estimationImage = estimationImage( :,:,:,cTime, cChannel);
 
             % Get Start time 
             lifetime = obj.imageData.GetLifetime;
@@ -35,7 +35,7 @@ classdef MitoticCell < Cell
                 obj.featureList{ idxChannel, cTime} = obj.EstimateFeaturesNovel( currentFeature, estimationImage);
             % Propagate old feature for later frames
             else 
-                obj = obj.PropagateOldFeature( idxChannel, cTime);
+                obj = obj.PropagateOldFeature( idxChannel, cChannel, cTime);
             end
 
             % Special Tasks 
@@ -72,22 +72,22 @@ classdef MitoticCell < Cell
         % }}}
 
         % PropagateOldFeature {{{
-        function obj = PropagateOldFeature(obj, cChannel, cTime)
+        function obj = PropagateOldFeature(obj, idxChannel, cChannel, cTime)
 
             disp('- Propagating old feature') 
 
             % Find the most recent good frame
             bestFrame = cTime-1;
-            while obj.featureList{ cChannel, bestFrame} ~= obj.featureList{ cChannel, bestFrame}
+            while obj.featureList{ idxChannel, bestFrame} ~= obj.featureList{ idxChannel, bestFrame}
                 bestFrame = bestFrame - 1;
             end
 
             % Duplicate feature from best recent frame
-            obj.featureList{ cChannel, cTime} = obj.featureList{ cChannel, bestFrame}.copyDeep();
+            obj.featureList{ idxChannel, cTime} = obj.featureList{ idxChannel, bestFrame}.copyDeep();
 
             % Ensure the image is from the actual frame
             Image = obj.imageData.GetImage();
-            obj.featureList{ cChannel, cTime}.image = Image(:,:,:, cTime, cChannel);
+            obj.featureList{ idxChannel, cTime}.image = Image(:,:,:, cTime, cChannel);
 
         end
         % }}}
@@ -156,6 +156,7 @@ classdef MitoticCell < Cell
             if params.astralMT
 
                 % Find the angle of this spindle w.r.t to each pole
+                spindleAngle(1) = mod( atan2( spindleMT.endPosition(2)-spindleMT.startPosition(2) , spindleMT.endPosition(1)-spindleMT.startPosition(1) ) , 2*pi );
                 spindleAngle(2) = mod( atan2( spindleMT.startPosition(2)-spindleMT.endPosition(2) , spindleMT.startPosition(1)-spindleMT.endPosition(1) ) , 2*pi );
 
                 % Find Astral Microtubules
@@ -179,7 +180,11 @@ classdef MitoticCell < Cell
                             AstralMT{jAster} = { AstralMT{jAster}{:}, newMT};
                         end
                     end
-                    AsterObjects{jAster} = { AsterObjects{jAster}{:}, AstralMT{jAster}{:} };
+                    try
+                        AsterObjects{jAster} = { AsterObjects{jAster}, AstralMT{jAster}{:} };
+                    catch
+                        AsterObjects{jAster} = { AsterObjects{jAster} };
+                    end
                 end
 
             end
@@ -189,7 +194,7 @@ classdef MitoticCell < Cell
             % Aster MT Objects
             % SPBs + Astral MTs stored in an AsterMT
             for jAster = 1 : 2
-                Asters{jAster} = AsterMT( dim, AsterObjects{jAster} );
+                Asters{jAster} = AsterMT( dim, AsterObjects{jAster}{:} );
             end
 
             % Spindle Feature

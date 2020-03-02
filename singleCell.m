@@ -5,9 +5,9 @@ function features = singleCell( paramsPath)
     clearvars -except paramsPath 
 
     % Make sure we have the correct paths
-    warning('off', 'MATLAB:rmpath:DirNotFound');
-    rmpath( genpath(pwd) );
-    warning('on', 'MATLAB:rmpath:DirNotFound');
+%     warning('off', 'MATLAB:rmpath:DirNotFound');
+%     rmpath( genpath(pwd) );
+%     warning('on', 'MATLAB:rmpath:DirNotFound');
     addpath( pwd);
     addpath( genpath( [pwd, filesep, 'functions'] ) );
     addpath( [pwd, filesep, 'classes'] );
@@ -48,37 +48,24 @@ function features = singleCell( paramsPath)
     % Run the specific type of cell
     switch params.cellInfo.type
         case 'Mitosis'
-            
-            % Initialize Mitotic Cell
-            myCell = MitoticCell( imageData, ...
-                params.cellInfo.channelFeatures, ...
-                params.cellInfo.channelsToFit, ...
-                params, ... 
-                'Species', params.cellInfo.species, ...
-                'Strain', params.cellInfo.strain);
-
-            % Find features
-            myCell = myCell.FindFeatures();
-
+            fname = 'MitoticCell';
         case 'Monopolar'
-
-            % Initialize Monopolar Cell
-            myCell = MonopolarCell( imageData, ...
-                params.cellInfo.channelFeatures, ...
-                params.cellInfo.channelsToFit, ...
-                params, ... 
-                'Species', params.cellInfo.species, ...
-                'Strain', params.cellInfo.strain);
-
-            % Find features
-            myCell = myCell.FindFeatures();
-
+            fname = 'MonopolarCell';
         case 'Interphase'
-
-            % Not set up yet
-            error('singleCell: interphase under construction')
-
+            fname = 'InterphaseCell';
     end
+    
+    myCell = feval( fname, imageData, ...
+        params.cellInfo.channelFeatures, ...
+        params.cellInfo.channelsToFit, ...
+        params, ... 
+        'Species', params.cellInfo.species, ...
+        'Strain', params.cellInfo.strain);
+   
+            
+    % Find features
+    myCell = myCell.FindFeatures();
+
 
 end
 

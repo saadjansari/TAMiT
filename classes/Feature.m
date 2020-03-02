@@ -16,14 +16,14 @@ classdef Feature < handle & matlab.mixin.Copyable
             obj.dim = dim;
             
             % generic feature if unspecified, and speicalized feature is specified.
-            if nargin < 2, 
+            if nargin < 2
                 obj.type = 'generic';
             else 
                 obj.type = type; 
             end
 
             % Assign a unique ID at random (Can be set by an organizer)
-            obj.ID = java.rmi.server.UID();
+%             obj.ID = java.rmi.server.UID();
 
         end
         % }}}
@@ -32,6 +32,8 @@ classdef Feature < handle & matlab.mixin.Copyable
             % creates a shallow copy
             objCopy = copy( obj);
         end
+        
+        
     end
 
 end

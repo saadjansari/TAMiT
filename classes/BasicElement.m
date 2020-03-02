@@ -98,6 +98,51 @@ classdef BasicElement < Feature
             [obj.params.y, obj.params.x, obj.params.z] = ind2sub( size( mask), obj.params.idx);
 
         end
+        
+        % GetProjection2D {{{
+        function obj = GetProjection2D( obj)
+           % Get 2D projection of feature
+           
+           % Change object dimensionality
+           if obj.dim == 2
+               warning('object dimensionality is already 2')
+           end
+           
+           obj.dim = 2;
+           obj.sigma = obj.sigma(1:2);
+           
+           % Specific object projection
+           try
+               obj = obj.GetProjection2DSpecific();
+           end
+            
+        end
+        % }}}
+        
+        % GetProjection3D {{{
+        function obj = GetProjection3D( obj)
+           % Get 3D projection of feature
+           
+           % Change object dimensionality
+           if obj.dim == 3
+               warning('object dimensionality is already 3')
+           end
+           
+           obj.dim = 3;
+           obj.sigma(3) = mean( obj.sigma);
+           
+           % Specific object projection
+           try
+               obj = obj.GetProjection3DSpecific();
+           end
+            
+        end
+        % }}}
+        
+        % Update3DFrom2D {{{
+        function obj = Update3DFrom2D(obj, obj2D)
+            
+        end
         % }}}
 
     end

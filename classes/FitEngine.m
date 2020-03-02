@@ -45,37 +45,47 @@ classdef FitEngine
         end
         % }}}
 
+        
+
+        % Methods : Optimization {{{
+        
         % Optimize {{{
         function obj = Optimize( obj)
             % Optimization of the feature parameters
 
             disp('        Optimization')
 
+            fitInfo = [];
+            if obj.parameters.fit2DFirst == 1
+                [obj,fitInfo] = obj.OptimizeProjection2D();
+            end
+            
             % Local Optimization
-            fitInfo = obj.OptimizeLocal;
-
+            fitInfo = obj.OptimizeLocal(fitInfo);
+            
             % Global Optimization
-            fitInfo = obj.OptimizeGlobal;
-
+            fitInfo = obj.OptimizeGlobal(fitInfo);
+            
             % Hyper Parameters Optimization
             fitInfo = obj.OptimizeHyperParameters( fitInfo);
-
+            
             % Save final optimized data
             fitInfo.fitScope = 'final';
+            obj.feature = fitInfo.featureMain;
+            obj.feature.finalizeAddedFeatures();
+            if obj.parameters.display
+                Cell.displayFinalFit( obj.image, obj.feature, fitInfo);
+            end
             Cell.saveFinalFit( obj.image, obj.feature, fitInfo);
 
 
         end
         % }}}
-
-        % Methods : Optimization {{{
-        
         % OptimizeLocal {{{
-        function [fitInfo] = OptimizeLocal( obj)
+        function [fitInfo] = OptimizeLocal( obj, fitInfo)
             % Local Optimization Routine 
 
             if ~obj.parameters.runLocalOptimization
-                fitInfo = [];
                 return
             end
             
@@ -106,7 +116,7 @@ classdef FitEngine
         end
         % }}}
         % OptimizeGlobal {{{
-        function [fitInfo] = OptimizeGlobal(obj)
+        function [fitInfo] = OptimizeGlobal(obj, fitInfo)
             % Global Optimization Routine 
 
             if ~obj.parameters.runGlobalOptimization
@@ -124,6 +134,8 @@ classdef FitEngine
 
             % Solve Optimization Problem
             fitInfo.fitResults = obj.SolveOptimizationProblem( fitProblem );
+            fitInfo.fitInfoOld = fitInfo;
+            fitInfo.fitVecOld = fitInfo.fitVecs.vec;
 
             % Display and Save
             if obj.parameters.display
@@ -138,18 +150,20 @@ classdef FitEngine
             % Optimize the hyperparameters of this fit
 
             % Optimize Feature Number
-            fitInfo = obj.OptimizeFeatureNumber( fitInfoOld);
+            [obj,fitInfo] = obj.OptimizeFeatureNumber( fitInfoOld);
+            fitInfo.fitInfoOld = fitInfoOld;
+            fitInfo.fitVecOld = fitInfoOld.fitResults.vfit;
 
             % Display and Save
-            if obj.parameters.display
-                Cell.displayFinalFit( obj.image, obj.feature, fitInfo);
-            end
+%             if obj.parameters.display
+%                 Cell.displayFinalFit( obj.image, obj.feature, fitInfo);
+%             end
             %Cell.saveFinalFit( obj.image, obj.feature, fitInfo);
 
         end
         % }}}
         % OptimizeFeatureNumber {{{
-        function fitInfo = OptimizeFeatureNumber( obj, fitInfoOld)
+        function [obj,fitInfo] = OptimizeFeatureNumber( obj, fitInfoOld)
             % Optimize the number of features
 
             if ~obj.parameters.runFeatureNumberOptimization
@@ -170,18 +184,23 @@ classdef FitEngine
             fitInfo.fitScope = 'globum';
             fitInfo.Org = fitInfoOld;
             fitInfo.Old = fitInfoOld;
-            mainFeature.Org = obj.feature.copyDeep();
+%             mainFeature.Org = obj.feature.copyDeep();
             
-            % We will iteratively add and remove features to find the optimum number
-            [obj, fitInfo.Old] = obj.IncreaseFeatureNumber( obj.feature, fitInfo.Old);
-            [obj, fitInfo.Old] = obj.DecreaseFeatureNumber( obj.feature, fitInfo.Old);
-
+            % We will iteratively add and remove basic features to find the optimum number
+            disp('Feature Number Optimization...')
+            [obj, fitInfo.Old] = obj.IncreaseFeatureNumber( obj.feature, fitInfo.Old, 'Basic');
+            if strcmp(obj.feature.type,'IMTBank')
+                disp('Adding Organizers...')
+                [obj, fitInfo.Old] = obj.IncreaseFeatureNumber( obj.feature, fitInfo.Old, 'Organizer');
+            end
+            [obj, fitInfo.Old] = obj.DecreaseFeatureNumber( obj.feature, fitInfo.Old, 'Basic');
+            
             fprintf('- FINAL N =  %d\n', obj.feature.getSubFeatureNumber() )
             fitInfo = fitInfo.Old;
         end
         % }}}
         % IncreaseFeatureNumber {{{
-        function [obj, fitInfoFinal] = IncreaseFeatureNumber( obj, feature, fitInfoOld)
+        function [obj, fitInfoFinal] = IncreaseFeatureNumber( obj, feature, fitInfoOld, featureType)
             % Increase feature number until statistically insignificant
             
             continueAdd = 1;
@@ -195,44 +214,63 @@ classdef FitEngine
                 featureNew = feature.copyDeep();
 
                 % Add Features
-                featureNew.addSubFeatures( refImage);
+                switch featureType
+                    case 'Basic'
+                        [~, successAdd ] = featureNew.addSubFeatures( refImage);
+                    case 'Organizer'
+                        [~, successAdd ] = featureNew.addOrganizers( refImage);
+                end
+                
                 featureNew.syncFeatures();
-                obj = SetFeature( obj, featureNew);
                 
-                fprintf('- Add N = %d ---> %d\n', feature.getSubFeatureNumber(), feature.getSubFeatureNumber()+1 )
+                % An addition could fail if there are no features that
+                % could be added
+                if successAdd
 
-                % Run a global fit
-                [ fitProblem, fitInfo] = obj.PrepareOptimizeFeatureNumber('add');
+                    obj = SetFeature( obj, featureNew);
 
-                % Solve Optimization Problem
-                fitInfo.fitResults = obj.SolveOptimizationProblem( fitProblem );
-                
-                % Check if added feature was worth it
-                im1_raw = feature.imageSim;
-                im2_raw = featureNew.imageSim;
-                im1 = feature.simulateFeature( size( obj.image) );
-                im2 = featureNew.simulateFeature( size( obj.image) );
-                numP1 = length( fitInfoOld.fitVecs.vec);
-                numP2 = length( fitInfo.fitVecs.vec);
-                
-                % Do a statistical F test to compare the two models
-                p = FitEngine.CompareModels(im1_raw, im2_raw, im1, im2, numP1, numP2, obj.image, 'f');
+                    fprintf('- Add N = %d ---> %d\n', feature.getSubFeatureNumber(), featureNew.getSubFeatureNumber() )
 
-                % if new feature was statiscally significant, stop
-                if p > obj.parameters.alpha
-                    fprintf('N = %d (p = %.3f, alpha = %.3f). Keep old model.\n', feature.getSubFeatureNumber(), p, obj.parameters.alpha )
+                    % Run a global fit
+                    [ fitProblem, fitInfo] = obj.PrepareOptimizeFeatureNumber('add');
+
+                    % Solve Optimization Problem
+                    fitInfo.fitResults = obj.SolveOptimizationProblem( fitProblem );
+
+                    % Check if added feature was worth it
+                    im1_raw = feature.imageSim;
+                    im2_raw = featureNew.imageSim;
+                    im1 = feature.simulateFeature( size( obj.image) );
+                    im2 = featureNew.simulateFeature( size( obj.image) );
+                    numP1 = length( fitInfoOld.fitVecs.vec);
+                    numP2 = length( fitInfo.fitVecs.vec);
+
+                    % Do a statistical F test to compare the two models
+                    p = FitEngine.CompareModels(im1_raw, im2_raw, im1, im2, numP1, numP2, obj.image, 'f');
+
+                    % if new feature was statiscally significant, stop
+                    if p > obj.parameters.alpha
+                        fprintf('N = %d (p = %.3f, alpha = %.3f). Keep old model.\n', feature.getSubFeatureNumber(), p, obj.parameters.alpha )
+
+                        obj = SetFeature( obj, feature);
+                        fitInfoFinal = fitInfoOld;
+                        continueAdd = 0;
+
+                    elseif p < obj.parameters.alpha
+                        fprintf('N = %d (p = %.3f, alpha = %.3f). Keep improving model.\n',featureNew.getSubFeatureNumber(), p, obj.parameters.alpha)
+
+                        fitInfoOld = fitInfo;
+                        continueAdd = 1;
+                        feature = featureNew;
+
+                    end
                     
-                    obj = SetFeature( obj, feature);
-                    fitInfoFinal = fitInfoOld;
+                else
                     continueAdd = 0;
-
-                elseif p < obj.parameters.alpha
-                    fprintf('N = %d (p = %.3f, alpha = %.3f). Keep improving model.\n',featureNew.getSubFeatureNumber(), p, obj.parameters.alpha)
-
-                    fitInfoOld = fitInfo;
-                    continueAdd = 1;
-                    feature = featureNew;
-
+                    fitInfoFinal = fitInfoOld;
+                    fprintf('- Add N = %d +\n', feature.getSubFeatureNumber() )
+                    fprintf('No more features to add\n')
+                    fprintf('N = %d , Keep old model.\n', feature.getSubFeatureNumber() )
                 end
 
             end
@@ -240,7 +278,7 @@ classdef FitEngine
         end
         % }}}
         % DecreaseFeatureNumber {{{
-        function [obj, fitInfoFinal] = DecreaseFeatureNumber( obj, feature, fitInfoOld)
+        function [obj, fitInfoFinal] = DecreaseFeatureNumber( obj, feature, fitInfoOld, featureType)
             % Increase feature number until statistically insignificant
             
             continueRemove = 1;
@@ -253,15 +291,20 @@ classdef FitEngine
                 featureNew = feature.copyDeep(); 
 
                 % Remove Features
-                [~, successRemove ] = featureNew.removeSubFeatures( refImage);
-                featureNew.syncFeatures();
+                switch featureType
+                    case 'Basic'
+                        [~, successRemove ] = featureNew.removeSubFeatures( refImage);
+                    case 'Organizer'
+                        [~, successRemove ] = featureNew.removeOrganizers( refImage);
+                end
+                featureNew.updateFeatureMap();
                 
                 % A removal could fail if there are no features left to remove
                 if successRemove
 
                     % Run a global fit
                     obj = SetFeature( obj, featureNew);
-                    fprintf('- Rem N = %d ---> %d\n', featureNew.getSubFeatureNumber()+1, featureNew.getSubFeatureNumber() )
+                    fprintf('- Rem N = %d ---> %d\n', feature.getSubFeatureNumber(), featureNew.getSubFeatureNumber() )
 
                     % Run a global fit
                     [ fitProblem, fitInfo] = obj.PrepareOptimizeFeatureNumber('remove');
@@ -299,7 +342,7 @@ classdef FitEngine
                 else
                     continueRemove = 0;
                     fitInfoFinal = fitInfoOld;
-                    fprintf('- Rem N = %d ---> %d\n', feature.getSubFeatureNumber(), feature.getSubFeatureNumber()-1 )
+                    fprintf('- Rem N = %d -\n', feature.getSubFeatureNumber() )
                     fprintf('No more removable features\n')
                     fprintf('N = %d , Keep old model.\n', feature.getSubFeatureNumber() )
                 end
@@ -328,6 +371,48 @@ classdef FitEngine
                 'alpha', 0.07); 
             fitResults.vfitError = abs( (ci(:,2)-ci(:,1) ) / 2 )';
 
+        end
+        % }}}
+        % OptimizeProjection2D {{{
+        function [obj,fitInfo] = OptimizeProjection2D( obj)
+           % fit 2D projection of the features
+           
+            % Only proceed if dimensionality is 3
+            dim = length( size(obj.image ));
+            if dim == 2
+                disp('Skipping 2D projection fitting: current dimensionality is 2')
+                return
+            end
+            
+            % Get 2D image
+            Image2D = max( obj.image, [], 3);
+            
+            % Get 2D projection of features
+            feature2D = obj.feature.copyDeep();
+            feature2D = feature2D.GetProjection2D();
+            feature2D.fillParams( size(Image2D) );
+            
+            % Initialize 2D fit engine
+            params = obj.parameters;
+            params.runLocalOptimization = 0;
+            params.runGlobalOptimization = 1;
+            params.runFeatureNumberOptimization = 1;
+            fitEngine2 = FitEngine( Image2D, feature2D, params);
+            
+            % Fit global 2D projection of feature
+            fitInfo = fitEngine2.OptimizeGlobal();
+            obj.parameters.runLocalOptimization = 0;
+            
+%             if params.runFeatureNumberOptimization
+%                 fitInfo = fitEngine2.OptimizeHyperParameters(fitInfo);
+% %                 obj.feature = fitEngine2.feature;
+%                 obj.parameters.runFeatureNumberOptimization = 0;
+%             end
+            
+            % Update 3D features using fitted 2D information
+            obj.feature.Update3DFrom2D(fitInfo.featureCurrent);
+            obj.feature.syncFeatures();
+            
         end
         % }}}
         
@@ -386,6 +471,8 @@ classdef FitEngine
                 fitInfo.alpha = 0.05;
                 fitInfo.featureCurrent = fitObj{jFeature};
                 fitInfo.fitScope = 'local';
+                fitInfo.featureCurrent.fillParams( size( fitInfo.image));
+
 
                 % Make the error function for optimization 
                 f = obj.MakeOptimizationFcn( obj.image, fitInfo );
@@ -394,7 +481,11 @@ classdef FitEngine
                 opts = FitEngine.SetOptimOptions( obj.parameters);
                 if strcmp( obj.parameters.state, 'DEBUG')
                     plotHandle = createPlotFcnHandle( fitInfo);
-                    opts = optimoptions( opts, 'OutputFcn', plotHandle);
+                    fillParamHandle = createFillParamsFcnHandle(fitInfo);
+                    opts = optimoptions( opts, 'OutputFcn', {plotHandle,fillParamHandle});
+                else
+                    fillParamHandle = createFillParamsFcnHandle(fitInfo);
+                    opts = optimoptions( opts, 'OutputFcn', fillParamHandle);
                 end
 
                 % Create Optimization Problem
@@ -413,6 +504,13 @@ classdef FitEngine
                 stop = @plotFit;
                 function stop = plotFit( x, optimV, state)
                     stop = Cell.plot_midFit(x, optimV, state, fitInfo);
+                end
+            end
+            function stop = createFillParamsFcnHandle( fitInfo)
+                stop = @fillParams;
+                function stop = fillParams( x, optimV, state)
+                    stop = false;
+                    fitInfo.featureCurrent.fillParams( size( fitInfo.image));
                 end
             end
 
@@ -435,7 +533,9 @@ classdef FitEngine
             % Set Optimization Options
             opts = FitEngine.SetOptimOptions( obj.parameters);
             if strcmp( obj.parameters.state, 'DEBUG')
-                opts = optimoptions( opts, 'OutputFcn', @plotFit );
+                opts = optimoptions( opts, 'OutputFcn', {@plotFit, @fillParams} );
+            else
+                opts = optimoptions( opts, 'OutputFcn', @fillParams );
             end
 
             % Obtain the features to fit, their fit vector and labels 
@@ -468,6 +568,7 @@ classdef FitEngine
             fitInfo.alpha = 0.05;
             fitInfo.featureCurrent = fitObj;
             fitInfo.fitScope = 'global';
+            fitInfo.featureCurrent.fillParams( size( fitInfo.image));
 
             % Make the error function for optimization 
             f = obj.MakeOptimizationFcn( obj.image, fitInfo );
@@ -483,6 +584,13 @@ classdef FitEngine
             % Create handle for plotting function
             function stop = plotFit( x, optimV, state)
                 stop = Cell.plot_midFit(x, optimV, state, fitInfo);
+            end
+            function stop = fillParams( x, optimV, state)
+                FillParams(fitInfo);
+                stop = false;
+                function FillParams(fitInfo)
+                    fitInfo.featureCurrent.fillParams( size( fitInfo.image));
+                end
             end
 
         end
@@ -505,8 +613,11 @@ classdef FitEngine
 
             opts = fitProblem.options;
             if strcmp( obj.parameters.state, 'DEBUG')
-                opts = optimoptions( opts, 'OutputFcn', @plotFit );
+                opts = optimoptions( opts, 'OutputFcn', {@plotFit, @fillParams} );
+            else
+                opts = optimoptions( opts, 'OutputFcn', @fillParams );
             end
+
 
             % Make the error function for optimization 
             f = obj.MakeOptimizationFcn( obj.image, fitInfo );
@@ -523,11 +634,20 @@ classdef FitEngine
             function stop = plotFit( x, optimV, state)
                 stop = Cell.plot_midFit(x, optimV, state, fitInfo);
             end
+            function stop = fillParams( x, optimV, state)
+                FillParams(fitInfo);
+                stop = false;
+                function FillParams(fitInfo)
+                    fitInfo.featureCurrent.fillParams( size( fitInfo.image));
+                end
+            end
 
         end
         % }}}
         
         % }}}
+        
+        
         
     end
 
@@ -543,11 +663,12 @@ classdef FitEngine
             opts = optimoptions( @lsqnonlin, ...
                                 'MaxFunEvals', 2000, ...
                                 'OptimalityTolerance', 1e-12, ...
-                                'MaxIter', 20, ...
+                                'MaxIter', 10, ...
                                 'TolFun', 1e-9, ...
                                 'FiniteDifferenceStepSize', 1e-2, ...
                                 'FiniteDifferenceType', 'central', ...
-                                'StepTolerance', 1e-5);
+                                'StepTolerance', 1e-5,...
+                                'ScaleProblem', 'jacobian');
 
             % Set configurable options
             switch config.state
@@ -574,7 +695,11 @@ classdef FitEngine
             
             % Apply the speedExploration vector to transform to real parameters
             if isfield( fitInfo, 'speedVec')
+                try
                 vec = vec .* fitInfo.speedVec;
+                catch
+                    stoph = 1;
+                end
             end
 
             % Get feature to simulate
@@ -585,8 +710,9 @@ classdef FitEngine
             feature.absorbVec( vec, fitInfo.fitVecs.labels );
             
             % Simulate the feature
+%             feature.fillParams( size(fitInfo.image) );
             imageOut = fitInfo.featureMain.simulateAll( 0*fitInfo.image, featureID);
-
+            
         end
         % }}}
         
@@ -645,7 +771,8 @@ classdef FitEngine
 
             function err = OptimizationFcn( p)
                 err = FitEngine.SimulateImage( p, fitInfo) - ImageFit;
-                err = err(:);
+                err = err( fitInfo.mask(:) );
+%                 err = err(:);
             end
 
         end
@@ -656,11 +783,16 @@ classdef FitEngine
             % Get upper and lower bounds for the parameters in the fit vector
             
             image = obj.GetImage();
+            dim = length( size(image) );
             ub = vec; lb = vec;
 
             % Spatial 
             minVox = 1;
             maxVox = size( image);
+            VoxSize = [maxVox(2), maxVox(1)];
+            if dim == 3
+                VoxSize = [VoxSize, maxVox(3)];
+            end
 
             % Background
             estBkg = median( image( image > 0) );
@@ -669,11 +801,14 @@ classdef FitEngine
 
             % Amplitude
             maxAmp = max( image(:) );
-            minAmp = 0; 
+            minAmp = (maxBkg-estBkg )/5; 
 
             % Sigma
             minSig = [1.2, 1.2, 1.0];
             maxSig = [2.0, 2.0, 2.0];
+            if dim == 2
+                minSig(end) = []; maxSig(end) = [];
+            end
 
             % Find the correct label in vecLabels, and place the correct bounds in the correct places
 
@@ -688,22 +823,23 @@ classdef FitEngine
             % Store upper and lower bounds correctly
             if ~isempty( idxAmp), 
                 ub( idxAmp) = maxAmp;
-                lb( idxAmp) = minAmp; end
+                lb( idxAmp) = minAmp; 
+                vec( idxAmp( vec(idxAmp) < minAmp) ) = minAmp; end
             if ~isempty( idxSig), 
-                nF = length( idxSig)/3;
+                nF = length( idxSig)/dim;
                 ub( idxSig) = repmat( maxSig, 1, nF);
                 lb( idxSig) = repmat( minSig, 1, nF); end
             if ~isempty( idxP0), 
-                nF = length( idxP0)/3;
-                ub( idxP0 ) = repmat( [ maxVox(2) maxVox(1) maxVox(3) ], 1, nF);
+                nF = length( idxP0)/dim;
+                ub( idxP0 ) = repmat( VoxSize, 1, nF);
                 lb( idxP0 ) = minVox; end
             if ~isempty( idxP1), 
-                nF = length( idxP1)/3;
-                ub( idxP1 ) = repmat( [ maxVox(2) maxVox(1) maxVox(3) ], 1, nF);
+                nF = length( idxP1)/dim;
+                ub( idxP1 ) = repmat( VoxSize, 1, nF);
                 lb( idxP1 ) = minVox; end
             if ~isempty( idxP), 
-                nF = length( idxP)/3;
-                ub( idxP ) = repmat( [ maxVox(2) maxVox(1) maxVox(3) ], 1, nF);
+                nF = length( idxP)/dim;
+                ub( idxP ) = repmat( VoxSize, 1, nF);
                 lb( idxP ) = minVox; end
             if ~isempty( idxBkg), 
                 ub( idxBkg ) = maxBkg;
@@ -719,6 +855,12 @@ classdef FitEngine
                 disp( lb )
                 error('getUpperLowerBounds : bounds are wrong')
             end
+            
+            % Bounds for Special Objects
+            % Interphase curves
+            if strcmp(obj.feature.type, 'IMTBank')
+                [ub, lb] = FitEngine.GetVectorBoundsCurves( obj, vec, ub,lb, vecLabels);
+            end
 
             fitVecs.vec = vec;
             fitVecs.ub = ub;
@@ -727,6 +869,101 @@ classdef FitEngine
 
         end
         % }}}
+        
+        function [ub,lb] = GetVectorBoundsCurves( obj, vec, ub, lb, vecLabels)
+            % Get bounds for coefficients of polynomial curves
+           
+            % Determine if this is local or global fitting
+            def = 'global';
+            if any( cellfun( @(x) strcmp(x,'position'), vecLabels) ) || any( cellfun( @(x) strcmp(x,'cX'), vecLabels) )
+                def = 'local';
+            end
+            
+            for jA = 1: obj.feature.numFeatures
+                for jmt = 1 : length(obj.feature.featureList{jA}.featureList)-1
+                   
+                    % Search through vecLabels
+                    switch def
+                        case 'local'
+                            str2find_pos = 'position';
+                            str2find_x = 'cX';
+                            str2find_y = 'cY';
+                            str2find_z = 'cZ';
+                        case 'global'
+                            str2find_pos = ['A', num2str(jA), '_SPB_position'];
+                            str2find_x = ['A', num2str(jA), '_MT', num2str(jmt) '_cX'];
+                            str2find_y = ['A', num2str(jA), '_MT', num2str(jmt) '_cY'];
+                            str2find_z = ['A', num2str(jA), '_MT', num2str(jmt) '_cZ'];
+                    end
+                
+                    % Find Start Position
+                    idxP = find( ~cellfun( @isempty, strfind( vecLabels, str2find_pos) ) );
+                    startPosition = vec( idxP);
+                    if isempty(startPosition)
+                        startPosition = obj.feature.featureList{jA}.featureList{1}.position;
+                    end
+
+                    % Find Coefficients
+                    idxCX = find( ~cellfun( @isempty, strfind( vecLabels, str2find_x) ) );
+                    idxCY = find( ~cellfun( @isempty, strfind( vecLabels, str2find_y) ) );
+                    idxCZ = find( ~cellfun( @isempty, strfind( vecLabels, str2find_z) ) );
+                    cX = [vec( idxCX), startPosition(1)];
+                    cY = [vec( idxCY), startPosition(2)];
+                    if obj.feature.dim == 3
+                       cZ = [vec( idxCZ), startPosition(3)];
+                    end
+                    
+                    % Find upper and Lower Bounds
+                    lenMin = 0.5;
+                    lenMax = 2.5;
+                    sigKeep = 0.5;
+                    tRange = linspace( lenMin, lenMax, 100);
+                    tDef = linspace( 0, 1);
+                    xcfs = []; ycfs = []; zcfs = [];
+                    for jj = 1 : length(tRange)
+                        tNew = linspace( 0, tRange(jj) );
+                        xNew = polyval( cX, tNew);
+                        yNew = polyval( cY, tNew);
+                        if obj.feature.dim==3, zNew = polyval( cZ, tNew); end
+                    
+                        % Get new coefficients for new length
+                        xcfnew = polyfit( tDef, xNew, length(cX)-1);
+                        ycfnew = polyfit( tDef, yNew, length(cY)-1);
+                        if obj.feature.dim==3, zcfnew = polyfit( tDef, zNew, length(cZ)-1); end
+                        
+                        % Add coefficients to matrix
+                        xcfs = [xcfs ; xcfnew(1:end-1) ];
+                        ycfs = [ycfs ; ycfnew(1:end-1) ];
+                        if obj.feature.dim==3, zcfs = [zcfs ; zcfnew(1:end-1) ]; end
+                    end
+
+                    % find the range of these coefs ( model with a gaussian and keep up to a certain number of standard deviations)
+                    sigX = std( xcfs, 0, 1);
+                    sigY = std( ycfs, 0, 1);
+                    if obj.feature.dim==3, sigZ = std( zcfs, 0, 1); end
+
+                    % We will keep half a standard deviation above the max coeff val and half a std below the min coeff value
+                    ubX = max( xcfs, [], 1) + sigKeep * sigX;
+                    ubY = max( ycfs, [], 1) + sigKeep * sigY;
+                    lbX = min( xcfs, [], 1) - sigKeep * sigX;
+                    lbY = min( ycfs, [], 1) - sigKeep * sigY;
+                    if obj.feature.dim==3 
+                        ubZ = max( zcfs, [], 1) + sigKeep * sigZ;
+                        lbZ = min( zcfs, [], 1) - sigKeep * sigZ;
+                    end 
+
+                    ub( idxCX) = ubX;
+                    ub( idxCY) = ubY;
+                    lb( idxCX) = lbX;
+                    lb( idxCY) = lbY;
+                    if obj.feature.dim == 3
+                        ub( idxCZ) = ubZ;
+                        lb( idxCZ) = lbZ;
+                    end
+               end
+           end
+        
+        end
         
         % getExplorationSpeedVector {{{
         function speedVec = getExplorationSpeedVector( vecLabels)
@@ -737,10 +974,11 @@ classdef FitEngine
 %             speedBkg = 10;
 %             speedSigma = 1;
 %             speedPos = 10;
-            speedAmp = 1000;
-            speedBkg = 10;
+            speedAmp = 0.1;
+            speedBkg = 0.1;
             speedSigma = 1;
-            speedPos = 1;
+            speedPos = 10;
+            speedCXYZ = 1;
             speedVec = ones( size(vecLabels) );
 
             % Find the index of these speeds
@@ -763,6 +1001,12 @@ classdef FitEngine
             speedVec( idxAmp) = speedPos;
             idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'position') ) );
             speedVec( idxAmp) = speedPos;
+            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'cX') ) );
+            speedVec( idxAmp) = speedCXYZ;
+            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'cY') ) );
+            speedVec( idxAmp) = speedCXYZ;
+            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'cZ') ) );
+            speedVec( idxAmp) = speedCXYZ;
 
         end
         % }}}

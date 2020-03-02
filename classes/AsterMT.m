@@ -93,10 +93,11 @@ classdef AsterMT < Organizer
         % }}}
 
         % findBestMissingFeature {{{
-        function missingFeature = findBestMissingFeature( obj, Image2Find, xAngle, xRange)
-
+        function missingFeature = findBestMissingFeature( obj, Image2Find, xAngle, xRange, featType)
+            % featType = 'Line' or 'Curve'
+            
             % Find Possible missing features
-            missingFeatures = findMissingFeatures( obj, Image2Find, xAngle, xRange);
+            missingFeatures = findMissingFeatures( obj, Image2Find, xAngle, xRange, featType);
 
             % Find the best missing feature
             residual = [];
@@ -116,13 +117,23 @@ classdef AsterMT < Organizer
         % }}}
 
         % findMissingFeatures {{{
-        function missingFeatures = findMissingFeatures( obj, Image2Find, xAngle, xRange)
-
+        function missingFeatures = findMissingFeatures( obj, Image2Find, xAngle, xRange, featType)
+            % featType = 'Line' or 'Curve'
+            
             % Minimum length of a feature to consider
-            Lmin = 5;
+            Lmin = 7;
+            
+            % Find mask without current sim image
+            simImg = obj.simulateFeature( size(Image2Find) );
+            simMask = simImg < 0.1*max(simImg(:));
 
-            % Find Astral Microtubules
-            missingFeatures = MitoticCell.findAstralMicrotubules( Image2Find, obj.featureList{1}.position, xAngle, xRange);
+            % Find Astral Microtubules away from current microtubules
+            switch featType
+                case 'Line'
+                    missingFeatures = MitoticCell.findAstralMicrotubules( Image2Find.*simMask, obj.featureList{1}.position, xAngle, xRange);
+                case 'Curve'
+                    missingFeatures = InterphaseCell.findAstralMicrotubules( Image2Find.*simMask, obj.featureList{1}.position, xAngle, xRange);
+            end
 
             % Apply the length cutoff
             L = cellfun( @(x) x.length, missingFeatures);
@@ -156,14 +167,20 @@ classdef AsterMT < Organizer
         function worstFeature = findWorstFeature( obj, ImageRef)
             % finds the worst microtubule in this aster by looking at the max values under ImageRef.
             % Output :  worstFeature.idx is the idx of the feature (if idx = 0, there are no removable features in this aster)
-            %           worstFeature.residual is the summed residual of this feature
+            %           worstFeature.residual is the summed residual density of this feature
 
             worstFeature.residual = [];
             for jmt = 2 : obj.numFeatures
 
-                % Find the summed residual under each microtubule 
-                worstFeature.residual(jmt-1) = sum( Cell.findAmplitudeAlongLine( ImageRef, obj.featureList{jmt}.startPosition, obj.featureList{jmt}.endPosition) );
-
+                % Get length of feature
+                len = obj.featureList{jmt}.GetLength();
+                % Find the summed residual under each microtubule
+                switch obj.featureList{jmt}.type
+                    case 'Line'
+                        worstFeature.residual(jmt-1) = sum( Cell.findAmplitudeAlongLine( ImageRef, obj.featureList{jmt}.startPosition, obj.featureList{jmt}.endPosition) ) / len;
+                    case 'Curve'
+                        worstFeature.residual(jmt-1) = sum( Cell.findAmplitudeAlongCurve( ImageRef, obj.featureList{jmt}.GetCoeffFull() ) ) /len;
+                end
             end
 
             % worst microtubule of this aster
@@ -206,6 +223,11 @@ classdef AsterMT < Organizer
         end
         % }}}
         
+        function obj = GetProjection2DSpecific( obj)
+           % Get 2D projection of feature
+            
+        end
+        
     end
 
     methods( Static = true )
@@ -225,6 +247,12 @@ classdef AsterMT < Organizer
 
             obj = AsterMT( S.dim, featureList{:});
 %             obj = obj@Organizer( S.dim, featureList, S.type);
+
+        end
+        % }}}
+        
+        % findAsterInterphase {{{
+        function findAsterInterphase()
 
         end
         % }}}

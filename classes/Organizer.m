@@ -38,6 +38,43 @@ classdef Organizer < Feature
         end
         % }}}
         
+        % displayFeature {{{
+        function ax = displayFeatureXZ( obj, ax)
+
+            if nargin < 2
+                error('displayFeature: pass in an axes handle to display Feature')
+            end
+
+            if obj.dim == 2
+                error('displayFeatureXZ: organizer must be 3-dimensional')
+            end
+            
+            % Ask subfeatures to display themselves
+            for jFeat = 1 : obj.numFeatures
+                ax = obj.featureList{jFeat}.displayFeatureXZ( ax);
+            end
+
+        end
+        % }}}
+        
+        % displayFeature {{{
+        function ax = displayFeatureYZ( obj, ax)
+
+            if nargin < 2
+                error('displayFeature: pass in an axes handle to display Feature')
+            end
+            if obj.dim == 2
+                error('displayFeatureYZ: organizer must be 3-dimensional')
+            end
+            
+            % Ask subfeatures to display themselves
+            for jFeat = 1 : obj.numFeatures
+                ax = obj.featureList{jFeat}.displayFeatureYZ( ax);
+            end
+
+        end
+        % }}}
+        
         % makeCopyDeep {{{
         function objCopy = copyDeep( obj)
             % makes a deep copy of the handle object
@@ -103,9 +140,16 @@ classdef Organizer < Feature
         % removeFeatureFromList {{{
         function obj = removeFeatureFromList( obj, idxFeature) 
 
+            % Get ID of feature
+            id = cellfun( @(x) x.ID, obj.featureList(idxFeature));
+            
+            % Remove feature and its record from the map
             obj.featureList( idxFeature) = [];
-            obj.numFeatures = obj.numFeatures - 1;
-            obj.syncFeatures();
+            remove(obj.featureMap, id);
+            
+            % Remove
+            obj.numFeatures = obj.numFeatures - length(id);
+%             obj.syncFeatures();
 
         end
         % }}}
@@ -127,61 +171,59 @@ classdef Organizer < Feature
 
         % findObjectFromID {{{
         function subObj = findObjectFromID( obj, searchID)
-        % Looks at the objects inside obj.featureList and returns the matching object            
-    
-            % Can i get a list of object ID's at this level? For organizers, i should probe them to search for IDs at their level
-            subObj = [];
+            % use the featureMap to locate and reutrn the object with ID
+            % searchID
             
-            searchID
-            
-            % Is this object the one?
-            if obj.ID == searchID
+            % Check Current Object ID
+            if searchID == obj.ID
                 subObj = obj;
                 return
             end
-
-            % What about its subfeatures?
-            for jFeat = 1 : obj.numFeatures
-                if obj.featureList{jFeat}.ID == searchID
-                    subObj = obj.featureList{jFeat};
-                end
+            
+            % Check SubFeatures
+            try
+                objLoc = obj.featureMap( searchID);
+            catch
+                subObj = [];
+                warning('findObjectFromID : searchID did not match any ID in featureMap')
+                return
             end
-
-            % What about its subsubfeatures?
-            if isempty( subObj)
-                % check if subfeatures contains subsubfeatures
-                for jFeat = 1 : obj.numFeatures
-                    if isprop( obj.featureList{jFeat}, 'featureList')
-                        subObj = findObjectFromID( obj.featureList{jFeat}, searchID);
-                    end
-                end
+            
+            switch length( objLoc)
+                case 0
+                    subObj = obj;
+                case 1
+                    subObj = obj.featureList{ objLoc(1)};
+                case 2
+                    subObj = obj.featureList{ objLoc(1)}.featureList{ objLoc(2) };
+                case 3
+                    subObj = obj.featureList{ objLoc(1)}.featureList{ objLoc(2) }.featureList{ objLoc(3) };
+                case 4
+                    subObj = obj.featureList{ objLoc(1)}.featureList{ objLoc(2) }.featureList{ objLoc(3) }.featureList{ objLoc(4) };
+                otherwise
+                    error('findObjectFromID : your object is too deep for this function')
             end
-                    
+                
         end
-        % }}}
+        % }}}       
 
         % fillparams {{{
-        function obj = fillparams( obj)
+        function obj = fillParams( obj, sizeImage)
            
             % fill params for each object
-            for jobj = 1 : obj.numfeatures
-                obj.featurelist{jobj}.fillparams();
+            for jobj = 1 : obj.numFeatures
+                obj.featureList{jobj}.fillParams(sizeImage);
             end
             
         end
         % }}}
 
-        % syncFeatures {{{
-        function obj = syncFeatures( obj)
+        % updateFeatureIDs {{{
+        function obj = updateFeatureIDs( obj)
             % update the feature ids to reflect any initiliazation/additions/removals
-            % update the map with the features ids and their locations
             
-            global COUNTER 
-
-            % Clear current feature map
-            mapLocal = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
-            
-            % Assign IDs to its subfeatures 
+            global COUNTER             
+            % Assign IDs to its subfeatures
             for jFeature = 1: obj.numFeatures
                 obj.featureList{ jFeature}.ID = COUNTER;
                 COUNTER = COUNTER + 1;
@@ -197,39 +239,158 @@ classdef Organizer < Feature
 
                 % If organizer, Sync subfeatures
                 if strcmp( feat_classname, 'Organizer') || any( strcmp( feat_superclassnames, 'Organizer') )
-                    feat.syncFeatures();
+                    feat.updateFeatureIDs();
                 end
 
             end
+            
+        end
+        % }}}
+        
+        % updateFeatureMap {{{
+        function obj = updateFeatureMap( obj)
+            % construct a new feature map from IDs of existing features
+
+            % Clear current feature map
+            mapLocal = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
 
             % Update featureMap
             for jFeature = 1: obj.numFeatures
                 
-                feat = obj.featureList{jFeature};
-
                 % Determine if subfeature is an organizer
                 feat = obj.featureList{jFeature};
                 feat_classname = class( feat);
-                feat_superclassnames = superclasses( feat_classname); 
+                feat_superclassnames = superclasses( feat_classname);
 
                 mapLocal( feat.ID) = [jFeature];
                 
-                % If organizer, also append sublocal feature map 
+                % If organizer, also append sublocal feature map
                 if strcmp( feat_classname, 'Organizer') || any( strcmp( feat_superclassnames, 'Organizer') )
+                    
+                    % update sublocal feature map
+                    feat.updateFeatureMap();
                     mapSubLocal = feat.featureMap;
                     keysSubLocal = cell2mat( keys( mapSubLocal) );
                     for key = keysSubLocal
-                            mapLocal( key) = [jFeature mapSubLocal( key)];
+                        mapLocal( key) = [jFeature mapSubLocal( key)];
                     end
                 end
 
             end
             obj.featureMap = mapLocal;
-
+            
+        end
+        % }}}
+        
+        % syncFeatures {{{
+        function obj = syncFeatures( obj)
+            % update the feature ids to reflect any initiliazation/additions/removals
+            % update the map with the features ids and their locations
+            
+            obj.updateFeatureIDs();
+            obj.updateFeatureMap();
             
         end
         % }}}
 
+        % GetProjection2D {{{
+        function obj = GetProjection2D( obj)
+           % Get 2D projection of feature
+           
+           % Change object dimensionality
+           if obj.dim == 2
+               warning('object dimensionality is already 2')
+           end
+           
+           obj.dim = 2;
+           
+           % Specific object projection
+           try
+               obj = obj.GetProjection2DSpecific();
+           end
+           
+           % Repeat for subfeatures
+           for jFeature = 1: obj.numFeatures
+               obj.featureList{jFeature}.GetProjection2D();
+           end
+            
+        end
+        % }}}
+        
+        % GetProjection3D {{{
+        function obj = GetProjection3D( obj)
+           % Get 2D projection of feature
+           
+           % Change object dimensionality
+           if obj.dim == 3
+               warning('object dimensionality is already 3')
+           end
+           
+           obj.dim = 3;
+           
+           % Specific object projection
+           try
+               obj = obj.GetProjection3DSpecific();
+           end
+           
+           % Repeat for subfeatures
+           for jFeature = 1: obj.numFeatures
+               obj.featureList{jFeature}.GetProjection3D();
+           end
+            
+        end
+        % }}}
+        
+        % Update3DFrom2D {{{
+        function obj = Update3DFrom2D(obj, obj2D)
+            % Accomplish 3 tasks
+            %   1. Update 3D features from 2D features with matching ID
+            %   2. Remove 3D features if 2D counterparts with matching ID
+            %   are not present
+            %   3. Add 3D features if there are extra 2D features present
+            
+            % 1. For each 3D feature, get its ID, then look for matching 2D
+            % feature with the same ID
+            try
+                obj.Update3DFrom2DSpecific( obj2D);
+            end
+            
+            rmFeat = [];
+            for jF = 1 : obj.numFeatures
+                
+                ID = obj.featureList{jF}.ID;
+                feat2D = obj2D.findObjectFromID( ID);
+                
+                % Mark features whose 2D counterparts arent present
+                if isempty(feat2D)
+                    rmFeat = [rmFeat, jF];
+                else
+                    obj.featureList{jF}.Update3DFrom2D( feat2D );
+                end
+            end
+            
+            % 3. Create 3D features if there are extra 2D features present
+            for jF = 1 : obj2D.numFeatures
+                
+                ID = obj2D.featureList{jF}.ID;
+                feat3D = obj.findObjectFromID( ID);
+                
+                if isempty( feat3D)
+                    % Change feature to 3D
+                    feat3D = obj2D.featureList{jF}.GetProjection3D();
+                    obj.addFeatureToList( feat3D );
+                end
+                
+            end
+            
+            % 2. Remove 3D features if 2D counterparts not present
+            if ~isempty(rmFeat)
+                obj.removeFeatureFromList( rmFeat);
+            end
+            
+        end
+        % }}}
+        
     end
 
 end

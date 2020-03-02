@@ -2,23 +2,27 @@ function cellInfo = initCellInfo( opts)
     % Initializes the cell info
 
     % Cell Type : 'Mitosis' or 'Interphase' or 'Monopolar'
-    type = 'Monopolar';
+    type = 'Interphase';
     species = 'Pombe';
-    strain = 'gtb1-K5A';
+    strain = 'cut11-7';
 
     % Channel Features ( what features do you want to fit?)
-    channelFeatures = {'Microtubule', 'Cut7'};
+    channelFeatures = {'Microtubule'};
 
     % Channels to Fit ( [] = all ) (length must match the length of channelFeatures) (order must match the order of features in channelFeatures)
-    channelsToFit = [2, 1];
+    channelsToFit = [1];
 
     % Lifetimes
     lifetime = { ...
-                [35 36], ...
+                %[1 6], ...
+                [1 5], ...
+                %[52 65], ...
         };
  
     moviePath = {...
-        '1095_50msG_100msR_7Z_005_cells/1095_50msG_100msR_7Z_005_7.mat', ...
+        %'Test/Monopolar/919_150msR_100G_trig_7Z_007_24.mat', ...
+        'Test/Interphase/919_150msR_100G_trig_7Z_004_25.mat', ...
+        %'Test/Bipolar/919_150msR_100G_trig_7Z_004_12.mat', ...
     };
 
     % Cell Movie Location

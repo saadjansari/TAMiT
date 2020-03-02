@@ -33,7 +33,7 @@ classdef Spindle < Organizer
             obj.props2Fit = props2Fit;
             
             % initialize featureMap and assign IDs
-            obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
+            % obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
 
             obj.numAsters = length(featureList)-1;
 
@@ -198,7 +198,7 @@ classdef Spindle < Organizer
         % }}}
 
         % addSubFeatures {{{
-        function obj = addSubFeatures( obj, Image2Find)
+        function [obj, successAdd] = addSubFeatures( obj, Image2Find)
             % Searches for missing features and adds them to the featureList
             
             % For a spindle, we can only add more astral microtubules
@@ -209,16 +209,23 @@ classdef Spindle < Organizer
             %   2. Pick the location of the highest residual and draw a line from both pole connecting to the max residual point. Find the mean intensity of each line. Subtract the mean from the actual voxel values along the line to find a total residual. Pick the pole with the minimum residual.
 
             props2Fit = {'endPosition', 'amplitude', 'sigma'};
-            display = {'Color', 'Red', 'LineWidth', 3};
+            display = {'Color', [1 0.5 0], 'LineWidth', 3};
             if obj.dim==3, sigma=[1.2 1.2 1.0]; elseif obj.dim==2, sigma=[1.2 1.2]; end
 
             % Get Spindle Angle
             spindleAngle = getAngleXY( obj);
-            spindleExclusionRange = deg2rad( 10);
+            spindleExclusionRange = deg2rad( 60);
 
             % ask subfeatures to find missing features
-            feature{1} = obj.featureList{2}.findBestMissingFeature( Image2Find, spindleAngle(1), spindleExclusionRange);
-            feature{2} = obj.featureList{3}.findBestMissingFeature( Image2Find, spindleAngle(2), spindleExclusionRange);
+            % do it away from the spindle MT
+            imSpin = obj.featureList{1}.simulateFeature( size(obj.image) );
+            imSpinLog = 0*imSpin;
+            imSpinLog( find(imSpin < 0.03*max(imSpin(:)))) = 1;
+%             imSpinLog = imSpin < 0.03*max(imSpin(:));
+            Image2Find = Image2Find .* imSpinLog;
+            
+            feature{1} = obj.featureList{2}.findBestMissingFeature( Image2Find, spindleAngle(1), spindleExclusionRange, 'Line');
+            feature{2} = obj.featureList{3}.findBestMissingFeature( Image2Find, spindleAngle(2), spindleExclusionRange, 'Line');
 
             % Make higher level decision on the best missing feature
             [~,idxKeep] = min( [ feature{1}.residual, feature{2}.residual ] );
@@ -233,7 +240,7 @@ classdef Spindle < Organizer
             % Add feature ID and update the featureMap
             feature.ID = max( cell2mat( keys( obj.featureMap) ) )+1;
             obj.featureMap( feature.ID) = [ 1+idxKeep idxAdd];
-                
+            successAdd = 1;
         end
         % }}}
 
@@ -279,6 +286,23 @@ classdef Spindle < Organizer
 
         end
         % }}}
+        
+        function obj = finalizeAddedFeatures(obj)
+            
+            % Display properties for lines in asters
+            display = {'Color', [1 0 1], 'LineWidth', 3};
+            
+            if length( obj.featureList ) > 1
+                for jL = 2 : length(obj.featureList{2}.featureList )
+                    obj.featureList{2}.featureList{jL}.display = display;
+                end
+                for jL = 2 : length(obj.featureList{3}.featureList )
+                    obj.featureList{3}.featureList{jL}.display = display;
+                end
+            end
+        end
+            
+            
 
         % getVecEnvironment {{{
         function [vec, vecLabels] = getVecEnvironment( obj, props2get)
@@ -355,6 +379,12 @@ classdef Spindle < Organizer
                 imageOut = imageOut + obj.backgroundNuclear.*obj.maskNuclear;
             end
 
+            % If any features are outside cellular mask, blow up
+            imOut = imageOut .* ~(logical(obj.image));
+            if max(imOut(:)) > obj.background + 0.02*max(imageOut(:))
+                imageOut(:) = Inf;
+            end
+            
             % Add Cellular Mask
             imageOut = imageOut .* logical( obj.image);
             
@@ -426,6 +456,12 @@ classdef Spindle < Organizer
         function subObj = findObjectFromID( obj, searchID)
             % use the featureMap to locate and reutrn the object with ID
             % searchID
+            
+            % Check Current Object ID
+            if searchID == obj.ID
+                subObj = obj;
+                return
+            end
             
             try
                 objLoc = obj.featureMap( searchID);

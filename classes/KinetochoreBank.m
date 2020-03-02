@@ -108,7 +108,7 @@ classdef KinetochoreBank < Organizer
             %   Take the residual image (Image2Find) and find the brightest pixel, this is a new kinetochore
            
             props2Fit = {'position', 'amplitude', 'sigma'};
-            display = {'Color', [0 0.8 0] , 'Marker', '*', 'MarkerSize', 5, 'LineWidth', 1};
+            display = {'Color', [1 0.5 0] , 'Marker', '*', 'MarkerSize', 5, 'LineWidth', 1};
             if obj.dim==3, sigma=[1.2 1.2 1.0]; elseif obj.dim==2, sigma=[1.2 1.2]; end
 
             % Convolve image, then look for max value inside nuclear region
@@ -168,6 +168,17 @@ classdef KinetochoreBank < Organizer
 
         end
         % }}}
+        
+        function obj = finalizeAddedFeatures(obj)
+            
+            % Display properties for lines in asters
+            display = {'Color', [0 0.8 0], 'Marker', '*', 'MarkerSize', 5, 'LineWidth', 1};
+            
+            for jL = 1 : length(obj.featureList )
+                obj.featureList{jL}.display = display;
+            end
+                
+        end
         
         % getVecEnvironment {{{
         function [vec, vecLabels] = getVecEnvironment( obj, props2get)

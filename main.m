@@ -7,9 +7,9 @@ function status = main( varargin)
     clearvars -except CFG opts
 
     % Make sure we have the correct paths
-    warning('off', 'MATLAB:rmpath:DirNotFound');
-    rmpath( genpath(pwd) );
-    warning('on', 'MATLAB:rmpath:DirNotFound');
+%     warning('off', 'MATLAB:rmpath:DirNotFound');
+%     rmpath( genpath(pwd) );
+%     warning('on', 'MATLAB:rmpath:DirNotFound');
     addpath( pwd);
 
     % check if params file exists in the current folder

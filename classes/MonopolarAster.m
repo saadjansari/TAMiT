@@ -101,7 +101,7 @@ classdef MonopolarAster < Organizer
         % }}}
 
         % addSubFeatures {{{
-        function obj = addSubFeatures( obj, Image2Find)
+        function [obj, successAdd] = addSubFeatures( obj, Image2Find)
             % Searches for missing features and adds them to the featureList
             
             % For a monopolar aster, we can only add more astral microtubules : we will find a possible microtubule to add 
@@ -111,7 +111,7 @@ classdef MonopolarAster < Organizer
             %   2. Pick the location of the highest residual and draw a line from both pole connecting to the max residual point. Find the mean intensity of each line. Subtract the mean from the actual voxel values along the line to find a total residual. Pick the pole with the minimum residual.
 
             props2Fit = {'endPosition', 'amplitude', 'sigma'};
-            display = {'Color', 'Red', 'LineWidth', 3};
+            display = {'Color', [1 0.5 0], 'LineWidth', 3};
             if obj.dim==3, sigma=[1.2 1.2 1.0]; elseif obj.dim==2, sigma=[1.2 1.2]; end
 
             % ask subfeatures to find missing features
@@ -123,7 +123,8 @@ classdef MonopolarAster < Organizer
             
             % Add feature to the correct subfeature 
             idxAdd = obj.featureList{1}.addFeatureToList( feature);
-                
+            successAdd = 1;
+            
         end
         % }}}
 
@@ -164,6 +165,17 @@ classdef MonopolarAster < Organizer
 
         end
         % }}}
+        
+        function obj = finalizeAddedFeatures(obj)
+            
+            % Display properties for lines in asters
+            display = {'Color', [1 0 1], 'LineWidth', 3};
+            
+            for jL = 2 : length(obj.featureList{1} )
+                obj.featureList{1}.featureList{jL}.display = display;
+            end
+                
+        end
 
         % findEnvironmentalConditions {{{
         function obj = findEnvironmentalConditions( obj)
@@ -252,6 +264,12 @@ classdef MonopolarAster < Organizer
                 imageOut = imageOut + obj.backgroundNuclear.*obj.maskNuclear;
             end
 
+            % If any features are outside cellular mask, blow up
+            imOut = imageOut .* ~(logical(obj.image));
+            if max(imOut(:)) > obj.background + 0.02*max(imageOut(:))
+                imageOut(:) = Inf;
+            end
+            
             % Add Cellular Mask
             imageOut = imageOut .* logical( obj.image);
             

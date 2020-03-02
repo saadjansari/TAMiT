@@ -1,4 +1,4 @@
-    classdef Cell < handle & matlab.mixin.Copyable
+classdef Cell < handle & matlab.mixin.Copyable
 % This is a generic cell which can be specialized
     properties
         type % type of cell (e.g. interphase or mitotis). 
@@ -9,6 +9,7 @@
         channelsToFit
         featureList % cell array containing features. this is of size numberOfChannels x Time.
         params
+        featureProps = Cell.GetFeatureProps();
         featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
     end
 
@@ -241,7 +242,7 @@
             % Estimate the features based on an estimation routine (defined in specialized sub-class )
             disp('Estimating features...')
             % Good estimation is key to good optimization in low SnR images
-            obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx); 
+            obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx);
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
 
@@ -253,8 +254,10 @@
 
             % Fit Features via Fit Engine.
             fitEngine = FitEngine( Image2Fit, mainFeature, params);
-            fitEngine.Optimize();
-
+            fitEngine = fitEngine.Optimize();
+            obj.featureList{ parameters.channelIdx , parameters.time} = fitEngine.GetFeature();
+            obj.featureList{ parameters.channelIdx , parameters.time}.finalizeAddedFeatures();
+            
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
             close all
 
@@ -364,7 +367,7 @@
 
             dim = length( size( imageIn) );
             if dim ~= length( startPos) || dim ~= length( endPos)
-                error( 'findAmplitudeAlongLine: dimensions of input arguments does not match') 
+                error( 'findAmplitudeAlongLine: dimensions of input arguments does not match')
             end
 
             imageIn = im2double( imageIn);
@@ -387,6 +390,49 @@
                 error('findAmplitudeAlongLine: dimensionality of data must be 2D or 3D')
             end
 
+        end
+        % }}}
+        % findAmplitudeAlongCurve {{{
+        function amplitude = findAmplitudeAlongCurve( imageIn, coeffs)
+            % used to measure intensity while using polynomial coefficients
+            
+            dim = length (size( imageIn) );
+            t = linspace(0,1);
+            px = coeffs{1};
+            py = coeffs{2};
+            x = polyval(px, t);
+            y = polyval(py, t);
+            if dim == 3
+                pz = coeffs{3};
+                z = polyval(pz, t);
+            end
+            if dim ==2
+                coord = round( [x; y]);
+            elseif dim ==3
+                coord = round( [x; y; z]);
+            end
+            % keep unique coordinates
+            idxRm = [];
+            for jCrd = 1 : size(coord, 2)-1
+                if dim ==2
+                    if ( coord(1, jCrd) == coord(1, jCrd+1) ) && ( coord(2, jCrd) == coord(2, jCrd+1) )
+                        idxRm = [idxRm, jCrd];
+                    end
+                elseif dim ==3
+                    if ( coord(1, jCrd) == coord(1, jCrd+1) ) && ( coord(2, jCrd) == coord(2, jCrd+1) ) && ( coord(3, jCrd) == coord(3, jCrd+1) )
+                        idxRm = [idxRm, jCrd];
+                    end
+                end
+            end
+
+            coord(:, idxRm) = [];
+            if dim ==2
+                idx = sub2ind( size(imageIn), coord(2, :), coord(1, :) );
+            elseif dim ==3
+                idx = sub2ind( size(imageIn), coord(2, :), coord(1, :), coord(3, :) );
+            end
+            amplitude = imageIn( idx);
+            
         end
         % }}}
         % radIntegrate2D {{{
@@ -549,7 +595,7 @@
 
             % Check that everything is in 3D
             if numel( size(imageIn) ) ~= 3 || length(pos)~=3 || length(sigma)~=3
-                error('drawGaussianLine3D: all data must be 3-dimensional')
+                error('drawGaussianPoint3D: all data must be 3-dimensional')
             end
 
             if nargin < 4
@@ -567,6 +613,49 @@
             ExpY = exp( -0.5*( (y-y0)./sy).^2 );
             ExpZ = exp( -0.5*( (z-z0)./sz).^2 );
             IntValues = ExpX .* ExpY .* ExpZ;
+           
+            functionCheck = 0;
+            if functionCheck
+                disp( sprintf('Total Voxels = %d', numel( IntValues) ) )
+                disp( sprintf('Nan Voxels = %d', sum( isnan( IntValues(:) ) ) ) )
+                disp( sprintf('Inf Voxels = %d', sum( isinf( IntValues(:) ) ) ) )
+            end
+            IntValues( isnan( IntValues) ) = min( IntValues(:) );
+            IntValues( IntValues == Inf) = min( IntValues(:) );
+            
+            % Initiliaze the volume and set the appropriate indices to these values
+            imagePoint = 0*imageIn;
+            imagePoint( idx) = IntValues;
+
+            if functionCheck
+                dispImg( imagePoint);
+            end
+                    
+        end
+        % }}}
+        % drawGaussianPoint3D {{{
+        function imagePoint = drawGaussianPoint2D( pos, sigma, imageIn, idx, x, y)
+            % Draws a gaussian point using an analytical framework
+
+            % Check that everything is in 2D
+            if numel( size(imageIn) ) ~= 2 || length(pos)~=2 || length(sigma)~=2
+                error('drawGaussianPoint2D: all data must be 2-dimensional')
+            end
+
+            if nargin < 4
+                idx = 1 : numel( imageIn);
+            end
+            if nargin < 6
+                [y, x] = ind2sub( size( imageIn), idx);
+            end
+
+            x0 = pos(1); y0 = pos(2);
+            sx = sigma(1); sy = sigma(2);
+
+            % Amplitudes:
+            ExpX = exp( -0.5*( (x-x0)./sx).^2 );
+            ExpY = exp( -0.5*( (y-y0)./sy).^2 );
+            IntValues = ExpX .* ExpY;
            
             functionCheck = 0;
             if functionCheck
@@ -694,23 +783,302 @@
 
         end
         % }}}
-            % checkFrameViability {{{
-            function status = checkFrameViability( Image2Fit, jTime);
+        % drawGaussianLine3D {{{
+        function imageLine = drawGaussianLine2D( startPos, endPos, sigma, imageIn, idx, x, y)
+            % Draws a gaussian straight line using an analytical framework
 
-                status = 0;
-                % Check if frame is all super-bright( i.e. voxel variance is close to zero)
-                maxVox = max( Image2Fit(:) );
-                minVox = min( Image2Fit(:) );
-
-                if maxVox == minVox
-                    status = 1;
-                    disp( sprintf( 'Unviable frame %d, Skipping it...', jTime) )
-                end
-
+            % Check that everything is in 2D
+            if numel( size(imageIn) ) ~= 2 || length(startPos)~=2 || length(endPos)~=2 || length(sigma)~=2
+                startPos
+                endPos
+                sigma
+                size(imageIn)
+                error('drawGaussianLine2D: all data must be 2-dimensional')
             end
-            % }}}
+
+            if nargin < 5
+                idx = 1 : numel( imageIn);
+            end
+            if nargin < 7
+                [y, x] = ind2sub( size( imageIn), idx);
+            end
+
+            x0 = startPos(1); y0 = startPos(2);
+            x1 = endPos(1); y1 = endPos(2);
+            sx = sigma(1); sy = sigma(2);
+
+            % First lets parameterize this line with a parameter t. We'll find the
+            % slopes of the line in each spatial dimension along with any offset
+            % At t = 0, x = x0, y = y0, z = z0
+            % At t = 1, x = x1, y = y1, z = z1
+            t0 = 0;
+            t1 = 1;
             
-       % }}}
+            % find slopes
+            mx = (x1 - x0) / ( t1 - t0);
+            my = (y1 - y0) / ( t1 - t0);
+            
+            % find offsets, these are just the start points at t = 0;
+            cx = x0;
+            cy = y0;
+            
+            error('not set up')
+            
+            % We will integrate a 3D gaussian with respect to the parameter t going
+            % from 0 to 1.
+            
+            % We've done the analytical integration in mathematica and will use the
+            % result here:
+            
+            % Amplitudes:
+            AmpExp = - ( 1 / sqrt(mz^2 * sx^2 * sy^2 + (my^2 * sx^2 + mx^2 * sy^2) * sz^2 ) );
+            
+            AmpErf = sqrt( pi/2 ) * sx * sy * sz;
+            
+            % Exponential factors:
+            ExpDenom = 2 * ( mz^2 * sx^2 * sy^2 + (my^2 * sx^2 + mx^2 * sy^2) * sz^2);
+            
+            Exp1 = ( - ( cx^2 * mz^2 * sy^2 + cz^2 * (my^2 * sx^2 + mx^2 * sy^2) + ...
+                cx^2 * my^2 * sz^2 + cy^2 * (mz^2 * sx^2 + mx^2 * sz^2) ) / ExpDenom );
+            
+            Exp2 = ( - ( - 2 * cx * mz^2 *sy^2 * x - 2 * cx * my^2 * sz^2 * x + ...
+                mz^2 * sy^2 * x.^2 + my^2 * sz^2 * x.^2 + 2 * cx * mx * my * sz^2 * y - ...
+                2 * mx * my * sz^2 * x .* y + mz^2 * sx^2 * y.^2 + mx^2 * sz^2 * y.^2 ) / ExpDenom  );
+            
+            Exp3 = ( - ( 2 * cx * mx * mz * sy^2 * z - 2 * mx * mz * sy^2 * x .* z - ...
+                2 * my * mz * sx^2 * y .* z + my^2 * sx^2 * z.^2 + mx^2 * sy^2 * z.^2  ) / ExpDenom );
+            
+            Exp4 = ( - ( - 2 * cz * ( cy * my * mz * sx^2 + cx * mx * mz * sy^2 - ...
+                mx * mz * sy^2 * x - my * mz * sx^2 * y + my^2 * sx^2 * z + mx^2 * sy^2 * z )  ) / ExpDenom );
+            
+            Exp5 = ( - ( - 2 * cy * (cx *mx *my *sz^2 - mx * my * sz^2 * x + ...
+                mx^2 * sz^2 * y + mz * sx^2 * (mz * y - my * z)) ) / ExpDenom );
+           
+            SumExp = Exp1 + Exp2 + Exp3 + Exp4 + Exp5;
+            
+        %     Exp5( Exp5 == Inf) = realmax;
+            
+            % Erf factors;
+            ErfDenom = ( sqrt(2) * sx * sy * sz * sqrt( mz^2 * sx^2 * sy^2 + (my^2 * sx^2 + mx^2 * sy^2) * sz^2 ) );
+            
+            Erf1 = erf( ( cz * mz * sx^2 * sy^2 + cy * my * sx^2 * sz^2 + cx * mx * sy^2 * sz^2 - ...
+                mx * sy^2 * sz^2 * x - my * sx^2 * sz^2 * y - mz * sx^2 * sy^2 * z ) / ErfDenom );
+            
+            Erf2 = erf( ( cz * mz * sx^2 * sy^2 + mz^2 * sx^2 * sy^2 + ...
+                sz^2 * (cy * my * sx^2 + my^2 * sx^2 + mx * sy^2 * (cx + mx - x) - my * sx^2 * y) - ...
+                mz * sx^2 * sy^2 * z ) / ErfDenom );
+
+            % Find the intensity values for these provided query x,y,z coordinates
+            IntValues = AmpExp .*exp( SumExp) .* ...
+                AmpErf .* ( Erf1 - Erf2 );
+           
+            functionCheck = 0;
+            if functionCheck
+                disp( sprintf('Total Voxels = %d', numel( IntValues) ) )
+                disp( sprintf('Nan Voxels = %d', sum( isnan( IntValues(:) ) ) ) )
+                disp( sprintf('Inf Voxels = %d', sum( isinf( IntValues(:) ) ) ) )
+                figure; imagesc( max( imageLine, [], 3) );
+                figure; imagesc( max( imageLine, [], 3) );
+            end
+
+            IntValues( isnan( IntValues) ) = min( IntValues(:) );
+            IntValues( IntValues == Inf) = min( IntValues(:) );
+            
+            % Initiliaze the volume and set the appropriate indices to these values
+            imageLine = 0 * imageIn;
+            imageLine( idx) = IntValues;
+
+        end
+        % }}}
+        % drawGaussianCurve3D {{{
+        function imageCurve = drawGaussianCurve3D( coeffs, sigma, imageIn, idx, x,y,z)
+            % Draw a gaussian curve in 3D using numerical integration
+
+            if numel( size(imageIn) ) ~= 3 || length( coeffs) ~= 3 || length(sigma)~= 3
+                sigma
+                size(imageIn)
+                error('drawGaussianLine3D: all data must be 3-dimensional')
+            end
+
+            if nargin < 4
+                idx = 1 : numel( imageIn);
+            end
+            if nargin < 7
+                [y, x, z] = ind2sub( size( imageIn), idx);
+            end
+
+            dim = length( size(imageIn) );
+            % Create coordinates for numerical integration
+            % create parametric coord
+            speedUp = 2.0;
+            Tvec = linspace(0,1, round(100/speedUp) );
+            Tvec( end) = [];
+
+            % Now for each value of the parameter, we'll do a gauss
+            % quadrature numerical integration 
+            DeltaT = median( diff(Tvec) );
+
+            % get the offsets for gauss quadrature
+            poff1 = ( (1/2) - sqrt(3)/6 ) * DeltaT;
+            poff2 = ( (1/2) + sqrt(3)/6 ) * DeltaT;
+            Tsort = sort([  Tvec + poff1,  Tvec + poff2] );
+
+            % Coefficients
+            XCoef = coeffs{1};
+            YCoef = coeffs{2};
+            xLoc = polyval( XCoef, Tsort )';
+            yLoc = polyval( YCoef, Tsort )';
+            if dim==3
+                ZCoef = coeffs{3}; 
+                zLoc = polyval( ZCoef, Tsort)'; 
+            end
+            
+            % re-parametrize by length
+            dParam = 1;
+            for jk = 1 : length( xLoc) -1
+                if dim == 2
+                    dParam = [ dParam, dParam(end) + sqrt( diff( xLoc( jk:jk+1)).^2 + diff(yLoc(jk:jk+1)).^2)];
+                elseif dim == 3
+                    dParam = [ dParam, dParam(end) + sqrt( diff( xLoc( jk:jk+1)).^2 + diff(yLoc(jk:jk+1)).^2 + diff(zLoc(jk:jk+1)).^2)]; 
+                end
+            end
+            dParamNew = linspace( dParam(1), dParam(end), length(dParam) );
+
+            % fit once again, and find now parametric coordinates
+            fitX = fit( dParam', xLoc, 'linearinterp');
+            fitY = fit( dParam', yLoc, 'linearinterp');
+            xDat = fitX( dParamNew);
+            yDat = fitY( dParamNew);
+            if dim==3
+                fitZ = fit( dParam', zLoc, 'linearinterp'); 
+                zDat = fitZ( dParamNew); 
+            end
+
+            % if microtubule pokes out in z dimension out of real volume, then we set values to infinity.
+            if dim==3 && ( any(zDat < 1) || any( zDat > size(imageIn,3)))
+                imageCurve = 10 * ones( size(imageIn) ) *( 1 + 1e10*( sum( zDat(zDat > size(imageIn,3))-size(imageIn,3)) + sum( abs( zDat(zDat < 1)-1 ) ) ) );
+%                 imageCurve = inf( size(imageIn) );
+                disp('    Warning: Cell.drawGaussianCurve3D - Z poked out of the real volume. Forced Scaling to guide optimization.')
+                return
+            end
+
+            if dim == 2
+                PtGaussLoc = [ xDat , yDat ];
+            elseif dim == 3
+                PtGaussLoc = [ xDat , yDat , zDat];
+            end
+                    
+            imageCurve = Cell.NumericalConv( sigma, PtGaussLoc, {x,y,z}, imageIn, idx );
+            
+        end
+        % }}}
+        % drawGaussianCurve3D {{{
+        function imageCurve = drawGaussianCurve2D( coeffs, sigma, imageIn, idx, x,y)
+            % Draw a gaussian curve in 3D using numerical integration
+
+            if numel( size(imageIn) ) ~= 2 || length( coeffs) ~= 2 || length(sigma)~= 2
+                sigma
+                size(imageIn)
+                error('drawGaussianLine2D: all data must be 2-dimensional')
+            end
+
+            if nargin < 4
+                idx = 1 : numel( imageIn);
+            end
+            if nargin < 6
+                [y, x] = ind2sub( size( imageIn), idx);
+            end
+
+            dim = length( size(imageIn) );
+            % Create coordinates for numerical integration
+            % create parametric coord
+            speedUp = 2.0;
+            Tvec = linspace(0,1, round(100/speedUp) );
+            Tvec( end) = [];
+
+            % Now for each value of the parameter, we'll do a gauss
+            % quadrature numerical integration 
+            DeltaT = median( diff(Tvec) );
+
+            % get the offsets for gauss quadrature
+            poff1 = ( (1/2) - sqrt(3)/6 ) * DeltaT;
+            poff2 = ( (1/2) + sqrt(3)/6 ) * DeltaT;
+            Tsort = sort([  Tvec + poff1,  Tvec + poff2] );
+
+            % Coefficients
+            XCoef = coeffs{1};
+            YCoef = coeffs{2};
+            xLoc = polyval( XCoef, Tsort )';
+            yLoc = polyval( YCoef, Tsort )';
+            
+            % re-parametrize by length
+            dParam = 1;
+            for jk = 1 : length( xLoc) -1
+                dParam = [ dParam, dParam(end) + sqrt( diff( xLoc( jk:jk+1)).^2 + diff(yLoc(jk:jk+1)).^2)];
+            end
+            dParamNew = linspace( dParam(1), dParam(end), length(dParam) );
+
+            % fit once again, and find now parametric coordinates
+            fitX = fit( dParam', xLoc, 'linearinterp');
+            fitY = fit( dParam', yLoc, 'linearinterp');
+            xDat = fitX( dParamNew);
+            yDat = fitY( dParamNew);
+
+            PtGaussLoc = [ xDat , yDat ];
+            imageCurve = Cell.NumericalConv( sigma, PtGaussLoc, {x , y}, imageIn, idx );
+            
+        end
+        % }}}
+        % checkFrameViability {{{
+        function status = checkFrameViability( Image2Fit, jTime)
+
+            status = 0;
+            % Check if frame is all super-bright( i.e. voxel variance is close to zero)
+            maxVox = max( Image2Fit(:) );
+            minVox = min( Image2Fit(:) );
+
+            if maxVox == minVox
+                status = 1;
+                disp( sprintf( 'Unviable frame %d, Skipping it...', jTime) )
+            end
+
+        end
+        % }}}
+        % NumericalConv {{{
+        function imConv = NumericalConv( Sig, pts, coordsCell, imPlane, idx )
+
+            % Create copies of image volume
+            imConv = imPlane .* 0;
+
+            fitdim = length(Sig); if length( coordsCell) ~= fitdim, error('Issue with passing grid indexes to NumericalConv2.m.'), end
+
+            NumGauss = size( pts, 1);
+            
+            CoordsX = coordsCell{1} .* ones( 1, NumGauss);
+            CoordsY = coordsCell{2} .* ones( 1, NumGauss);
+            xx = pts( :, 1);
+            yy = pts( :, 2);
+            s1 = Sig(1);
+            s2 = Sig(2);
+            if fitdim==3,  
+                CoordsZ = coordsCell{3} .* ones( 1, NumGauss);
+                zz = pts( :, 3);
+                s3 = Sig(3);
+            end
+
+            Xvals = exp( -( xx' - CoordsX ).^2 / (2 * s1^2) ) / ( 2 * s1^2 * pi)^(1/2);
+            Yvals = exp( -( yy' - CoordsY ).^2 / (2 * s2^2) ) / ( 2 * s2^2 * pi)^(1/2);
+            if fitdim == 2
+                imConv( idx') = sum( Xvals .* Yvals , 2);
+            elseif fitdim == 3
+                Zvals = exp( -( zz' - CoordsZ ).^2 / (2 * s3^2) ) / ( 2 * s3^2 * pi)^(1/2);
+                imConv( idx') = sum( Xvals .* Yvals .* Zvals , 2);
+            end
+
+        end
+        % }}}
+        
+        % }}}
        
         % Feature Estimation {{{
         % find_manyLines {{{
@@ -911,7 +1279,10 @@
             stop = false;
 
             ImageOrg = fitInfo.image;
-            nX = fitInfo.numVoxels(2); nY = fitInfo.numVoxels(1); nZ = fitInfo.numVoxels(3); 
+            nX = fitInfo.numVoxels(2); nY = fitInfo.numVoxels(1); 
+            try
+                nZ = fitInfo.numVoxels(3);
+            end
             dim = length( size(ImageOrg) );
             image2D = max( ImageOrg, [], 3); intMin = min( ImageOrg(:) ); intMax = max( ImageOrg(:) );
             
@@ -1244,7 +1615,7 @@
             % Initial Simulated Image
 %             subplot(232)
             axes( ax(2) );
-            imageSimI = FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo);
+            imageSimI = FitEngine.SimulateImage( fitInfo.fitVecOld, fitInfo.fitInfoOld);
             img = imagesc( max(imageSimI, [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Simulated Init'); set( img, 'Tag', 'imgSimI');
 
             % Final Simulated Image
@@ -1371,7 +1742,96 @@
         end
         % }}}
 
+        % GetFeatureProps {{{
+        function props = GetFeatureProps()
+        % This is a structure of fit and graphics properties for all features.
+
+            % Basic Elements {{{
+            % Spot
+            Fit.Spot{2} = {'position', 'amplitude', 'sigma'};
+            Fit.Spot{3} = {'position', 'amplitude', 'sigma'};
+
+            % Line
+            Fit.Line{2} = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
+            Fit.Line{3} = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
+
+            % Curve
+            Fit.Curve{2} = {'startPosition','cX','cY','amplitude','sigma'};
+            Fit.Curve{3} = {'startPosition', 'cX','cY','cZ', 'amplitude', 'sigma'};
+
+            % Graphics 
+            Graphics.SpotMagenta = {'Color', [0.7 0 0.7] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
+            Graphics.SpotGreen = {'Color', [0 1 0] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
+            Graphics.SpotBlue = {'Color', [0 0 1] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
+            Graphics.SpotRed = {'Color', [1 0 0] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
+            Graphics.CurveMagenta = {'Color', [0.7 0 0.7] , 'LineWidth', 2};
+            Graphics.CurveGreen = {'Color', [0 1 0] , 'LineWidth', 2};
+            Graphics.CurveBlue = {'Color', [0 0 1] , 'LineWidth', 2};
+            Graphics.CurveRed = {'Color', [1 0 0] , 'LineWidth', 2};
+            % }}}
+
+            % Environment {{{
+            env1 = {'background'};
+            env2 = {'background', 'backgroundNuclear'};
+            % }}}
+            
+            % Organizers {{{
+            % Line Aster
+            Fit.AsterLine{2}.Spot = Fit.Spot{2};
+            Fit.AsterLine{2}.Line = Fit.Line{2}(2:end);
+            Fit.AsterLine{3}.Spot = Fit.Spot{3};
+            Fit.AsterLine{3}.Line = Fit.Line{3}(2:end);
+            Graphics.AsterLine.Spot = Graphics.SpotBlue;
+            Graphics.AsterLine.Line = Graphics.CurveGreen;
+
+            % Curve Aster
+            Fit.AsterCurve{2}.Spot = Fit.Spot{2};
+            Fit.AsterCurve{2}.Curve= Fit.Curve{2}(2:end);
+            Fit.AsterCurve{3}.Spot = Fit.Spot{3};
+            Fit.AsterCurve{3}.Curve= Fit.Curve{3}(2:end);
+            Graphics.AsterCurve.Spot = Graphics.SpotBlue;
+            Graphics.AsterCurve.Curve = Graphics.CurveRed;
+            % }}}
+
+            % Master Organizers {{{
+            % Spindle
+            Fit.Spindle{2}.Line = Fit.Line{2};
+            Fit.Spindle{2}.Aster = Fit.AsterLine{2};
+            Fit.Spindle{2}.Aster.Spot(1) = [];
+            Fit.Spindle{2}.Environment = env1;
+            Fit.Spindle{3}.Line = Fit.Line{3};
+            Fit.Spindle{3}.Aster = Fit.AsterLine{3};
+            Fit.Spindle{3}.Aster.Spot(1) = [];
+            Fit.Spindle{3}.Environment = env1;
+            Graphics.Spindle.Line = Graphics.CurveGreen;
+            Graphics.Spindle.Aster.Spot = Graphics.SpotBlue;
+            Graphics.Spindle.Aster.Line = Graphics.CurveGreen;
+
+            % Monopolar Aster
+            Fit.MonopolarAster{2}.Aster = Fit.AsterLine{2};
+            Fit.MonopolarAster{3}.Aster = Fit.AsterLine{3};
+            Fit.MonopolarAster{2}.Environment = env1;
+            Fit.MonopolarAster{3}.Environment = env1;
+            Graphics.MonopolarAster.Aster.Spot = Graphics.SpotBlue;
+            Graphics.MonopolarAster.Aster.Line = Graphics.CurveGreen;
+
+            % Interphase Bank
+            Fit.IntBank{2}.Aster = Fit.AsterCurve{2};
+            Fit.IntBank{3}.Aster = Fit.AsterCurve{3};
+            Fit.IntBank{2}.Environment = env1;
+            Fit.IntBank{3}.Environment = env1;
+            Graphics.IntBank.Aster.Spot = Graphics.SpotBlue;
+            Graphics.IntBank.Aster.Curve = Graphics.CurveRed;
+            % }}}
+
+            % Store {{{
+            props.Fit = Fit;
+            props.Graphics = Graphics;
+            % }}}
+        end
+
     end
+    % }}}
 
     methods ( Abstract = true )
     
