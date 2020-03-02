@@ -72,7 +72,7 @@ classdef InterphaseCell < Cell
 
             % Ensure the image is from the actual frame
             Image = obj.imageData.GetImage();
-            obj.featureList{ idxChannel, cTime}.image = Image(:,:,:, cTime, cChannel);
+            obj.featureList{ idxChannel, cTime}.image = im2double( Image(:,:,:, cTime, cChannel) );
 
         end
         % }}}

@@ -1510,7 +1510,7 @@ classdef Methods
             stats.Median = median( imVals );
             stats.Mean = mean( imVals);
             stats.Sigma = std( imVals);
-
+            
             % Otsu threshold
             otsu = multithresh( imVals, 2); 
             stats.Otsu = otsu(2);
