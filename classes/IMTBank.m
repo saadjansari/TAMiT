@@ -1,6 +1,7 @@
 classdef IMTBank < OrganizerMaster
 % A IMTBank is a higher level feature that sits inside an interphase cell. It is composed of Microtubule asters 
     properties
+        polyOrder % polynomial order of curves
     end
 
     methods (Access = public)
@@ -20,10 +21,9 @@ classdef IMTBank < OrganizerMaster
             [vec, vecLabels] = getVecEnvironment( obj);
 
             % Loop over mt arrays and get their vectors. Remove the MTOCs from the fit vectors. 
-%             vec = [];
-%             vecLabels = [];
             for jAster = 1 : obj.numFeatures
-                [vec_mtarray, vecLabels_mtarray] = getVec( obj.featureList{ jAster}, obj.props2Fit.Aster.Spot, obj.props2Fit.Aster.Curve);
+                [vec_mtarray, vecLabels_mtarray] = getVec( obj.featureList{ jAster}, obj.props2Fit.fit{obj.dim}.aster.spot, ...
+                    obj.props2Fit.fit{obj.dim}.aster.curve);
                 vec = [vec , vec_mtarray];
                 vecLabels_mtarray = strcat( 'A', num2str( jAster), '_', vecLabels_mtarray);
                 vecLabels = { vecLabels{:}, vecLabels_mtarray{:} };
@@ -67,43 +67,26 @@ classdef IMTBank < OrganizerMaster
             vecLabelsList = {};
             objList = {};
 
-            % Define properties to get
-            props.mtoc= {'position', 'amplitude', 'sigma'};
-            if obj.dim == 2
-                props.imt = {'cX','cY', 'amplitude', 'sigma'};
-            elseif obj.dim == 3
-                props.imt = {'cX','cY','cZ', 'amplitude', 'sigma'};
-            end
-
             % iAster vectors
             nFeat = 0;
             for jAster = 1 : obj.numFeatures
 
                 nFeat=nFeat+1;
                 % get mtoc vector
-                [ vecList{nFeat} , vecLabelsList{nFeat}] = getVec( obj.featureList{jAster}.featureList{1}, props.mtoc);
+                [ vecList{nFeat} , vecLabelsList{nFeat}] = getVec( obj.featureList{jAster}.featureList{1}, obj.props2Fit.fit{obj.dim}.aster.spot);
                 objList{nFeat} = obj.featureList{jAster}.featureList{1};
 
                 % get imt vectors
                 nummt = length( obj.featureList{jAster}.featureList) - 1;
                 for jmt = 1 : nummt
-                    [ vecList{ nFeat+jmt} , vecLabelsList{ nFeat+jmt}] = getVec( obj.featureList{jAster}.featureList{1+jmt}, props.imt );
+                    [ vecList{ nFeat+jmt} , vecLabelsList{ nFeat+jmt}] = getVec( obj.featureList{jAster}.featureList{1+jmt}, obj.props2Fit.fit{obj.dim}.aster.curve);
                     objList{ nFeat+jmt} = obj.featureList{jAster}.featureList{1+jmt};
                 end
                 nFeat = length( vecList);
             end
-
-%             vecList = cell(1, length( obj.featureList) );
-%             vecLabelsList = cell(1, length( obj.featureList) );
-%             objList = cell(1, length( obj.featureList) );
-%             % iAster vectors
-%             for jAster = 1 : length( obj.featureList)
-%                 [ vecList{jAster} , vecLabelsList{jAster}] = getVec( obj.featureList{jAster}, props.mtoc, props.imt);
-%                 objList{jAster} = obj.featureList{jAster};
-%             end
                 
             % Prepend environmental parameters to each vec and vecLabel
-            [vecE, vecLabelsE] = getVecEnvironment( obj, obj.props2Fit.Environment);
+            [vecE, vecLabelsE] = getVecEnvironment( obj, obj.props2Fit.fit{obj.dim}.Environment);
             
             for jFeat = 1 : length( vecList)
                 vecList{jFeat} = [ vecE , [vecList{jFeat}(:)]' ];
@@ -123,14 +106,15 @@ classdef IMTBank < OrganizerMaster
 
             successAdd = 0;
             polyOrder = [2 2 1];
+            try
+                polyOrder = obj.polyOrder;
+            end
+
             if obj.dim == 2
-                props2Fit = {'cX', 'cY', 'amplitude', 'sigma'};
                 sigma=[1.2 1.2];
             elseif obj.dim == 3
-                props2Fit = {'cX','cY','cZ', 'amplitude', 'sigma'};
                 sigma=[1.2 1.2 1.0];
             end
-            display = {'Color', [1 0.5 0], 'LineWidth', 3};
 
             % Ask existing asters to find missing features
             feature = cell( 1, obj.numFeatures);
@@ -184,7 +168,8 @@ classdef IMTBank < OrganizerMaster
                         end
 
                         % Create curve features
-                        feature{jFeature} = Curve( stPoint, coeffs, curveAmp, sigma, obj.dim, props2Fit, display);
+                        feature{jFeature} = Curve( stPoint, coeffs, curveAmp, sigma, obj.dim, obj.props2Fit.fit{obj.dim}.curve, ...
+                            obj.props2Fit.graphics.curve);
                         feature{jFeature}.findVoxelsInsideMask( logical(obj.image) );
                         
                         % Find length and unit residual of prospective feature
@@ -277,16 +262,17 @@ classdef IMTBank < OrganizerMaster
             % Then we will pick the best of the possibilities and add them to our feature list.
 
             polyOrder = [2 2 1];
+            try
+                polyOrder = obj.polyOrder;
+            end
+
             minLength = 10;
             [Image2Find2D, idxZ] = max(Image2Find, [],3);
             if obj.dim == 2
-                props2Fit = {'cX', 'cY', 'amplitude', 'sigma'};
                 sigma=[1.2 1.2];
             elseif obj.dim == 3
-                props2Fit = {'cX','cY','cZ', 'amplitude', 'sigma'};
                 sigma=[1.2 1.2 1.0];
             end
-            display = {'Color', [1 0.5 0], 'LineWidth', 3};
 
             % Run Steerable filter to detect curves
             [imGauss, imSteer] = Methods.FilterImageForCurveDetection( Image2Find2D);
@@ -328,7 +314,8 @@ classdef IMTBank < OrganizerMaster
                 Seed(3) = idxZ( Seed(2), Seed(1) );
 %                 coord(3,:) = Seed(3);
             end
-            mtoc = Spot( Seed, IntSeed, sigma, obj.dim, obj.featureList{1}.featureList{1}.props2Fit, obj.featureList{1}.featureList{1}.display);
+            mtoc = Spot( Seed, IntSeed, sigma, obj.dim, obj.props2Fit.fit{obj.dim}.spot, ...
+                obj.props2Fit.graphics.spot);
             
             % Break curve into 2 mts
             mts{1} = [ cX( IdxSeed:-1:1); cY( IdxSeed:-1:1) ];
@@ -354,7 +341,8 @@ classdef IMTBank < OrganizerMaster
                     warning( 'curveAmp was less than 0')
                 end
 
-                iMT{jmt} = Curve( mtoc.position, coeffs, curveAmp, sigma, obj.dim, props2Fit, display);
+                iMT{jmt} = Curve( mtoc.position, coeffs, curveAmp, sigma, obj.dim, obj.props2Fit.fit{obj.dim}.curve, ...
+                    obj.props2Fit.graphics.curve);
                 iMT{jmt}.findVoxelsInsideMask( logical(Image2Find) );
 
             end
@@ -442,7 +430,7 @@ classdef IMTBank < OrganizerMaster
             [imG, ~] = Methods.FilterImageForCurveDetection( imageIn);
 
             % Find the curves
-            vars = namedargs2cell(params);
+            vars = Methods.struct2cellvars(params);
             coords = Methods.FindCurves( imG, 'Plot', 0, vars{:}); 
             nAsters = length( coords);
             
@@ -453,8 +441,7 @@ classdef IMTBank < OrganizerMaster
                 coord = coords{jmtoc}{1}(:,1);
                 amp = mip( coord(2), coord(1) ) - bkg;
                 MTOC{ jmtoc} = Spot( coord', amp, sigma, dim, ...
-                    props.Fit.IntBank{dim}.Aster.Spot, ...
-                    props.Graphics.IntBank.Aster.Spot);
+                    props.fit{dim}.spot, props.graphics.spot);
             end
 
             % Create interphase MT and interphase Aster objects
@@ -482,7 +469,7 @@ classdef IMTBank < OrganizerMaster
                     end
                     
                     % Create 
-                    iMT{jmt} = Curve( MTOC{jMTOC}.position, coeffs, curveAmp, sigma, dim, props.Fit.IntBank{dim}.Aster.Curve, props.Graphics.IntBank.Aster.Curve);
+                    iMT{jmt} = Curve( MTOC{jMTOC}.position, coeffs, curveAmp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
                     iMT{jmt}.findVoxelsInsideMask( logical(imageIn) );
 
                 end
@@ -493,9 +480,8 @@ classdef IMTBank < OrganizerMaster
             end
 
             % Create the interphase aster bank.
-            intBankObj = IMTBank( dim, imageIn, iAsters, props.Fit.IntBank{dim});
+            intBankObj = IMTBank( dim, imageIn, iAsters, props);
             intBankObj.findEnvironmentalConditions();
-            
 
         end
         % }}}

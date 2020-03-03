@@ -1153,8 +1153,11 @@ classdef Methods
             [x, y] = meshgrid( 1 : size( helperImage, 1) );
             xVecNew = 1 : 0.25: size( helperImage, 1);
             [xi, yi] = meshgrid( xVecNew );
-            imSub = interp2(x,y,helperImage,xi,yi,'linear');
-
+            try
+                imSub = interp2(x,y,helperImage,xi,yi,'linear');
+            catch
+                stoph = 1;
+            end
             clear x y xi yi
            
             % radial integration {{{
@@ -1547,10 +1550,23 @@ classdef Methods
                     opts = rmfield( opts, varargin{jv});
                 end
             end
-            vars = namedargs2cell( opts);
+            vars = Methods.struct2cellvars( opts);
             
         end
         % }}}
+        
+        function vars = struct2cellvars( st)
+            
+            fields = fieldnames(st);
+            vals = struct2cell(st);
+            n = length( fields);
+            
+            vars = cell(1, 2*n);
+            
+            vars(1:2:end-1) = fields;
+            vars(2:2:end) = vals;
+            
+        end
         
     end
 end

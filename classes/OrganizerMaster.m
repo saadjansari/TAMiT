@@ -31,7 +31,7 @@ classdef OrganizerMaster < Organizer
         function obj = findEnvironmentalConditions( obj)
             % Finds the cytoplasmic and the nucleoplasmic backgrounds
 
-            env = obj.props2Fit.Environment;
+            env = obj.props2Fit.fit{obj.dim}.Environment;
 
             % Check which environmental conditions exist
             isBkg = any( cellfun( @(x) strcmp(x,'background'), env ));
@@ -55,7 +55,7 @@ classdef OrganizerMaster < Organizer
         function [vec, vecLabels] = getVecEnvironment( obj, props2get)
 
             if nargin < 2
-                props2get = obj.props2Fit.Environment;
+                props2get = obj.props2Fit.fit{obj.dim}.Environment;
             end
 
             for jProp = 1 : length( props2get)
@@ -84,7 +84,7 @@ classdef OrganizerMaster < Organizer
         % absorbVecEnvironment {{{
         function obj = absorbVecEnvironment( obj, vec, vecLabels)
         
-            props2find = obj.props2Fit.Environment;
+            props2find = obj.props2Fit.fit{obj.dim}.Environment;
 
             % find the index of start positions
             for jProp = 1 : length( props2find)

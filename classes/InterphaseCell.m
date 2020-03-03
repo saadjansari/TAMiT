@@ -43,7 +43,7 @@ classdef InterphaseCell < Cell
 
             switch currentFeature
                 case 'Microtubule'
-                    feature = IMTBank.findIntBank( im2double(image), obj.params.estimate.interphase, obj.featureProps);
+                    feature = IMTBank.findIntBank( im2double(image), obj.params.estimate.interphase, obj.featureProps.intBank);
                     %feature = InterphaseCell.findFeaturesDeNovo_MT( image, obj.params.estimate.interphase);
 
                 %case 'Kinetochore'

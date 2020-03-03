@@ -39,11 +39,7 @@ classdef Curve < BasicElement
 
             % sample props2get
             if nargin==1
-                if obj.dim == 2
-                    props2get = {'startPosition', 'cX','cY', 'amplitude', 'sigma'};
-                elseif obj.dim == 3
-                    props2get = {'startPosition', 'cX','cY','cZ', 'amplitude', 'sigma'};
-                end
+                props2get = obj.props2Fit;
             end
             
             % make sure props input matches properties defined in class
@@ -489,7 +485,7 @@ classdef Curve < BasicElement
             visibility = 10;
 
             % Use a method to find Curve coordinates given a start point and an orientation.
-            coords = Methods.estimateCurveCoords( startPoint(1:2)', orientation, img,stepSize, visibility, fieldOfView,1);
+            coords = Methods.estimateCurveCoords( startPoint(1:2)', orientation, max(img,[],3), stepSize, visibility, fieldOfView,1);
 
             disp('stop here')
         

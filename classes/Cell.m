@@ -1746,88 +1746,110 @@ classdef Cell < handle & matlab.mixin.Copyable
         function props = GetFeatureProps()
         % This is a structure of fit and graphics properties for all features.
 
-            % Basic Elements {{{
-            % Spot
-            Fit.Spot{2} = {'position', 'amplitude', 'sigma'};
-            Fit.Spot{3} = {'position', 'amplitude', 'sigma'};
-
-            % Line
-            Fit.Line{2} = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
-            Fit.Line{3} = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
-
-            % Curve
-            Fit.Curve{2} = {'startPosition','cX','cY','amplitude','sigma'};
-            Fit.Curve{3} = {'startPosition', 'cX','cY','cZ', 'amplitude', 'sigma'};
-
-            % Graphics 
-            Graphics.SpotMagenta = {'Color', [0.7 0 0.7] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
-            Graphics.SpotGreen = {'Color', [0 1 0] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
-            Graphics.SpotBlue = {'Color', [0 0 1] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
-            Graphics.SpotRed = {'Color', [1 0 0] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
-            Graphics.CurveMagenta = {'Color', [0.7 0 0.7] , 'LineWidth', 2};
-            Graphics.CurveGreen = {'Color', [0 1 0] , 'LineWidth', 2};
-            Graphics.CurveBlue = {'Color', [0 0 1] , 'LineWidth', 2};
-            Graphics.CurveRed = {'Color', [1 0 0] , 'LineWidth', 2};
-            % }}}
-
             % Environment {{{
             env1 = {'background'};
             env2 = {'background', 'backgroundNuclear'};
             % }}}
             
+            % Basic Elements {{{
+            % Spot
+            spot.fit{2} = {'position', 'amplitude', 'sigma'};
+            spot.fit{3} = {'position', 'amplitude', 'sigma'};
+            spot.graphics.magenta = {'Color', [0.7 0 0.7] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
+            spot.graphics.green = {'Color', [0 1 0] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
+            spot.graphics.blue = {'Color', [0 0 1] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
+            spot.graphics.red = {'Color', [1 0 0] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
+
+            % Line
+            line.fit{2} = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
+            line.fit{3} = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
+            line.graphics.magenta = {'Color', [0.7 0 0.7] , 'LineWidth', 2};
+            line.graphics.green = {'Color', [0 1 0] , 'LineWidth', 2};
+            line.graphics.blue = {'Color', [0 0 1] , 'LineWidth', 2};
+            line.graphics.red = {'Color', [1 0 0] , 'LineWidth', 2};
+            
+            % Curve
+            curve.fit{2} = {'startPosition','cX','cY','amplitude','sigma'};
+            curve.fit{3} = {'startPosition', 'cX','cY','cZ', 'amplitude', 'sigma'};
+            curve.graphics.magenta = {'Color', [0.7 0 0.7] , 'LineWidth', 2};
+            curve.graphics.green = {'Color', [0 1 0] , 'LineWidth', 2};
+            curve.graphics.blue = {'Color', [0 0 1] , 'LineWidth', 2};
+            curve.graphics.red = {'Color', [1 0 0] , 'LineWidth', 2};
+
+            props.spot = spot;
+            props.line = line;
+            props.curve = curve;
+            % }}}
+            
             % Organizers {{{
             % Line Aster
-            Fit.AsterLine{2}.Spot = Fit.Spot{2};
-            Fit.AsterLine{2}.Line = Fit.Line{2}(2:end);
-            Fit.AsterLine{3}.Spot = Fit.Spot{3};
-            Fit.AsterLine{3}.Line = Fit.Line{3}(2:end);
-            Graphics.AsterLine.Spot = Graphics.SpotBlue;
-            Graphics.AsterLine.Line = Graphics.CurveGreen;
+            asterLine.fit{2}.spot = spot.fit{2};
+            asterLine.fit{3}.spot = spot.fit{3};
+            asterLine.fit{2}.line = line.fit{2}(2:end);
+            asterLine.fit{3}.line = line.fit{3}(2:end);
+            asterLine.graphics.spot = spot.graphics.blue;
+            asterLine.graphics.line = line.graphics.green;
+            props.asterLine = asterLine;
 
             % Curve Aster
-            Fit.AsterCurve{2}.Spot = Fit.Spot{2};
-            Fit.AsterCurve{2}.Curve= Fit.Curve{2}(2:end);
-            Fit.AsterCurve{3}.Spot = Fit.Spot{3};
-            Fit.AsterCurve{3}.Curve= Fit.Curve{3}(2:end);
-            Graphics.AsterCurve.Spot = Graphics.SpotBlue;
-            Graphics.AsterCurve.Curve = Graphics.CurveRed;
+            asterCurve.fit{2}.spot = spot.fit{2};
+            asterCurve.fit{2}.curve = curve.fit{2}(2:end);
+            asterCurve.fit{3}.spot = spot.fit{3};
+            asterCurve.fit{3}.curve = curve.fit{3}(2:end);
+            asterCurve.graphics.spot = spot.graphics.blue;
+            asterCurve.graphics.curve = curve.graphics.red;
+            props.asterCurve = asterCurve;
             % }}}
 
             % Master Organizers {{{
             % Spindle
-            Fit.Spindle{2}.Line = Fit.Line{2};
-            Fit.Spindle{2}.Aster = Fit.AsterLine{2};
-            Fit.Spindle{2}.Aster.Spot(1) = [];
-            Fit.Spindle{2}.Environment = env1;
-            Fit.Spindle{3}.Line = Fit.Line{3};
-            Fit.Spindle{3}.Aster = Fit.AsterLine{3};
-            Fit.Spindle{3}.Aster.Spot(1) = [];
-            Fit.Spindle{3}.Environment = env1;
-            Graphics.Spindle.Line = Graphics.CurveGreen;
-            Graphics.Spindle.Aster.Spot = Graphics.SpotBlue;
-            Graphics.Spindle.Aster.Line = Graphics.CurveGreen;
+            spindle.fit{2}.line = line.fit{2};
+            spindle.fit{2}.aster = asterLine.fit{2};
+            spindle.fit{2}.aster.spot(1) = [];
+            spindle.fit{2}.Environment = env1;
+            spindle.fit{3}.line = line.fit{3};
+            spindle.fit{3}.aster = asterLine.fit{3};
+            spindle.fit{3}.aster.spot(1) = [];
+            spindle.fit{3}.Environment = env1;
+            spindle.graphics.line = curve.graphics.red;
+            spindle.graphics.aster.spot = spot.graphics.blue;
+            spindle.graphics.aster.line = curve.graphics.green;
+            spindle.fit{2}.spot = spot.fit{2};
+            spindle.fit{3}.spot = spot.fit{3};
+            spindle.graphics.spot = curve.graphics.blue;
+            props.spindle = spindle;
 
             % Monopolar Aster
-            Fit.MonopolarAster{2}.Aster = Fit.AsterLine{2};
-            Fit.MonopolarAster{3}.Aster = Fit.AsterLine{3};
-            Fit.MonopolarAster{2}.Environment = env1;
-            Fit.MonopolarAster{3}.Environment = env1;
-            Graphics.MonopolarAster.Aster.Spot = Graphics.SpotBlue;
-            Graphics.MonopolarAster.Aster.Line = Graphics.CurveGreen;
+            monopolarAster.fit{2}.aster = asterLine.fit{2};
+            monopolarAster.fit{3}.aster = asterLine.fit{3};
+            monopolarAster.fit{2}.Environment = env1;
+            monopolarAster.fit{3}.Environment = env1;
+            monopolarAster.graphics.aster.spot = spot.graphics.blue;
+            monopolarAster.graphics.aster.line = line.graphics.green;
+            monopolarAster.fit{2}.spot = spot.fit{2};
+            monopolarAster.fit{3}.spot = spot.fit{3};
+            monopolarAster.graphics.spot = curve.graphics.blue;
+            monopolarAster.fit{2}.line = line.fit{2};
+            monopolarAster.fit{3}.line = line.fit{3};
+            monopolarAster.graphics.line = curve.graphics.red;
+            props.monopolarAster = monopolarAster;
 
             % Interphase Bank
-            Fit.IntBank{2}.Aster = Fit.AsterCurve{2};
-            Fit.IntBank{3}.Aster = Fit.AsterCurve{3};
-            Fit.IntBank{2}.Environment = env1;
-            Fit.IntBank{3}.Environment = env1;
-            Graphics.IntBank.Aster.Spot = Graphics.SpotBlue;
-            Graphics.IntBank.Aster.Curve = Graphics.CurveRed;
+            intBank.fit{2}.aster = asterCurve.fit{2};
+            intBank.fit{3}.aster = asterCurve.fit{3};
+            intBank.fit{2}.Environment = env1;
+            intBank.fit{3}.Environment = env1;
+            intBank.graphics.aster.spot = spot.graphics.blue;
+            intBank.graphics.aster.curve = curve.graphics.red;
+            intBank.fit{2}.spot = spot.fit{2};
+            intBank.fit{3}.spot = spot.fit{3};
+            intBank.graphics.spot = curve.graphics.blue;
+            intBank.fit{2}.curve = curve.fit{2};
+            intBank.fit{3}.curve = curve.fit{3};
+            intBank.graphics.curve = curve.graphics.red;
+            props.intBank = intBank;
             % }}}
 
-            % Store {{{
-            props.Fit = Fit;
-            props.Graphics = Graphics;
-            % }}}
         end
 
     end
