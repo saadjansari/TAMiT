@@ -225,6 +225,7 @@ classdef Curve < BasicElement
             elseif obj.dim == 3
                 len = sum( sqrt( diff( coords(1,:)).^2 + diff( coords(2,:)).^2 + diff( coords(3,:)).^2 ) );
             end
+            obj.length = len;
             
         end
         % }}}
@@ -238,10 +239,14 @@ classdef Curve < BasicElement
         end
         % }}}
         % GetCoords {{{
-        function coords = GetCoords( obj)
+        function coords = GetCoords( obj, tv)
             
             coeffs = obj.GetCoeffFull();
-            tv = linspace(0,1);
+
+            if nargin < 2
+                tv = linspace(0,1);
+            end
+
             x = polyval( coeffs{1}, tv )';
             y = polyval( coeffs{2}, tv )';
             if obj.dim == 2
@@ -310,6 +315,38 @@ classdef Curve < BasicElement
         end
         % }}}
         
+        % forceInsideMask {{{
+        function obj = forceInsideMask( obj, mask)
+            % Force features to lie inside the mask. This will
+            % shorten any curves whose mtoc is within the mask.
+
+            % Simulate image
+            imFeat = obj.simulateFeature( size(mask) );
+            
+            % if escapes from mask, shorten until inside mask
+            outside = Methods.CheckEscapeMask( imFeat, mask, 0.02);
+
+            while outside 
+
+                % Shorten
+                coords = obj.GetCoords( linspace(0,0.95)); 
+                coeffs = Curve.estimatePolyCoefficients( coords, obj.order);
+                obj.cX = coeffs{1}(1:end-1);
+                obj.cY = coeffs{2}(1:end-1);
+                if obj.dim == 3
+                    obj.cZ = coeffs{3}(1:end-1);
+                end
+
+                % Check again
+                imFeat = obj.simulateFeature( size(mask) );
+                outside = Methods.CheckEscapeMask( imFeat, mask);
+                obj.GetLength();
+
+            end
+            
+        end
+        % }}}
+
     end
 
     methods ( Static = true )
@@ -392,60 +429,6 @@ classdef Curve < BasicElement
                 lineVox.x = pts(:,1); lineVox.y = pts(:,2);
                 lineVox.idx = sub2ind( sizeImage, pts(:,2), pts(:,1), pts(:,3) );
             end
-            
-            
-%             dim = size( coords, 1);
-%             if dim ~= 2 && dim ~= 3
-%                 error('findVoxelsNearCurve : dim must be 2 or 3')
-%             end
-%             
-%             % Draw the curve in empty space
-%             imLine = zeros( sizeImage);
-% 
-%             % Find length
-%             len = [];
-%             for jC = 1 : size( coords,2)-1
-%                 len = [ len, norm( coords(:,jC+1) - coords(:,jC) )];
-%             end
-% 
-%             % Get vector of all coordinates
-%             X = []; Y = []; Z=[];
-%             for jC = 1 : size( coords,2)-1
-%                 X = [ X, round( linspace( coords(1,jC), coords(1,jC+1), ceil(len(jC)) ) ) ];
-%                 Y = [ Y, round( linspace( coords(2,jC), coords(2,jC+1), ceil(len(jC)) ) ) ];
-%                 if dim == 3
-%                     Z = [ Z, round( linspace( coords(3,jC), coords(3,jC+1), ceil(len(jC)) ) ) ];
-%                 end
-%             end
-%             
-%             % Get index of voxels
-%             X( X < 1) = 1; X( X > sizeImage(2) ) = sizeImage(2);
-%             Y( Y < 1) = 1; Y( Y > sizeImage(1) ) = sizeImage(1);
-%             if dim ==2
-%                 idxVoxels = sub2ind( sizeImage, Y, X);
-%             elseif dim == 3
-%                 Z( Z < 1) = 1; Z( Z > sizeImage(3) ) = sizeImage(3);
-%                 idxVoxels = sub2ind( sizeImage, Y, X, Z);
-%             end
-% 
-%             imLine( idxVoxels ) = 1;
-%             
-%             % dilate the line with a sphere of large size
-%             % Assume z-direction is limited (~10 pixels)
-%             imLine = imdilate( max( imLine, [], 3), strel('disk', radDilate) );
-%             if dim == 3
-%                 imLine = repmat( imLine, 1, 1, sizeImage(3) );
-%             end
-% %             imLine = imdilate( imLine, strel( 'sphere', radDilate) );
-%             
-%             % return voxel indices for the dilated line
-%             lineVox.idx = find( imLine(:) );
-%             if dim == 2
-%                 [lineVox.y, lineVox.x] = ind2sub( sizeImage, lineVox.idx);
-%             elseif dim == 3
-%                 [lineVox.y, lineVox.x, lineVox.z] = ind2sub( sizeImage, lineVox.idx);
-%             end
-            
             
         end
         % }}}

@@ -114,7 +114,9 @@ classdef OrganizerMaster < Organizer
 
             % Simulate feature 
             imageOut = cFeature.simulateFeature( size(imageIn) );
-
+            
+            % Penalize if features exceed mask region
+            imageOut = PenalizeOutsideMask( imageOut, obj.mask);
             
             % Fill background where features are not prominent-er
             if ~isempty( obj.background)
@@ -126,11 +128,8 @@ classdef OrganizerMaster < Organizer
                 imageOut = imageOut + obj.backgroundNuclear.*obj.maskNuclear;
             end
 
-            % Penalize if features exceed mask region
-            imageOut = PenalizeOutsideMask( imageOut, obj.mask);
-
             % Add Cellular Mask
-            imageOut = imageOut .* logical( obj.image);
+            imageOut = imageOut .* obj.mask;
 
             % PenalizeOutsideMask {{{
             function imageOut = PenalizeOutsideMask( imageIn, mask)
@@ -140,17 +139,10 @@ classdef OrganizerMaster < Organizer
                     mask = obj.mask;
                 end
                
-                % Maximum Intensity of simulated image
-                maxSim = max( imageIn(:) );
-                
-                % Intensity image outside mask
-                intOutside = imcomplement( logical( mask) ) .* imageIn;
-
-                % Intensity threshold for penalizing
-                intThresh = 0.2 * (maxSim - obj.background);
-
-                if max( intOutside(:) ) > obj.background + intThresh 
-                    imageOut = sum( intOutside(:) )*(abs(obj.image-imageIn)) + imageIn; 
+                % Check if escape mask
+                [outside, amt] = Methods.CheckEscapeMask( imageIn, mask);
+                if outside
+                    imageOut = imageIn*(1+amt) -amt*obj.image;
                     disp('   Warning: OrganizerMaster.simulateAll - feature escaped 2D mask, applying scaled cost to force reflection')
                 else
                     imageOut = imageIn;
@@ -256,20 +248,20 @@ classdef OrganizerMaster < Organizer
             % This will remove any asters whose mtoc is outside the mask
             
             if nargin < 2
-                mask = obj.mask ~= 0;
+                mask = obj.mask;
             end
             
             % Ask features to force their subfeatures
-            rmFeat = [];
+            %rmFeat = [];
             for jF = 1 : obj.numFeatures
-                success = obj.featureList{jF}.forceInsideMask( mask);
-                if success
-                    rmFeat = [ rmFeat, jF];
-                end
+                obj.featureList{jF}.forceInsideMask( mask);
+                %if success
+                    %rmFeat = [ rmFeat, jF];
+                %end
             end
 
             % Remove bad features
-            obj.removeFeaturesFromList( rmFeat);
+            %obj.removeFeaturesFromList( rmFeat);
             
         end
         % }}}

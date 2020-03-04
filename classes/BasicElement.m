@@ -98,6 +98,7 @@ classdef BasicElement < Feature
             [obj.params.y, obj.params.x, obj.params.z] = ind2sub( size( mask), obj.params.idx);
 
         end
+        % }}}
         
         % GetProjection2D {{{
         function obj = GetProjection2D( obj)
@@ -142,6 +143,11 @@ classdef BasicElement < Feature
         % Update3DFrom2D {{{
         function obj = Update3DFrom2D(obj, obj2D)
             
+        end
+        % }}}
+
+        % forceInsideMask {{{
+        function obj = forceInsideMask( obj, mask)
         end
         % }}}
 

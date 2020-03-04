@@ -391,6 +391,19 @@ classdef Organizer < Feature
         end
         % }}}
         
+        % forceInsideMask {{{
+        function obj = forceInsideMask( obj, mask)
+            % Force features to lie inside the mask. This will
+            % shorten any curves whose mtoc is within the mask.
+            
+            % Ask features to force their subfeatures
+            for jF = 1 : obj.numFeatures
+                obj.featureList{jF}.forceInsideMask( mask);
+            end
+            
+        end
+        % }}}
+
     end
 
 end

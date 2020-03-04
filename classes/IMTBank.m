@@ -481,7 +481,9 @@ classdef IMTBank < OrganizerMaster
 
             % Create the interphase aster bank.
             intBankObj = IMTBank( dim, imageIn, iAsters, props);
+            intBankObj.polyOrder = params.PolyOrder;
             intBankObj.findEnvironmentalConditions();
+            intBankObj.forceInsideMask();
 
         end
         % }}}

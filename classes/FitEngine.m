@@ -91,7 +91,8 @@ classdef FitEngine
             
             disp('Local Optimization...')
 
-            % Prepare for the Fit 
+            % Prepare for the Fit
+            obj.feature.forceInsideMask();
             [ fitProblem, fitInfo] = obj.PrepareOptimizeLocal();
             if isempty(obj.feature.featureList)
                 fprintf('Skipping fitting for %s\n', obj.feature.type);  
@@ -103,7 +104,7 @@ classdef FitEngine
 
             for jFeature = 1 : nFeatures
 
-                fprintf('Current Feature = %d / %d\n', jFeature, nFeatures); 
+                fprintf('Current Feature = %d / %d\n', jFeature, nFeatures);
 
                 % Solve Optimization Problem
                 fitInfo{ jFeature}.fitResults = obj.SolveOptimizationProblem( fitProblem{ jFeature} );
@@ -674,11 +675,13 @@ classdef FitEngine
             switch config.state
                 case 'RELEASE'
                     opts = optimoptions( opts, ...
-                                        'display', 'off' );
+                                        'display', 'off',...
+                                        'MaxIter', 20);
 
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
-                                        'display', 'iter' );
+                                        'display', 'iter' ,...
+                                        'MaxIter', 10);
             end
             
             % Set Parallel Optimization
@@ -870,6 +873,7 @@ classdef FitEngine
         end
         % }}}
         
+        % GetVectorBoundsCurves {{{
         function [ub,lb] = GetVectorBoundsCurves( obj, vec, ub, lb, vecLabels)
             % Get bounds for coefficients of polynomial curves
            
@@ -964,6 +968,7 @@ classdef FitEngine
            end
         
         end
+        % }}}
         
         % getExplorationSpeedVector {{{
         function speedVec = getExplorationSpeedVector( vecLabels)

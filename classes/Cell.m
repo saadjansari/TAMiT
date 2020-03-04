@@ -1843,7 +1843,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             intBank.graphics.aster.curve = curve.graphics.red;
             intBank.fit{2}.spot = spot.fit{2};
             intBank.fit{3}.spot = spot.fit{3};
-            intBank.graphics.spot = curve.graphics.blue;
+            intBank.graphics.spot = spot.graphics.blue;
             intBank.fit{2}.curve = curve.fit{2};
             intBank.fit{3}.curve = curve.fit{3};
             intBank.graphics.curve = curve.graphics.red;

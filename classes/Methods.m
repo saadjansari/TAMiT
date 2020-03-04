@@ -1555,6 +1555,7 @@ classdef Methods
         end
         % }}}
         
+        % struct2cellvars {{{
         function vars = struct2cellvars( st)
             
             fields = fieldnames(st);
@@ -1567,7 +1568,33 @@ classdef Methods
             vars(2:2:end) = vals;
             
         end
+        % }}}
         
+        % CheckEscapeMask {{{
+        function [status,amt] = CheckEscapeMask( imageIn, mask, sens)
+            % Check if features outside 2D mask
+            % imageIn: simulated image of any number of features
+
+            if nargin < 3
+                sens = 0.2;
+            end
+            status = 0; amt=0;
+            % Maximum Intensity of simulated image
+            maxSim = max( imageIn(:) );
+            
+            % Intensity image outside mask
+            intOutside = imcomplement( logical( mask) ) .* imageIn;
+
+            % Intensity threshold for penalizing
+            intThresh = sens * maxSim;
+
+            if max( intOutside(:) ) > intThresh 
+                status = 1;
+                amt = sum( intOutside(:) );
+            end
+        end
+        % }}}
+
     end
 end
 
