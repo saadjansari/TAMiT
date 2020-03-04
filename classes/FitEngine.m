@@ -45,8 +45,6 @@ classdef FitEngine
         end
         % }}}
 
-        
-
         % Methods : Optimization {{{
         
         % Optimize {{{
@@ -88,16 +86,18 @@ classdef FitEngine
             if ~obj.parameters.runLocalOptimization
                 return
             end
-            
-            disp('Local Optimization...')
-
-            % Prepare for the Fit
-            obj.feature.forceInsideMask();
-            [ fitProblem, fitInfo] = obj.PrepareOptimizeLocal();
             if isempty(obj.feature.featureList)
+                fitInfo.channel = obj.parameters.channel;
+                fitInfo.time = obj.parameters.time;
+                fitInfo.saveDirectory = obj.parameters.saveDirectory;
+                fitInfo.featureMain = obj.feature;
+                fitInfo.fitScope = 'local';
                 fprintf('Skipping fitting for %s\n', obj.feature.type);  
                 return
             end
+            
+            disp('Local Optimization...')
+
 
             % Get total number of features to optimize 
             nFeatures = obj.feature.getSubFeatureNumber();
@@ -105,6 +105,10 @@ classdef FitEngine
             for jFeature = 1 : nFeatures
 
                 fprintf('Current Feature = %d / %d\n', jFeature, nFeatures);
+
+                % Prepare for optimization
+                obj.feature.forceInsideMask();
+                [ fitProblem{jFeature}, fitInfo{jFeature}] = obj.PrepareOptimizeLocal( jFeature);
 
                 % Solve Optimization Problem
                 fitInfo{ jFeature}.fitResults = obj.SolveOptimizationProblem( fitProblem{ jFeature} );
@@ -422,83 +426,62 @@ classdef FitEngine
         % Methods : Prepare Optimization {{{
         
         % PrepareOptimizeLocal {{{
-        function [ fitProblem, fitInformation] = PrepareOptimizeLocal( obj)
+        function [ fitProblem, fitInfo] = PrepareOptimizeLocal( obj, jFeature)
             
-            % If no features are present to be fitted, assign the essentials and return out
-            if isempty( obj.feature.featureList)
-                fitInformation.channel = obj.parameters.channel;
-                fitInformation.time = obj.parameters.time;
-                fitInformation.saveDirectory = obj.parameters.saveDirectory;
-                fitInformation.featureMain = obj.feature;
-                fitInformation.fitScope = 'local';
-                fitProblem = [];
-                return
-            end
-        
             % Prepare local fit for all features
             nFeatures = obj.feature.getSubFeatureNumber();
 
             % Obtain the features to fit, their fit vector and labels 
             [ fitVec, fitLabels, fitObj] = getVecLocal( obj.feature);
 
-            % Loop over all features
-            for jFeature = 1 : nFeatures
-               
+            % Get bounds of parameters to restrict the parameter space
+            fitVecs = FitEngine.GetVectorBounds(obj, fitVec{jFeature},fitLabels{jFeature});
 
-                clear fitInfo
-                % Get bounds of parameters to restrict the parameter space
-                fitVecs = FitEngine.GetVectorBounds(obj, fitVec{jFeature},fitLabels{jFeature});
-
-
-                % Scale the parameters to vary the speed of exploration in the parameter space
-                if obj.parameters.fitExploreSpeed
-                    speedVec = obj.getExplorationSpeedVector( fitLabels{ jFeature});
-                    fitVecs.vec = fitVecs.vec ./ speedVec;
-                    fitVecs.ub = fitVecs.ub ./ speedVec;
-                    fitVecs.lb = fitVecs.lb ./ speedVec;
-                    fitInfo.speedVec = speedVec;
-                end
-
-                % Set up parameters for fit
-                fitInfo.featureMain = obj.feature;
-                fitInfo.featureIndex = jFeature;
-                fitInfo.fitVecs = fitVecs;
-                fitInfo.mask = logical( obj.image);
-                fitInfo.image = obj.image;
-                fitInfo.numVoxels = size( obj.image);
-                fitInfo.channel = obj.parameters.channel;
-                fitInfo.time = obj.parameters.time;
-                fitInfo.saveDirectory = obj.parameters.saveDirectory;
-                fitInfo.alpha = 0.05;
-                fitInfo.featureCurrent = fitObj{jFeature};
-                fitInfo.fitScope = 'local';
-                fitInfo.featureCurrent.fillParams( size( fitInfo.image));
-
-
-                % Make the error function for optimization 
-                f = obj.MakeOptimizationFcn( obj.image, fitInfo );
-
-                % Set Optimization Options
-                opts = FitEngine.SetOptimOptions( obj.parameters);
-                if strcmp( obj.parameters.state, 'DEBUG')
-                    plotHandle = createPlotFcnHandle( fitInfo);
-                    fillParamHandle = createFillParamsFcnHandle(fitInfo);
-                    opts = optimoptions( opts, 'OutputFcn', {plotHandle,fillParamHandle});
-                else
-                    fillParamHandle = createFillParamsFcnHandle(fitInfo);
-                    opts = optimoptions( opts, 'OutputFcn', fillParamHandle);
-                end
-
-                % Create Optimization Problem
-                fitProblem{ jFeature} = createOptimProblem( 'lsqnonlin', ...
-                    'objective', f, ...
-                    'x0', fitVecs.vec, ...
-                    'ub', fitVecs.ub, ...
-                    'lb', fitVecs.lb, ...
-                    'options', opts);
-                fitInformation{ jFeature} = fitInfo;
-
+            % Scale the parameters to vary the speed of exploration in the parameter space
+            if obj.parameters.fitExploreSpeed
+                speedVec = obj.getExplorationSpeedVector( fitLabels{ jFeature});
+                fitVecs.vec = fitVecs.vec ./ speedVec;
+                fitVecs.ub = fitVecs.ub ./ speedVec;
+                fitVecs.lb = fitVecs.lb ./ speedVec;
+                fitInfo.speedVec = speedVec;
             end
+
+            % Set up parameters for fit
+            fitInfo.featureMain = obj.feature;
+            fitInfo.featureIndex = jFeature;
+            fitInfo.fitVecs = fitVecs;
+            fitInfo.mask = logical( obj.image);
+            fitInfo.image = obj.image;
+            fitInfo.numVoxels = size( obj.image);
+            fitInfo.channel = obj.parameters.channel;
+            fitInfo.time = obj.parameters.time;
+            fitInfo.saveDirectory = obj.parameters.saveDirectory;
+            fitInfo.alpha = 0.05;
+            fitInfo.featureCurrent = fitObj{jFeature};
+            fitInfo.fitScope = 'local';
+            fitInfo.featureCurrent.fillParams( size( fitInfo.image));
+
+            % Make the error function for optimization 
+            f = obj.MakeOptimizationFcn( obj.image, fitInfo );
+
+            % Set Optimization Options
+            opts = FitEngine.SetOptimOptions( obj.parameters);
+            if strcmp( obj.parameters.state, 'DEBUG')
+                plotHandle = createPlotFcnHandle( fitInfo);
+                fillParamHandle = createFillParamsFcnHandle(fitInfo);
+                opts = optimoptions( opts, 'OutputFcn', {plotHandle,fillParamHandle});
+            else
+                fillParamHandle = createFillParamsFcnHandle(fitInfo);
+                opts = optimoptions( opts, 'OutputFcn', fillParamHandle);
+            end
+
+            % Create Optimization Problem
+            fitProblem = createOptimProblem( 'lsqnonlin', ...
+                'objective', f, ...
+                'x0', fitVecs.vec, ...
+                'ub', fitVecs.ub, ...
+                'lb', fitVecs.lb, ...
+                'options', opts);
 
             % Create handle for plotting function
             function stop = createPlotFcnHandle( fitInfo)
@@ -517,6 +500,104 @@ classdef FitEngine
 
         end
         % }}}
+%{
+ {        % PrepareOptimizeLocal {{{
+ {        function [ fitProblem, fitInformation] = PrepareOptimizeLocal( obj)
+ {            
+ {            % If no features are present to be fitted, assign the essentials and return out
+ {            if isempty( obj.feature.featureList)
+ {                fitInformation.channel = obj.parameters.channel;
+ {                fitInformation.time = obj.parameters.time;
+ {                fitInformation.saveDirectory = obj.parameters.saveDirectory;
+ {                fitInformation.featureMain = obj.feature;
+ {                fitInformation.fitScope = 'local';
+ {                fitProblem = [];
+ {                return
+ {            end
+ {        
+ {            % Prepare local fit for all features
+ {            nFeatures = obj.feature.getSubFeatureNumber();
+ {
+ {            % Obtain the features to fit, their fit vector and labels 
+ {            [ fitVec, fitLabels, fitObj] = getVecLocal( obj.feature);
+ {
+ {            % Loop over all features
+ {            for jFeature = 1 : nFeatures
+ {               
+ {
+ {                clear fitInfo
+ {                % Get bounds of parameters to restrict the parameter space
+ {                fitVecs = FitEngine.GetVectorBounds(obj, fitVec{jFeature},fitLabels{jFeature});
+ {
+ {
+ {                % Scale the parameters to vary the speed of exploration in the parameter space
+ {                if obj.parameters.fitExploreSpeed
+ {                    speedVec = obj.getExplorationSpeedVector( fitLabels{ jFeature});
+ {                    fitVecs.vec = fitVecs.vec ./ speedVec;
+ {                    fitVecs.ub = fitVecs.ub ./ speedVec;
+ {                    fitVecs.lb = fitVecs.lb ./ speedVec;
+ {                    fitInfo.speedVec = speedVec;
+ {                end
+ {
+ {                % Set up parameters for fit
+ {                fitInfo.featureMain = obj.feature;
+ {                fitInfo.featureIndex = jFeature;
+ {                fitInfo.fitVecs = fitVecs;
+ {                fitInfo.mask = logical( obj.image);
+ {                fitInfo.image = obj.image;
+ {                fitInfo.numVoxels = size( obj.image);
+ {                fitInfo.channel = obj.parameters.channel;
+ {                fitInfo.time = obj.parameters.time;
+ {                fitInfo.saveDirectory = obj.parameters.saveDirectory;
+ {                fitInfo.alpha = 0.05;
+ {                fitInfo.featureCurrent = fitObj{jFeature};
+ {                fitInfo.fitScope = 'local';
+ {                fitInfo.featureCurrent.fillParams( size( fitInfo.image));
+ {
+ {
+ {                % Make the error function for optimization 
+ {                f = obj.MakeOptimizationFcn( obj.image, fitInfo );
+ {
+ {                % Set Optimization Options
+ {                opts = FitEngine.SetOptimOptions( obj.parameters);
+ {                if strcmp( obj.parameters.state, 'DEBUG')
+ {                    plotHandle = createPlotFcnHandle( fitInfo);
+ {                    fillParamHandle = createFillParamsFcnHandle(fitInfo);
+ {                    opts = optimoptions( opts, 'OutputFcn', {plotHandle,fillParamHandle});
+ {                else
+ {                    fillParamHandle = createFillParamsFcnHandle(fitInfo);
+ {                    opts = optimoptions( opts, 'OutputFcn', fillParamHandle);
+ {                end
+ {
+ {                % Create Optimization Problem
+ {                fitProblem{ jFeature} = createOptimProblem( 'lsqnonlin', ...
+ {                    'objective', f, ...
+ {                    'x0', fitVecs.vec, ...
+ {                    'ub', fitVecs.ub, ...
+ {                    'lb', fitVecs.lb, ...
+ {                    'options', opts);
+ {                fitInformation{ jFeature} = fitInfo;
+ {
+ {            end
+ {
+ {            % Create handle for plotting function
+ {            function stop = createPlotFcnHandle( fitInfo)
+ {                stop = @plotFit;
+ {                function stop = plotFit( x, optimV, state)
+ {                    stop = Cell.plot_midFit(x, optimV, state, fitInfo);
+ {                end
+ {            end
+ {            function stop = createFillParamsFcnHandle( fitInfo)
+ {                stop = @fillParams;
+ {                function stop = fillParams( x, optimV, state)
+ {                    stop = false;
+ {                    fitInfo.featureCurrent.fillParams( size( fitInfo.image));
+ {                end
+ {            end
+ {
+ {        end
+ {        % }}}
+ %}
         % PrepareOptimizeGlobal {{{
         function [ fitProblem, fitInfo] = PrepareOptimizeGlobal( obj)
             
@@ -647,8 +728,6 @@ classdef FitEngine
         % }}}
         
         % }}}
-        
-        
         
     end
 
