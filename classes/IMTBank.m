@@ -458,7 +458,12 @@ classdef IMTBank < OrganizerMaster
                     
                     % Ensure coefficients are within the image region
                     if all( coords{jMTOC}{jmt}(3,:) == size(imageIn,3) )
-                        coeffs{3} = -coeffs{3};
+                        coeffs{3}(1:end-1) = -abs(coeffs{3}(1:end-1));
+                    end
+                    
+                    % Ensure coefficients are within the image region
+                    if all( coords{jMTOC}{jmt}(3,:) == 1 )
+                        coeffs{3}(1:end-1) = +abs(coeffs{3}(1:end-1));
                     end
                     
                     % Get amplitude of microtubule
