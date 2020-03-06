@@ -97,17 +97,17 @@ classdef Line < BasicElement
 
             % Simulate a gaussian line
             if isfield( obj.params, 'idx')
-                if dim == 2
+                if obj.dim == 2
                     imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianLine2D( obj.startPosition, obj.endPosition, ...
                         obj.sigma, imageOut, obj.params.idx, obj.params.x, obj.params.y) );
-                elseif dim == 3
+                elseif obj.dim == 3
                     imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianLine3D( obj.startPosition, obj.endPosition, ...
                         obj.sigma, imageOut, obj.params.idx, obj.params.x, obj.params.y, obj.params.z) );
                 end
             else
-                if dim == 2
+                if obj.dim == 2
                     imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianLine2D( obj.startPosition, obj.endPosition, obj.sigma, imageOut) );
-                elseif dim == 3
+                elseif obj.dim == 3
                     imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianLine3D( obj.startPosition, obj.endPosition, obj.sigma, imageOut) );
                 end
             end
@@ -233,6 +233,7 @@ classdef Line < BasicElement
         function len = GetLength( obj)
             
             len = norm( obj.startPosition - obj.endPosition);
+            obj.length = len;
             
         end
         % }}}
@@ -241,6 +242,35 @@ classdef Line < BasicElement
 
             orientationXY = atan( obj.endPosition(2)-obj.startPosition(2) ./ obj.endPosition(1)-obj.startPosition(1) );
 
+        end
+        % }}}
+        
+        % forceInsideMask {{{
+        function obj = forceInsideMask( obj, mask)
+            % Reduce the length of the line until it lies inside the mask
+            
+            % Simulate image
+            imFeat = obj.simulateFeature( size(mask) );
+            
+            % if escapes from mask, shorten until inside mask
+            outside = Methods.CheckEscapeMask( imFeat, mask, 0.02);
+
+            while outside 
+
+                % Shorten
+                for jc = 1 : obj.dim
+                    coords = linspace( obj.startPosition(jc), obj.endPosition(jc), 100);
+                    obj.endPosition(jc) = coords(95);
+                end
+
+                % Check again
+                imFeat = obj.simulateFeature( size(mask) );
+                outside = Methods.CheckEscapeMask( imFeat, mask);
+                obj.GetLength();
+
+            end
+            
+            
         end
         % }}}
         

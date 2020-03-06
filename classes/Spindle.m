@@ -1,12 +1,6 @@
-classdef Spindle < Organizer
+classdef Spindle < OrganizerMaster
 % A Spindle is a higher level feature that sits inside a mitotic cell. It is composed of 2 MT_arrays and a Microtubule connecting the 2 arrays
     properties
-        numAsters % numAsters = 2
-        props2Fit
-        background
-        backgroundNuclear 
-        maskNuclear
-        image
     end
 
     methods (Access = public)
@@ -28,24 +22,8 @@ classdef Spindle < Organizer
                 %error('Spindle: featureList{3} must be of type ''AsterMT'' ') 
             %end
 
-            obj = obj@Organizer( dim, featureList, 'Spindle');
-            obj.image = image;
-            obj.props2Fit = props2Fit;
-            
-            % initialize featureMap and assign IDs
-            % obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
-
-            obj.numAsters = length(featureList)-1;
-
-            % assign voxels to its basic elements
-            obj.featureList{1}.findVoxelsInsideMask( logical(image) );
-            for jAster = 1 : obj.numAsters
-                for jFeat = 1 : length( obj.featureList{ 1+jAster}.featureList)
-
-                    obj.featureList{1+jAster}.featureList{jFeat}.findVoxelsInsideMask( logical( image) );
-
-                end
-            end
+            obj = obj@OrganizerMaster( dim, image, featureList, props2Fit, 'Spindle');
+            obj.numFeatures = length(featureList);
 
         end
         % }}}
@@ -54,7 +32,7 @@ classdef Spindle < Organizer
         function [vec, vecLabels] = getVec( obj, props)
 
             % Get general environmental properties
-            [vec, vecLabels] = getVecEnvironment( obj, obj.props2Fit);
+            [vec, vecLabels] = obj.getVecEnvironment();
 
             % get vectors from features
             props.spindle = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
@@ -101,7 +79,7 @@ classdef Spindle < Organizer
              
             % Aster Vector
             % Create the vector for each subfeature MT_Array and send it to the objects for absorption
-            for jAster = 1 : obj.numAsters
+            for jAster = 1 : obj.numFeatures-1
 
                 strAster = [ 'SP_', num2str(jAster), '_' ];
                 % Take the vector and find indices associated with the mt_array. 
@@ -166,7 +144,7 @@ classdef Spindle < Organizer
             numFeatures = numFeatures + obj.featureList{3}.numFeatures-1;
 
             % Prepend environmental parameters to each vec and vecLabel
-            [vecE, vecLabelsE] = getVecEnvironment( obj, obj.props2Fit);
+            [vecE, vecLabelsE] = obj.getVecEnvironment();
             
             for jFeat = 1 : numFeatures
                 vecList{jFeat} = [ vecE , [vecList{jFeat}(:)]' ];
@@ -250,43 +228,28 @@ classdef Spindle < Organizer
             
             % For a spindle, we can only remove  astral microtubules
             % For each pole we will find a possible microtubule to remove, then we will pick the best of the two possibilities and remove them from our feature list.
-            % Look at the residual under each astral microtubule
-            % Remove the one with the biggest mean residual.
-            % If there are no microtubules to remove
             successRemove = 1;
-
             % Ask asters to give their worst microtubule features
-            worstFeature{1} = obj.featureList{2}.findWorstFeature( Image2Find);
-            worstFeature{2} = obj.featureList{3}.findWorstFeature( Image2Find);
+            [feat{1}, succ1] = obj.featureList{2}.findLeastPromFeature();
+            [feat{2}, succ2] = obj.featureList{3}.findLeastPromFeature();
 
             % If no features to remove, exit the function
-            if worstFeature{1}.idx == 0 && worstFeature{2}.idx == 0
+            if succ1 == 0 && succ2 == 0
                 successRemove = 0;
                 return
             end
 
-            % Make higher level decision on the worst-est feature
-            [~, idxAster ] = max( [ worstFeature{1}.residual, worstFeature{2}.residual] );
-            idxMT = 1 + worstFeature{ idxAster}.idx;
+            % Make higher level decision on the worst-est feature, find
+            % least prominent feature
+            [~, idxAster ] = min( [ feat{1}.p, feat{2}.p] );
 
             % Remove the worst microtubule
-            obj.featureList{ 1 + idxAster}.removeFeatureFromList( idxMT);
+            obj.featureList{ 1+idxAster }.removeFeatureFromList( feat{idxAster}.idx);
                 
         end
         % }}}
 
-        % findEnvironmentalConditions {{{
-        function obj = findEnvironmentalConditions( obj)
-            % Finds the cytoplasmic and the nucleoplasmic backgrounds
-            
-            imVals = obj.image( obj.image(:) > 0);
-            obj.background = median( imVals);
-
-            % To find the nuclear background, we will raise a threshold value until only
-
-        end
-        % }}}
-        
+        % finalizeAddedFeatures {{{
         function obj = finalizeAddedFeatures(obj)
             
             % Display properties for lines in asters
@@ -300,205 +263,6 @@ classdef Spindle < Organizer
                     obj.featureList{3}.featureList{jL}.display = display;
                 end
             end
-        end
-            
-            
-
-        % getVecEnvironment {{{
-        function [vec, vecLabels] = getVecEnvironment( obj, props2get)
-
-            if nargin < 2
-                props2get = {'background', 'backgroundNuclear'};
-            end
-
-            for jProp = 1 : length( props2get)
-                if ~any( strcmp( props2get{ jProp}, properties( obj) ) )
-                    error( 'getVec : unknown property in props')
-                end
-            end
-
-            % Get vector of Properties
-            % Also get a string array with property names
-            vec = []; vecLabels = {};
-            for jProp = 1 : length( props2get)
-                vec = [ vec, obj.( props2get{jProp} ) ];
-                if numel( obj.( props2get{jProp} ) ) ~= length( obj.( props2get{jProp} ) )
-                    error('getVec : property selected is a non-singleton matrix')
-                end
-                numRep = length( obj.( props2get{jProp} ) );
-                labelRep = cell( 1, numRep);
-                labelRep(:) = props2get(jProp);
-                vecLabels = { vecLabels{:}, labelRep{:} };
-            end
-
-        end
-        % }}}
-        
-        % absorbVecEnvironment {{{
-        function obj = absorbVecEnvironment( obj, vec, vecLabels)
-        
-            props2find = {'background', 'background_nuclear'};
-
-            % find the index of start positions
-            for jProp = 1 : length( props2find)
-                idxProp = find( strcmp( props2find{ jProp} , vecLabels) );
-                
-                % Checking
-                if length( idxProp) == 0
-                    continue
-                end
-                if length( obj.( props2find{ jProp} ) ) ~= length( vec(idxProp) )
-                    error( 'absorbVec: length of vector props to absorb does not match the old property size')
-                end
-            
-                % Set final property
-                obj.( props2find{ jProp} ) = vec( idxProp);
-
-            end
-
-        end
-        % }}}
-        
-        % simulateAll {{{
-        function imageOut = simulateAll( obj, imageIn, featureID)
-           
-            imageOut = imageIn;
-            % Only simulate feature with matching ID
-            % Find the feature
-            cFeature = obj.findObjectFromID( featureID);
-            imageOut = cFeature.simulateFeature( size(imageIn) );
-
-            % Fill background where features are not prominent-er
-            if ~isempty( obj.background)
-%                 imageOut( imageOut < obj.background) = obj.background;
-                imageOut = imageOut + obj.background;
-            end
-
-            % Add nuclear background
-            if ~isempty( obj.backgroundNuclear)
-                imageOut = imageOut + obj.backgroundNuclear.*obj.maskNuclear;
-            end
-
-            % If any features are outside cellular mask, blow up
-            imOut = imageOut .* ~(logical(obj.image));
-            if max(imOut(:)) > obj.background + 0.02*max(imageOut(:))
-                imageOut(:) = Inf;
-            end
-            
-            % Add Cellular Mask
-            imageOut = imageOut .* logical( obj.image);
-            
-        end
-        % }}}
-        
-        %{
-         {% syncFeaturesWithMap {{{
-         {function obj = syncFeaturesWithMap( obj)
-         {    % update the feature ids to reflect any initiliazation/additions/removals
-         {    % update the map with the features ids and their locations
-         {    
-         {    map = obj.featureMap;
-         {    counter = uint32(max( cell2mat( keys( map) ) ) + 1);
-         {    if isempty( counter)
-         {        % initialize it
-         {        counter = uint32(1);
-         {    end
-         {    
-         {    % assign unique ID to features
-         {    
-         {    % Depth 0 (self)
-         {    loc = [];
-         {    obj.ID = counter; 
-         {    map( counter) = loc; counter = counter+1;
-         {    
-         {    % Depth 1 (features)
-         {    for jFeat = 1 : obj.numFeatures
-         {        obj.featureList{jFeat}.ID = counter; 
-         {        map( counter) = [ loc jFeat]; counter=counter+1;
-         {    end
-         {    
-         {    % Depth 2 (subfeatures)
-         {    % assign unique ID to subfeatures
-         {    for j1 = 1 : obj.numFeatures
-         {        % if features are organizers
-         {        if isprop( obj.featureList{j1}, 'numFeatures')
-         {            %assign unique ID to subfeatures
-         {            for j2 = 1 : obj.featureList{j1}.numFeatures
-         {                obj.featureList{j1}.featureList{j2}.ID = counter;
-         {                map( counter) = [ loc j1 j2]; counter=counter+1;
-         {            end
-         {        end
-         {    end
-         {    
-         {    % Depth 3 (subsubfeatures - overkill)
-         {    % assign unique ID to subsubfeatures
-         {    for j1 = 1 : obj.numFeatures
-         {        % if features are organizers
-         {        if isprop( obj.featureList{j1}, 'numFeatures')
-         {            for j2 = 1 : obj.featureList{j1}.numFeatures
-         {                % if subfeatures are organizers
-         {                if isprop( obj.featureList{j1}.featureList{j2}, 'numFeatures')
-         {                    %assign unique ID to subsubfeatures
-         {                    for j3 = 1 : obj.featureList{j1}.numFeatures
-         {                        obj.featureList{j1}.featureList{j2}.featureList{j3}.ID = counter;
-         {                        map( counter) = [ loc j1 j2 j3]; counter=counter+1;
-         {                    end
-         {                end                        
-         {            end
-         {        end
-         {    end
-         {    
-         {end
-         {% }}}
-         %}
-        
-        % findObjectFromID {{{
-        function subObj = findObjectFromID( obj, searchID)
-            % use the featureMap to locate and reutrn the object with ID
-            % searchID
-            
-            % Check Current Object ID
-            if searchID == obj.ID
-                subObj = obj;
-                return
-            end
-            
-            try
-                objLoc = obj.featureMap( searchID);
-            catch
-                error('findObjectFromID : searchID did not match any ID in featureMap')
-            end
-            
-            switch length( objLoc)
-                case 0
-                    subObj = obj;
-                case 1
-                    subObj = obj.featureList{ objLoc(1)};
-                case 2
-                    subObj = obj.featureList{ objLoc(1)}.featureList{ objLoc(2) };
-                case 3
-                    subObj = obj.featureList{ objLoc(1)}.featureList{ objLoc(2) }.featureList{ objLoc(3) };
-                case 4
-                    subObj = obj.featureList{ objLoc(1)}.featureList{ objLoc(2) }.featureList{ objLoc(3) }.featureList{ objLoc(4) };
-                otherwise
-                    error('findObjectFromID : your object is too deep for this function')
-            end
-                
-        end
-        % }}}       
-
-        % saveAsStruct {{{
-        function S = saveAsStruct( obj)
-
-            S.type = obj.type;
-            S.dim = obj.dim;
-            S.image = uint16( obj.image);
-            S.props2Fit = obj.props2Fit;
-
-            for jFeat = 1 : length( obj.featureList)
-                S.featureList{ jFeat} = saveAsStruct( obj.featureList{jFeat} );
-            end
-
         end
         % }}}
         
@@ -527,6 +291,23 @@ classdef Spindle < Organizer
         end
         % }}}
 
+        % findSpindle {{{
+        function spindleObj = findSpindle( imageIn, params, props)
+            % Finds a spindle in the given image
+
+            % Get dimensionality and background
+            dim = length( size(imageIn) );
+            bkg = median( imageIn( imageIn(:) > 0) );
+
+            % Define sigma for this bank
+            if dim == 2
+                sigma=[1.2 1.2];
+            elseif dim == 3
+                sigma=[1.2 1.2 1.0];
+            end
+            spindleObj = 1;
+        end
+        % }}}
     end
 
 end

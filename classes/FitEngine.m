@@ -130,7 +130,8 @@ classdef FitEngine
             
             disp('Global Optimization...')
 
-            % Prepare for the Fit 
+            % Prepare for the Fit
+            obj.feature.forceInsideMask();
             [ fitProblem, fitInfo] = obj.PrepareOptimizeGlobal();
             if isempty(obj.feature.featureList)
                 fprintf('Skipping fitting for %s\n', obj.feature.type);  
@@ -231,7 +232,8 @@ classdef FitEngine
                 % An addition could fail if there are no features that
                 % could be added
                 if successAdd
-
+                    
+                    featureNew.forceInsideMask();
                     obj = SetFeature( obj, featureNew);
 
                     fprintf('- Add N = %d ---> %d\n', feature.getSubFeatureNumber(), featureNew.getSubFeatureNumber() )
@@ -308,6 +310,7 @@ classdef FitEngine
                 if successRemove
 
                     % Run a global fit
+                    featureNew.forceInsideMask();
                     obj = SetFeature( obj, featureNew);
                     fprintf('- Rem N = %d ---> %d\n', feature.getSubFeatureNumber(), featureNew.getSubFeatureNumber() )
 
@@ -500,104 +503,7 @@ classdef FitEngine
 
         end
         % }}}
-%{
- {        % PrepareOptimizeLocal {{{
- {        function [ fitProblem, fitInformation] = PrepareOptimizeLocal( obj)
- {            
- {            % If no features are present to be fitted, assign the essentials and return out
- {            if isempty( obj.feature.featureList)
- {                fitInformation.channel = obj.parameters.channel;
- {                fitInformation.time = obj.parameters.time;
- {                fitInformation.saveDirectory = obj.parameters.saveDirectory;
- {                fitInformation.featureMain = obj.feature;
- {                fitInformation.fitScope = 'local';
- {                fitProblem = [];
- {                return
- {            end
- {        
- {            % Prepare local fit for all features
- {            nFeatures = obj.feature.getSubFeatureNumber();
- {
- {            % Obtain the features to fit, their fit vector and labels 
- {            [ fitVec, fitLabels, fitObj] = getVecLocal( obj.feature);
- {
- {            % Loop over all features
- {            for jFeature = 1 : nFeatures
- {               
- {
- {                clear fitInfo
- {                % Get bounds of parameters to restrict the parameter space
- {                fitVecs = FitEngine.GetVectorBounds(obj, fitVec{jFeature},fitLabels{jFeature});
- {
- {
- {                % Scale the parameters to vary the speed of exploration in the parameter space
- {                if obj.parameters.fitExploreSpeed
- {                    speedVec = obj.getExplorationSpeedVector( fitLabels{ jFeature});
- {                    fitVecs.vec = fitVecs.vec ./ speedVec;
- {                    fitVecs.ub = fitVecs.ub ./ speedVec;
- {                    fitVecs.lb = fitVecs.lb ./ speedVec;
- {                    fitInfo.speedVec = speedVec;
- {                end
- {
- {                % Set up parameters for fit
- {                fitInfo.featureMain = obj.feature;
- {                fitInfo.featureIndex = jFeature;
- {                fitInfo.fitVecs = fitVecs;
- {                fitInfo.mask = logical( obj.image);
- {                fitInfo.image = obj.image;
- {                fitInfo.numVoxels = size( obj.image);
- {                fitInfo.channel = obj.parameters.channel;
- {                fitInfo.time = obj.parameters.time;
- {                fitInfo.saveDirectory = obj.parameters.saveDirectory;
- {                fitInfo.alpha = 0.05;
- {                fitInfo.featureCurrent = fitObj{jFeature};
- {                fitInfo.fitScope = 'local';
- {                fitInfo.featureCurrent.fillParams( size( fitInfo.image));
- {
- {
- {                % Make the error function for optimization 
- {                f = obj.MakeOptimizationFcn( obj.image, fitInfo );
- {
- {                % Set Optimization Options
- {                opts = FitEngine.SetOptimOptions( obj.parameters);
- {                if strcmp( obj.parameters.state, 'DEBUG')
- {                    plotHandle = createPlotFcnHandle( fitInfo);
- {                    fillParamHandle = createFillParamsFcnHandle(fitInfo);
- {                    opts = optimoptions( opts, 'OutputFcn', {plotHandle,fillParamHandle});
- {                else
- {                    fillParamHandle = createFillParamsFcnHandle(fitInfo);
- {                    opts = optimoptions( opts, 'OutputFcn', fillParamHandle);
- {                end
- {
- {                % Create Optimization Problem
- {                fitProblem{ jFeature} = createOptimProblem( 'lsqnonlin', ...
- {                    'objective', f, ...
- {                    'x0', fitVecs.vec, ...
- {                    'ub', fitVecs.ub, ...
- {                    'lb', fitVecs.lb, ...
- {                    'options', opts);
- {                fitInformation{ jFeature} = fitInfo;
- {
- {            end
- {
- {            % Create handle for plotting function
- {            function stop = createPlotFcnHandle( fitInfo)
- {                stop = @plotFit;
- {                function stop = plotFit( x, optimV, state)
- {                    stop = Cell.plot_midFit(x, optimV, state, fitInfo);
- {                end
- {            end
- {            function stop = createFillParamsFcnHandle( fitInfo)
- {                stop = @fillParams;
- {                function stop = fillParams( x, optimV, state)
- {                    stop = false;
- {                    fitInfo.featureCurrent.fillParams( size( fitInfo.image));
- {                end
- {            end
- {
- {        end
- {        % }}}
- %}
+
         % PrepareOptimizeGlobal {{{
         function [ fitProblem, fitInfo] = PrepareOptimizeGlobal( obj)
             
@@ -743,7 +649,7 @@ classdef FitEngine
             opts = optimoptions( @lsqnonlin, ...
                                 'MaxFunEvals', 2000, ...
                                 'OptimalityTolerance', 1e-12, ...
-                                'MaxIter', 10, ...
+                                'MaxIter', 3, ...
                                 'TolFun', 1e-9, ...
                                 'FiniteDifferenceStepSize', 1e-2, ...
                                 'FiniteDifferenceType', 'central', ...
@@ -755,17 +661,17 @@ classdef FitEngine
                 case 'RELEASE'
                     opts = optimoptions( opts, ...
                                         'display', 'off',...
-                                        'MaxIter', 20);
+                                        'MaxIter', 10);
 
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
                                         'display', 'iter' ,...
-                                        'MaxIter', 10);
+                                        'MaxIter', 5);
             end
             
             % Set Parallel Optimization
             if config.useParallel
-                opts = optimoptions( opts, 'UseParallel', true); 
+                opts = optimoptions( opts, 'UseParallel', true);
             end
             
         end

@@ -145,7 +145,7 @@ classdef IMTBank < OrganizerMaster
                         
                         % Find curve coords of given orientation. enforce
                         % having atleast 2 coordinates
-                        coords = Curve.findCurve( Image2Find.*imElse, stPoint(1:2), obj.featureList{ jFeature}.featureList{2}.GetOrientation() );
+                        coords = Curve.findCurve( Image2Find.*imElse, stPoint(1:2), obj.featureList{ jFeature}.featureList{2}.GetOrientation()+pi );
                         if size( coords, 2) < 2
                             continue
                         end
@@ -176,7 +176,8 @@ classdef IMTBank < OrganizerMaster
                         len = feature{jFeature}.GetLength();
                         imFeat2D = max( feature{jFeature}.simulateFeature( size(obj.image) ), [], 3);
                         imFeat2DMask = imFeat2D > 0.1*max(imFeat2D(:));
-                        residual_density(jFeature) = sum( Image2Find(:) .* imFeat2DMask(:) ) / len;
+                        Image2Find2D = max(Image2Find,[],3);
+                        residual_density(jFeature) = sum( Image2Find2D(:) .* imFeat2DMask(:) ) / len;
                         
                 end
             end
@@ -208,38 +209,27 @@ classdef IMTBank < OrganizerMaster
             successRemove = 1;
             
             % Ask asters to give their worst microtubule features
-            worstFeature = cell( 1, obj.numFeatures);
+            feat = cell( 1, obj.numFeatures);
+            succ = zeros( 1, obj.numFeatures);
             for jFeature = 1 : obj.numFeatures
-                worstFeature{jFeature} = obj.featureList{jFeature}.findWorstFeature( Image2Find);
+                [feat{jFeature}, succ(jFeature) ] = obj.featureList{jFeature}.findLeastPromFeature();
             end
             
             % If no features to remove, exit the function
-            if all( cellfun( @(x) x.idx, worstFeature) == 0)
+            if all( succ == 0)
                 successRemove = 0;
                 return
             end
 
-            % Make higher level decision on the worst-est feature
-
-            % Find prominence of features
-            % Prominence = amp * length * mean(sigma)
-            p = zeros(1, length( worstFeature));
-            for jF = 1 : obj.numFeatures
-                if worstFeature{jF}.idx ~= 0
-                    
-                    idx = 1 + worstFeature{ jF}.idx;
-                    % find Prominence
-                    p(jF) = obj.featureList{jF}.featureList{ idx }.amplitude * ...
-                        obj.featureList{jF}.featureList{ idx }.GetLength() * ...
-                        mean( obj.featureList{jF}.featureList{ idx }.sigma);
-                else
-                    p(jF) = 1e9;
+            % Find least prominent feature
+            p = 1e6; idxAster = 0; idx = 0;
+            for jFeature = 1 : obj.numFeatures
+                if succ(jFeature) && feat{jFeature}.p < p
+                    p = feat{jFeature}.p;
+                    idxAster = jFeature;
+                    idx = feat{jFeature}.idx;
                 end
-            end
-            
-            % Find least prominent worst feature
-            [~, idxAster ] = min(p);
-            idx = 1 + worstFeature{ idxAster}.idx;
+            end          
 
             % Remove the worst microtubule
             obj.featureList{ idxAster}.removeFeatureFromList( idx);

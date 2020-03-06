@@ -57,7 +57,7 @@ classdef MonopolarCell < Cell
 
             switch currentFeature
                 case 'Microtubule'
-                    feature = MonopolarCell.findFeaturesDeNovo_MT( image, obj.params.estimate.monopolar);
+                    feature = MonopolarCell.findFeaturesDeNovo_MT( image, obj.params.estimate.monopolar, obj.featureProps.monopolarAster);
 
                 case 'Kinetochore'
                     feature = MonopolarCell.findFeaturesDeNovo_KC( image, obj.params.estimate.kcbank);
@@ -85,7 +85,7 @@ classdef MonopolarCell < Cell
 
             % Ensure the image is from the actual frame
             Image = obj.imageData.GetImage();
-            obj.featureList{ idxChannel, cTime}.image = Image(:,:,:, cTime, cChannel);
+            obj.featureList{ idxChannel, cTime}.image = im2double( Image(:,:,:, cTime, cChannel) );
 
         end
         % }}}
@@ -97,7 +97,7 @@ classdef MonopolarCell < Cell
         % Microtubules {{{
         
         % findFeaturesDeNovo_MT {{{
-        function MonopolarObj = findFeaturesDeNovo_MT( imageIn, params)
+        function MonopolarObj = findFeaturesDeNovo_MT( imageIn, params, props)
 
             % Monopolar Cell:
             %   Find astral microtubules from single pole
@@ -106,11 +106,6 @@ classdef MonopolarCell < Cell
             dim = length( size(imageIn) );
             imageIn = im2double( imageIn);
 
-            props.Pole= {'position', 'amplitude', 'sigma'};
-            props.AsterMT = {'endPosition', 'amplitude', 'sigma'};
-            props.Aster = {'background'};
-            display.Pole = {'Color', [0.7 0 0.7] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
-            display.AsterMT = {'Color', [1 0 1] , 'LineWidth', 3};
             if dim==3, sigma=[1.2 1.2 1.0]; elseif dim==2, sigma=[1.2 1.2]; end
             bkg = median( imageIn( imageIn(:) > 0) );
 
@@ -126,7 +121,7 @@ classdef MonopolarCell < Cell
                     poleAmp = bkg;
                     warning( 'findFeaturesMT_deNovo : forcing PoleAmp to be > 0')
                 end
-                Pole = Spot( pole.position, poleAmp, sigma, dim, props.Pole, display.Pole);
+                Pole = Spot( pole.position, poleAmp, sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot);
             else
                 error('Monopolar Cell must have a microtubule pole')
             end
@@ -143,9 +138,7 @@ classdef MonopolarCell < Cell
 
                     lineAmp = median( Cell.findAmplitudeAlongLine( imageIn, Aster.MT{jmt}.startPosition, Aster.MT{jmt}.endPosition ) )-bkg;
 
-                    newMT = Line( Aster.MT{jmt}.startPosition, Aster.MT{jmt}.endPosition, lineAmp, sigma, dim, props.AsterMT, display.AsterMT);
-
-                    newMT.findVoxelsInsideMask( logical(imageIn) );
+                    newMT = Line( Aster.MT{jmt}.startPosition, Aster.MT{jmt}.endPosition, lineAmp, sigma, dim, props.fit{dim}.line, props.graphics.aster.line);
                     lines = { lines{:}, newMT };
 
                 end
@@ -159,7 +152,7 @@ classdef MonopolarCell < Cell
             AsterObj  = AsterMT( dim, Pole, lines{:} );
 
             % Monopolar Aster Feature 
-            MonopolarObj = MonopolarAster( dim, imageIn, {AsterObj}, props.Aster);
+            MonopolarObj = MonopolarAster( dim, imageIn, {AsterObj}, props);
 
             if displayFlag
                 fName = 'estimate_monopolar';

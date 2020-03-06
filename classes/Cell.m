@@ -454,7 +454,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Define the step sizes to use for the angular sweep in phi. 
             PhiStep = deg2rad(2);
             rmin = 1;
-            rmax = 10;
+            rmax = 15;
             phiValues = 0 : PhiStep : 2*pi - PhiStep;
 
             % Pre-allocate array for storing intensity data with varying phi.
@@ -1264,7 +1264,7 @@ classdef Cell < handle & matlab.mixin.Copyable
         end
         % }}}
         % }}}
-            
+        
         % Graphics {{{
         
         % plot_midFit {{{
@@ -1648,7 +1648,7 @@ classdef Cell < handle & matlab.mixin.Copyable
 
         end
         % }}}
-        % dispImg {{{        
+        % dispImg {{{
         function dispImg( varargin)
                 
             if length(varargin) == 1 && ( isa( varargin{1}, 'double') || isa( varargin{1}, 'logical') || isa( varargin{1}, 'uint8') || isa( varargin{1}, 'single') )
@@ -1755,10 +1755,10 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Spot
             spot.fit{2} = {'position', 'amplitude', 'sigma'};
             spot.fit{3} = {'position', 'amplitude', 'sigma'};
-            spot.graphics.magenta = {'Color', [0.7 0 0.7] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
-            spot.graphics.green = {'Color', [0 1 0] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
-            spot.graphics.blue = {'Color', [0 0 1] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
-            spot.graphics.red = {'Color', [1 0 0] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
+            spot.graphics.magenta = {'Color', [0.7 0 0.7] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 2};
+            spot.graphics.green = {'Color', [0 1 0] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 2};
+            spot.graphics.blue = {'Color', [0 0 1] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 2};
+            spot.graphics.red = {'Color', [1 0 0] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 2};
 
             % Line
             line.fit{2} = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
@@ -1767,6 +1767,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             line.graphics.green = {'Color', [0 1 0] , 'LineWidth', 2};
             line.graphics.blue = {'Color', [0 0 1] , 'LineWidth', 2};
             line.graphics.red = {'Color', [1 0 0] , 'LineWidth', 2};
+            line.graphics.redWide = {'Color', [1 0 0] , 'LineWidth', 4};
             
             % Curve
             curve.fit{2} = {'startPosition','cX','cY','amplitude','sigma'};
@@ -1811,12 +1812,12 @@ classdef Cell < handle & matlab.mixin.Copyable
             spindle.fit{3}.aster = asterLine.fit{3};
             spindle.fit{3}.aster.spot(1) = [];
             spindle.fit{3}.Environment = env1;
-            spindle.graphics.line = curve.graphics.red;
+            spindle.graphics.line = line.graphics.redWide;
             spindle.graphics.aster.spot = spot.graphics.blue;
-            spindle.graphics.aster.line = curve.graphics.green;
+            spindle.graphics.aster.line = line.graphics.green;
             spindle.fit{2}.spot = spot.fit{2};
             spindle.fit{3}.spot = spot.fit{3};
-            spindle.graphics.spot = curve.graphics.blue;
+            spindle.graphics.spot = line.graphics.blue;
             props.spindle = spindle;
 
             % Monopolar Aster

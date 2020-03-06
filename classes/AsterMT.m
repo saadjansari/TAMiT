@@ -96,6 +96,9 @@ classdef AsterMT < Organizer
         function missingFeature = findBestMissingFeature( obj, Image2Find, xAngle, xRange, featType)
             % featType = 'Line' or 'Curve'
             
+            if nargin <5
+                featType = 'Line';
+            end
             % Find Possible missing features
             missingFeatures = findMissingFeatures( obj, Image2Find, xAngle, xRange, featType);
 
@@ -163,34 +166,78 @@ classdef AsterMT < Organizer
         end
         % }}}
 
-        % findWorstFeature {{{
-        function worstFeature = findWorstFeature( obj, ImageRef)
-            % finds the worst microtubule in this aster by looking at the max values under ImageRef.
+        % findHighResFeature {{{
+        function [feat, success] = findHighResFeature( obj, ImageRef)
+            % finds the worst microtubule in this aster by looking at the
+            % residual( max values under ImageRef)
             % Output :  worstFeature.idx is the idx of the feature (if idx = 0, there are no removable features in this aster)
             %           worstFeature.residual is the summed residual density of this feature
 
-            worstFeature.residual = [];
+            feat.residual = [];
+            feat.idx = 0;
+            feat.feature = [];
+            success = 1;
+            
+            % If no features to remove, exit the function
+            if obj.numFeatures == 1
+                success = 0;
+                return
+            end
+            
+            res = zeros(1, obj.numFeatures);
             for jmt = 2 : obj.numFeatures
 
                 % Get length of feature
                 len = obj.featureList{jmt}.GetLength();
+                
                 % Find the summed residual under each microtubule
                 switch obj.featureList{jmt}.type
                     case 'Line'
-                        worstFeature.residual(jmt-1) = sum( Cell.findAmplitudeAlongLine( ImageRef, obj.featureList{jmt}.startPosition, obj.featureList{jmt}.endPosition) ) / len;
+                        res(jmt) = sum( Cell.findAmplitudeAlongLine( ImageRef, obj.featureList{jmt}.startPosition, obj.featureList{jmt}.endPosition) ) / len;
                     case 'Curve'
-                        worstFeature.residual(jmt-1) = sum( Cell.findAmplitudeAlongCurve( ImageRef, obj.featureList{jmt}.GetCoeffFull() ) ) /len;
+                        res(jmt) = sum( Cell.findAmplitudeAlongCurve( ImageRef, obj.featureList{jmt}.GetCoeffFull() ) ) /len;
                 end
             end
 
             % worst microtubule of this aster
-            if isempty( worstFeature.residual)
-                worstFeature.idx = 0;
-                worstFeature.residual = NaN;
-            else
-                [ worstFeature.residual , worstFeature.idx ] = max( worstFeature.residual);
+            [ feat.residual , feat.idx ] = max( res);
+            feat.feature = obj.featureList{feat.idx};
+
+        end
+        % }}}
+        
+        % findLeastPromFeature {{{
+        function [feat, success] = findLeastPromFeature( obj)
+            % finds the worst microtubule in this aster by looking at prominence of features.
+            % Prominence = amp * length * mean(sigma)
+            
+            feat.idx = 0;
+            feat.feature = [];
+            feat.p = [];
+            success = 1;
+
+            % If no features to remove, exit the function
+            if obj.numFeatures == 1
+                success = 0;
+                return
             end
 
+            % Find prominence of features
+            p = zeros(1, obj.numFeatures);
+            for idx = 2 : obj.numFeatures
+                
+                % find Prominence
+                p(idx) = obj.featureList{ idx }.amplitude * ...
+                    obj.featureList{ idx }.GetLength() * ...
+                    mean( obj.featureList{ idx }.sigma);
+
+            end
+            p(1) = max(p)+1;
+            
+            % Find least prominent worst feature
+            [feat.p, feat.idx ] = min(p);
+            feat.feature = obj.featureList{feat.idx};
+            
         end
         % }}}
 

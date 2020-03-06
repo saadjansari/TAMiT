@@ -59,7 +59,7 @@ classdef MitoticCell < Cell
 
             switch currentFeature
                 case 'Microtubule'
-                    feature = MitoticCell.findFeaturesDeNovo_MT( image, obj.params.estimate.spindle);
+                    feature = MitoticCell.findFeaturesDeNovo_MT( image, obj.params.estimate.spindle, obj.featureProps.spindle);
 
                 case 'Kinetochore'
                     feature = MitoticCell.findFeaturesDeNovo_KC( image, obj.params.estimate.kcbank);
@@ -87,7 +87,7 @@ classdef MitoticCell < Cell
 
             % Ensure the image is from the actual frame
             Image = obj.imageData.GetImage();
-            obj.featureList{ idxChannel, cTime}.image = Image(:,:,:, cTime, cChannel);
+            obj.featureList{ idxChannel, cTime}.image = im2double( Image(:,:,:, cTime, cChannel) );
 
         end
         % }}}
@@ -99,7 +99,7 @@ classdef MitoticCell < Cell
         % Microtubules {{{
         
         % findFeaturesDeNovo_MT {{{
-        function spindleObj = findFeaturesDeNovo_MT( imageIn, params)
+        function spindleObj = findFeaturesDeNovo_MT( imageIn, params, props)
 
             % Mitotic Cell:
             %   Find the Spindle microtubule
@@ -110,13 +110,13 @@ classdef MitoticCell < Cell
             imageIn = im2double( imageIn);
             spindleExclusionRange = deg2rad(45);
 
-            props.SPB = {'position', 'amplitude', 'sigma'};
-            props.SpindleMT = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
-            props.AsterMT = {'endPosition', 'amplitude', 'sigma'};
-            props.Spindle = {'background'};
-            display.SPB = {'Color', [0.7 0 0.7] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
-            display.SpindleMT= {'Color', [1 0 1] , 'LineWidth', 5};
-            display.AsterMT = {'Color', [1 0 1] , 'LineWidth', 3};
+            %props.SPB = {'position', 'amplitude', 'sigma'};
+            %props.SpindleMT = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
+            %props.AsterMT = {'endPosition', 'amplitude', 'sigma'};
+            %props.Spindle = {'background'};
+            %display.SPB = {'Color', [0.7 0 0.7] , 'Marker', '*', 'MarkerSize', 10, 'LineWidth', 2};
+            %display.SpindleMT= {'Color', [1 0 1] , 'LineWidth', 5};
+            %display.AsterMT = {'Color', [1 0 1] , 'LineWidth', 3};
             if dim==3, sigma=[1.2 1.2 1.0]; elseif dim==2, sigma=[1.2 1.2]; end
             bkg = median( imageIn( imageIn(:) > 0) );
 
@@ -127,9 +127,10 @@ classdef MitoticCell < Cell
             % Create the Spindle MT
             if params.spindleMT
                 lineAmpList = Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition );
-                spindleAmp = lineAmpList( round( length(lineAmpList)/2) ) - bkg;
-                spindleMT = Line( spindle.MT.startPosition, spindle.MT.endPosition, spindleAmp, sigma, dim, props.SpindleMT, display.SpindleMT );
-                spindleMT.findVoxelsInsideMask( logical(imageIn) );
+%                 spindleAmp = lineAmpList( round( length(lineAmpList)/2) ) - bkg;
+                spindleAmp = median(lineAmpList) - bkg;
+                spindleMT = Line( spindle.MT.startPosition, spindle.MT.endPosition, spindleAmp, sigma, dim, props.fit{dim}.line, props.graphics.line);
+                %spindleMT.findVoxelsInsideMask( logical(imageIn) );
             else
                 fprintf('Not estimating spindle MT\n')
             end
@@ -146,8 +147,8 @@ classdef MitoticCell < Cell
                     spbAmp( spbAmp < 0) = bkg;
                     warning( 'findFeaturesMT_deNovo : forcing SPBAmp to be > 0')
                 end
-                SPB{1} = Spot( spindleMT.startPosition, spbAmp(1), sigma, dim, props.SPB, display.SPB);
-                SPB{2} = Spot( spindleMT.endPosition, spbAmp(2), sigma, dim, props.SPB, display.SPB);
+                SPB{1} = Spot( spindleMT.startPosition, spbAmp(1), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot);
+                SPB{2} = Spot( spindleMT.endPosition, spbAmp(2), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot);
                 AsterObjects{1} = SPB{1};
                 AsterObjects{2} = SPB{2};
             end
@@ -170,9 +171,9 @@ classdef MitoticCell < Cell
 
                         lineAmp = median( Cell.findAmplitudeAlongLine( imageIn, spindle.Aster{jAster}.MT{jmt}.startPosition, spindle.Aster{jAster}.MT{jmt}.endPosition ) )-bkg;
 
-                        newMT = Line( spindle.Aster{jAster}.MT{jmt}.startPosition, spindle.Aster{jAster}.MT{jmt}.endPosition, lineAmp, sigma, dim, props.AsterMT, display.AsterMT);
+                        newMT = Line( spindle.Aster{jAster}.MT{jmt}.startPosition, spindle.Aster{jAster}.MT{jmt}.endPosition, lineAmp, sigma, dim, props.fit{dim}.line, props.graphics.aster.line);
 
-                        newMT.findVoxelsInsideMask( logical(imageIn) );
+                        %newMT.findVoxelsInsideMask( logical(imageIn) );
 
                         if isempty( AstralMT{jAster} )
                             AstralMT{jAster} = {newMT};
@@ -200,9 +201,9 @@ classdef MitoticCell < Cell
             % Spindle Feature
             % SpindleMT + 2 Asters stored in a Spindle
             if isempty( AsterObjects) 
-                spindleObj = Spindle( dim, imageIn, {spindleMT}, props.Spindle);
+                spindleObj = Spindle( dim, imageIn, {spindleMT}, props);
             else
-                spindleObj = Spindle( dim, imageIn, {spindleMT, Asters{:} }, props.Spindle);
+                spindleObj = Spindle( dim, imageIn, {spindleMT, Asters{:} }, props);
             end
 
             if displayFlag
@@ -231,7 +232,7 @@ classdef MitoticCell < Cell
 
             % Params
             spindleDeterminationSensitivity = 0.6;
-            spindleMinIntensity = 0.75;
+            spindleMinIntensity = 0.85;
             linewidth = 3;
             brightestPixelAsSPB = 0;
             imMask3D = imageIn > 0;
