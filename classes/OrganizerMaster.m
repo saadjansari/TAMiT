@@ -216,7 +216,7 @@ classdef OrganizerMaster < Organizer
 
             S.type = obj.type;
             S.dim = obj.dim;
-            S.image = uint16( obj.image);
+            S.image = im2double( obj.image);
             S.props2Fit = obj.props2Fit;
             S.mask = obj.mask;
 
