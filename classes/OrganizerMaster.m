@@ -141,8 +141,9 @@ classdef OrganizerMaster < Organizer
                
                 % Check if escape mask
                 [outside, amt] = Methods.CheckEscapeMask( imageIn, mask);
+                scaling = 0.05;
                 if outside
-                    imageOut = imageIn*(1+amt) -amt*obj.image;
+                    imageOut = imageIn*(1+scaling*0.1) -amt*scaling*obj.image;
                     disp('   Warning: OrganizerMaster.simulateAll - feature escaped 2D mask, applying scaled cost to force reflection')
                 else
                     imageOut = imageIn;

@@ -58,13 +58,15 @@ classdef Tracking < handle
                 %disp( 'temp bypass of analysis file check')
                 %fprintf('   Analysis: channel %d with feature %s...\n', obj.channels( jChannel), obj.features{ jChannel}); 
                 %dat = obj.analyzeChannel( jChannel); save( fname, 'dat', '-v7.3');
-                 if exist(fname) ~= 2
+                 %if exist(fname) ~= 2
+
                      fprintf('   Analysis: channel %d with feature %s...\n', obj.channels( jChannel), obj.features{ jChannel}); 
                      dat = obj.trackChannel( jChannel); save( fname, 'dat', '-v7.3'); 
-                 else
-                     fprintf('   Analysis: data exists, loading from file...\n')
-                     load( fname); obj.data{jChannel} = dat;
-                 end
+
+                 %else
+                     %fprintf('   Analysis: data exists, loading from file...\n')
+                     %load( fname); obj.data{jChannel} = dat;
+                 %end
 
                 % graph channel analysis
                 %if obj.flagGraph
@@ -88,9 +90,9 @@ classdef Tracking < handle
             % Track features in this channel 
                 
             % Extract features for this chanell 
-            mainFeatures = obj.extractMainFeatures(jChannel); 
+            mainFeatures{jChannel} = obj.extractMainFeatures(jChannel); 
 
-            [features, finfo] = obj.getBasicFeatures( mainFeatures);
+            [features, finfo] = obj.getBasicFeatures( mainFeatures{jChannel});
 
             %obj.data{jChannel}.tag = obj.features{jChannel};
             %data = obj.data{jChannel};
@@ -124,13 +126,16 @@ classdef Tracking < handle
         function [features, finfo] = getBasicFeatures( obj, mainFeatures)
             % extract basic features from the main features
 
-            % Current channel 
-            channel = obj.channels( jChannel);
-
+            features = [];
             for jTime = 1 : length( obj.times)
 
                 time = obj.times( jTime);
-                feats = mainFeatures{jTime}.getListBasicFeatures();
+                feats = mainFeatures{jTime}.GetStructBasicFeatures();
+                
+                % Append time
+                [feats.time] = deal(time);
+                
+                features = Methods.combineStructsIntoArray( features, feats);
 
             end
 
@@ -607,7 +612,7 @@ classdef Tracking < handle
             params = initTrackingParams();
 %             addpath( genpath( params.pathParent) );
             addpath( genpath( [pwd, filesep, 'classes']) );
-
+            addpath( genpath( [pwd, filesep, 'functions/external']) );
             % if params not provided, find the params
             if nargin < 2
                 %params = initAnalysisParams();
@@ -629,7 +634,7 @@ classdef Tracking < handle
             params.resPath = resPathCell;
 
             % Initialize analysis object
-            TCell = TrackingSingleCell( resPathCell, params.Cell.params.cellInfo.type, params.channelsToAnalyze, params.channelFeatures, params.flagMovie, params.flagGraph);
+            TCell = Tracking( resPathCell, params.Cell.params.cellInfo.type, params.channelsToAnalyze, params.channelFeatures, params.flagMovie, params.flagGraph);
 
             % analyze the cell
             TCell.Track();

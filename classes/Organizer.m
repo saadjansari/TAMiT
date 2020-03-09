@@ -406,17 +406,14 @@ classdef Organizer < Feature
 
         % GetStructBasicFeatures {{{
         function feats = GetStructBasicFeatures(obj)
-
-            next = 1
+            
+            feats = [];
             for jf = 1 : obj.numFeatures
                 type = obj.featureList{jf}.type;
                 if any(strcmp( superclasses( type), 'BasicElement'))
-                    feats(next) = obj.featureList{jf}.GetStructInfo();
-                    next = next+1;
+                    feats = Methods.combineStructsIntoArray( feats, obj.featureList{jf}.GetStructInfo() );
                 elseif any(strcmp( superclasses( type), 'Organizer'))
-                    feat = obj.featureList{jf}.GetStructBasicFeatures();
-                    feats(next:next+length(feat)-1) = feat;
-                    next = next+length(feat);
+                    feats = Methods.combineStructsIntoArray( feats, obj.featureList{jf}.GetStructBasicFeatures() );
                 end
             end
 

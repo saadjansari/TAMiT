@@ -292,7 +292,11 @@ classdef AsterMT < Organizer
             % Load all the features from their structures recursively
             featureList{ 1} = Spot.loadFromStruct( S.featureList{ 1} ); 
             for jFeat = 2: length( S.featureList)
-                featureList{ jFeat} = Line.loadFromStruct( S.featureList{jFeat} ); 
+                try
+                    featureList{ jFeat} = Line.loadFromStruct( S.featureList{jFeat} );
+                catch
+                    featureList{ jFeat} = Curve.loadFromStruct( S.featureList{jFeat} );
+                end
             end
 
             obj = AsterMT( S.dim, featureList{:});

@@ -158,6 +158,7 @@ classdef AnalysisSingleCell < handle
             % Analyze some type of microtubule feature (e.g. Spindle, Monopolar, InterphaseBank)
             
             % Simulate the mt image
+            mainFeature.fillParams( size(mainFeature.image) );
             obj.simImageMT(:,:,:,jTime) = mainFeature.simulateFeature( size(mainFeature.image) );
 
             switch mainFeature.type

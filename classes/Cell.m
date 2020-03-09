@@ -899,12 +899,17 @@ classdef Cell < handle & matlab.mixin.Copyable
                 size(imageIn)
                 error('drawGaussianLine3D: all data must be 3-dimensional')
             end
+            
+            if any( sigma > 2.01) || any(sigma < 0.99)
+                stoph = 1;
+            end
 
             if nargin < 4
                 idx = 1 : numel( imageIn);
             end
             if nargin < 7
                 [y, x, z] = ind2sub( size( imageIn), idx);
+                x=x'; y=y';z=z';
             end
 
             dim = length( size(imageIn) );
@@ -987,6 +992,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             end
             if nargin < 6
                 [y, x] = ind2sub( size( imageIn), idx);
+                x=x'; y=y';
             end
 
             dim = length( size(imageIn) );

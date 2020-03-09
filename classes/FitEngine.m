@@ -112,6 +112,7 @@ classdef FitEngine
 
                 % Solve Optimization Problem
                 fitInfo{ jFeature}.fitResults = obj.SolveOptimizationProblem( fitProblem{ jFeature} );
+                obj.updateFinalFeature( fitInfo{jFeature} );
                 
                 % Update feature heirarchy to ensure all dependencies are acknowledged
                 obj.feature.updateSubFeatures();
@@ -140,6 +141,7 @@ classdef FitEngine
 
             % Solve Optimization Problem
             fitInfo.fitResults = obj.SolveOptimizationProblem( fitProblem );
+            obj.updateFinalFeature( fitInfo);
             fitInfo.fitInfoOld = fitInfo;
             fitInfo.fitVecOld = fitInfo.fitVecs.vec;
 
@@ -635,6 +637,19 @@ classdef FitEngine
         
         % }}}
         
+        % updateFinalFeature {{{
+        function obj = updateFinalFeature( obj, fitInfo)
+            
+            labels = fitInfo.fitVecs.labels;
+            vec = fitInfo.fitResults.vfit;
+            if obj.parameters.fitExploreSpeed
+                vec = vec .* fitInfo.speedVec;
+            end
+            fitInfo.featureCurrent.absorbVec(vec, labels);
+            
+        end
+        % }}}
+        
     end
 
     methods (Static = true)
@@ -660,7 +675,7 @@ classdef FitEngine
             switch config.state
                 case 'RELEASE'
                     opts = optimoptions( opts, ...
-                                        'display', 'off',...
+                                        'display', 'iter',...
                                         'MaxIter', 10);
 
                 case 'DEBUG'

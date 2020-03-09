@@ -1576,7 +1576,7 @@ classdef Methods
             % imageIn: simulated image of any number of features
 
             if nargin < 3
-                sens = 0.2;
+                sens = 0.5;
             end
             status = 0; amt=0;
             % Maximum Intensity of simulated image
@@ -1595,6 +1595,36 @@ classdef Methods
         end
         % }}}
 
+        % combineStructsIntoArray {{{
+        function st = combineStructsIntoArray( res1, res2)
+           
+            if isempty(res1), st = res2; return; end
+            if isempty(res2), st = res1; return; end
+            
+            res1fields = fieldnames(res1(1));
+            res2fields = fieldnames(res2(1));
+            %add fields that are in res2 but not in res1
+            res1copy = res1;
+            for K = 1 : length(res2fields)
+                thisfield = res2fields{K};
+                if ~ismember(thisfield, res1fields)
+                    res1copy(1).(thisfield) = [];   %create the field, make it empty
+                end
+            end
+            %add fields that are in res1 but not in res2
+            res2copy = res2;
+            for K = 1 : length(res1fields)
+                thisfield = res1fields{K};
+                if ~ismember(thisfield, res2fields)
+                    res2copy(1).(thisfield) = [];   %create the field, make it empty
+                end
+            end
+            %now do the appending
+            st = [res2copy, res1copy]; 
+            
+        end
+        % }}}
+        
     end
 end
 

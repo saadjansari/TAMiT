@@ -183,6 +183,7 @@ classdef Spot < BasicElement
             feat.position = obj.position;
             feat.amplitude = obj.amplitude;
             feat.sigma = obj.sigma;
+            feat.ID = obj.ID;
         end
         % }}}
 

@@ -95,6 +95,11 @@ classdef Curve < BasicElement
                 obj.( props2find{ jProp} ) = vec( idxProp);
 
             end
+            
+%             if any(obj.sigma > 2.01)
+%                 disp('curve ub sigma issues')
+%                 stoph = 1;
+%             end
 
         end
         % }}}
@@ -344,6 +349,16 @@ classdef Curve < BasicElement
 
             end
             
+            % Also ensure that feature is within the z-planes if 3D
+            if obj.dim == 3
+                if obj.startPosition(3) >= 7
+                    obj.cZ(end) = -0.01;
+                end
+                if obj.startPosition(3) <= 1
+                    obj.cZ(end) = 0.01;
+                end
+            end
+            
         end
         % }}}
 
@@ -373,8 +388,13 @@ classdef Curve < BasicElement
             
             if S.dim == 2
                 cf = {S.cX, S.cY};
+                cf{1}(1+end) = S.startPosition(1);
+                cf{2}(1+end) = S.startPosition(2);
             elseif S.dim==3
                 cf = {S.cX,S.cY,S.cZ};
+                cf{1}(1+end) = S.startPosition(1);
+                cf{2}(1+end) = S.startPosition(2);
+                cf{3}(1+end) = S.startPosition(3);
             end
             
             obj = Curve( S.startPosition, cf, S.amplitude, S.sigma, S.dim, S.props2Fit, S.display);
