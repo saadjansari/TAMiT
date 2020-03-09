@@ -270,11 +270,14 @@ classdef AsterMT < Organizer
         end
         % }}}
         
+        % GetProjection2DSpecific {{{
         function obj = GetProjection2DSpecific( obj)
            % Get 2D projection of feature
             
         end
+        % }}}
         
+
     end
 
     methods( Static = true )

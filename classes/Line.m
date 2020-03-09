@@ -237,6 +237,7 @@ classdef Line < BasicElement
             
         end
         % }}}
+        
         % GetOrientation {{{
         function orientationXY = GetOrientation( obj)
 
@@ -271,6 +272,19 @@ classdef Line < BasicElement
             end
             
             
+        end
+        % }}}
+        
+        % GetStructInfo {{{
+        function feat = GetStructInfo (obj)
+            feat.type = obj.type;
+            feat.startPosition = obj.startPosition;
+            feat.endPosition = obj.endPosition;
+            feat.amplitude = obj.amplitude;
+            feat.sigma = obj.sigma;
+            feat.length = obj.GetLength();
+            feat.orientation = obj.GetOrientation();
+            feat.ID = obj.ID;
         end
         % }}}
         

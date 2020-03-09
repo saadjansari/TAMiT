@@ -1,17 +1,15 @@
-classdef AnalysisSingleCell < handle
-    % This is the data analysis class. It is basically a container for all activities analysis related
+classdef Tracking < handle
+    % This is the tracking class. It loads in raw data from fitting, and runs cost analysis to link features over time. This preceeds analysis. 
     properties
         path
         cellType
         features
         channels = []
         times = []
-        timeStep
         sizeVoxels = [0.1067 0.1067 0.5]; %default
         numVoxels 
         data
         folderName
-        goodFrame = 1
         flagMovie
         flagGraph
         simImageMT
@@ -19,33 +17,22 @@ classdef AnalysisSingleCell < handle
 
     methods (Access = public )
 
-        % AnalysisSingleCell {{{
-        function obj = AnalysisSingleCell( pathResCell, cellType, channels, features, timeStep, sizeVoxels, flagMovie, flagGraph)
-            % Contruct the Analysis Object
+        % Tracking {{{
+        function obj = Tracking( pathResCell, cellType, channels, features, flagMovie, flagGraph)
+            % Contruct the Tracking Object
             
             obj.path = pathResCell;
             if ~strcmp(cellType, 'Mitosis') && ~strcmp( cellType, 'Interphase') && ~strcmp( cellType, 'Monopolar')
-                error('AnalysisBank: unknown cellType, allowed values are Mitosis and Interphase and Monopolar.')
+                error('Tracking: unknown cellType, allowed values are Mitosis, Interphase and Monopolar.')
             end
 
             obj.cellType = cellType;
-
             obj.channels = channels;
 
             if ~any( strcmp(features, 'Microtubule') ) && ~any( strcmp( features, 'Kinetochore') ) && ~any( strcmp( feature, 'Cut7' ) )
-                error('AnalysisBank: unknown feature, allowed values are Microtubule, Kinetochore, and Cut7.')
+                error('Tracking: unknown feature, allowed values are Microtubule, Kinetochore, and Cut7.')
             end
-
             obj.features = features;
-
-            if nargin > 4
-                obj.timeStep = timeStep;
-            end
-
-            if nargin > 5
-                obj.sizeVoxels = sizeVoxels;
-            end
-
             [~, obj.folderName, ~] = fileparts( pathResCell);
 
             if nargin > 6
@@ -56,84 +43,100 @@ classdef AnalysisSingleCell < handle
         end
         % }}}
         
-        % Analyze {{{
-        function Analyze( obj)
-            % Analyze the object
+        % Track {{{
+        function Track( obj)
+            % Track the features 
 
-            % Analyze each channel
+            % Track features in each channel
             for jChannel = 1: length( obj.channels)
 
-                % Find times for analysis
+                % Find times 
                 obj.times = obj.findTimes( obj.channels( jChannel));
             
-                % Analysis
-                fname = [obj.path,filesep,'analysisData_',num2str(jChannel),'.mat'];
-                disp( 'temp bypass of analysis file check')
-                fprintf('   Analysis: channel %d with feature %s...\n', obj.channels( jChannel), obj.features{ jChannel}); 
-                dat = obj.analyzeChannel( jChannel); save( fname, 'dat', '-v7.3');
-%                 if exist(fname) ~= 2
-%                     fprintf('   Analysis: channel %d with feature %s...\n', obj.channels( jChannel), obj.features{ jChannel}); 
-%                     dat = obj.analyzeChannel( jChannel); save( fname, 'dat', '-v7.3'); 
-%                 else
-%                     fprintf('   Analysis: data exists, loading from file...\n')
-%                     load( fname); obj.data{jChannel} = dat;
-%                 end
+                % Track 
+                fname = [obj.path,filesep,'trackingData_',num2str(jChannel),'.mat'];
+                %disp( 'temp bypass of analysis file check')
+                %fprintf('   Analysis: channel %d with feature %s...\n', obj.channels( jChannel), obj.features{ jChannel}); 
+                %dat = obj.analyzeChannel( jChannel); save( fname, 'dat', '-v7.3');
+                 if exist(fname) ~= 2
+                     fprintf('   Analysis: channel %d with feature %s...\n', obj.channels( jChannel), obj.features{ jChannel}); 
+                     dat = obj.trackChannel( jChannel); save( fname, 'dat', '-v7.3'); 
+                 else
+                     fprintf('   Analysis: data exists, loading from file...\n')
+                     load( fname); obj.data{jChannel} = dat;
+                 end
 
                 % graph channel analysis
-                if obj.flagGraph
-                    fprintf('   Graphing...\n')
-                    obj.graphChannel( jChannel);
-                end
+                %if obj.flagGraph
+                    %fprintf('   Graphing...\n')
+                    %obj.graphChannel( jChannel);
+                %end
 
                 % Make movie
-                if obj.flagMovie 
-                    fprintf('   Directing movies...\n')
-                    obj.makeMovie( jChannel);
-                end
+                %if obj.flagMovie 
+                    %fprintf('   Directing movies...\n')
+                    %obj.makeMovie( jChannel);
+                %end
 
             end
 
         end
         % }}}
 
-        % analyzeChannel{{{
-        function data = analyzeChannel( obj, jChannel)
-            % Analyze this frame
-            for jFrame = 1 : length( obj.times)
-                fprintf('      Analyzing time %d...\n', obj.times( jFrame)); 
-                obj.analyzeFrame( jChannel, jFrame);
-            end
-            obj.data{jChannel}.tag = obj.features{jChannel};
-            data = obj.data{jChannel};
+        % trackChannel{{{
+        function data = trackChannel( obj, jChannel)
+            % Track features in this channel 
+                
+            % Extract features for this chanell 
+            mainFeatures = obj.extractMainFeatures(jChannel); 
+
+            [features, finfo] = obj.getBasicFeatures( mainFeatures);
+
+            %obj.data{jChannel}.tag = obj.features{jChannel};
+            %data = obj.data{jChannel};
             
         end
         % }}}
 
-        % analyzeFrame {{{
-        function analyzeFrame( obj, jChannel, jTime)
-            % Analyze the time given in cTime
+        % extractMainFeatures {{{
+        function features = extractMainFeatures( obj, jChannel)
+            % extract the features for this channel 
 
             % Current channel 
             channel = obj.channels( jChannel);
-            time = obj.times( jTime);
 
-            % Load the data file if available
-            timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_final.mat']; 
-            timeData = load( timeDataFile);
-            obj.goodFrame = jTime;
+            for jTime = 1 : length( obj.times)
 
-            % Initialize main feature from loaded data
-            eval( ['mainFeature = ' timeData.featureMainStruct.type '.loadFromStruct( timeData.featureMainStruct);'] );
+                time = obj.times( jTime);
+                % Load the data file if available
+                timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_final.mat']; 
+                timeData = load( timeDataFile);
 
-            % Run Feature Specific analysis
-            obj.analyzeFeature( mainFeature, jChannel, jTime);
+                % Initialize main feature from loaded data
+                eval( ['features{jTime} = ' timeData.featureMainStruct.type '.loadFromStruct( timeData.featureMainStruct);'] );
 
-            % Save information for making movies
-            obj.data{jChannel}.features{jTime} = mainFeature;
+            end
 
         end
         % }}}
 
+        % getBasicFeatures {{{
+        function [features, finfo] = getBasicFeatures( obj, mainFeatures)
+            % extract basic features from the main features
+
+            % Current channel 
+            channel = obj.channels( jChannel);
+
+            for jTime = 1 : length( obj.times)
+
+                time = obj.times( jTime);
+                feats = mainFeatures{jTime}.getListBasicFeatures();
+
+            end
+
+        end
+        % }}}
+        
         % analyzeFeature {{{
         function analyzeFeature( obj, mainFeature, jChannel, jTime)
             % Run analysis on the main feature by deciding what type of feature exists
@@ -147,10 +150,10 @@ classdef AnalysisSingleCell < handle
                     obj.analyzeFeatureCut7( mainFeature, jChannel, jTime);
                 otherwise
                     error('analyzeFrame: unknown feature')
-            end
+                end
 
-        end
-        % }}}
+            end
+            % }}}
         
         % Microtubules {{{
         % analyzeFeatureMicrotubule {{{
@@ -537,7 +540,7 @@ classdef AnalysisSingleCell < handle
                 
                 % get feature
                 feat = obj.data{jChannel}.features{jTime};
-                img = im2double(feat.image);
+                img = feat.image;
 
                 % make figure
                 f = figure('visible', 'on'); 
@@ -596,16 +599,12 @@ classdef AnalysisSingleCell < handle
 
     methods ( Static = true, Access = public )
 
-        % AnalyzeSingle {{{
-        function anaCell = AnalyzeSingle( resPathCell, params)
-            % uses AnalysisBank to analyze results from a single movie
+        % TrackSingle {{{
+        function TCell = TrackSingle( resPathCell, params)
+            % uses Tracking to track features from a single movie
             
-            % Make sure we have the correct paths
-            %warning('off', 'MATLAB:rmpath:DirNotFound');
-            %rmpath( genpath(pwd) );
-            %warning('on', 'MATLAB:rmpath:DirNotFound');
             addpath( pwd);
-            params = initAnalysisParams();
+            params = initTrackingParams();
 %             addpath( genpath( params.pathParent) );
             addpath( genpath( [pwd, filesep, 'classes']) );
 
@@ -614,7 +613,7 @@ classdef AnalysisSingleCell < handle
                 %params = initAnalysisParams();
                 fprintf('\n')
                 fprintf('-----------------------------------------------------------------\n')
-                fprintf('------------------- ANALYSIS SINGLE CELL ------------------------\n')
+                fprintf('------------------- TRACKING SINGLE CELL ------------------------\n')
                 fprintf('-----------------------------------------------------------------\n\n')
             end
 
@@ -630,26 +629,20 @@ classdef AnalysisSingleCell < handle
             params.resPath = resPathCell;
 
             % Initialize analysis object
-            anaCell = AnalysisSingleCell( resPathCell, params.Cell.params.cellInfo.type, params.channelsToAnalyze, params.channelFeatures, params.Cell.timeStep, params.Cell.sizeVoxels, params.flagMovie, params.flagGraph);
+            TCell = TrackingSingleCell( resPathCell, params.Cell.params.cellInfo.type, params.channelsToAnalyze, params.channelFeatures, params.flagMovie, params.flagGraph);
 
             % analyze the cell
-            anaCell.Analyze();
+            TCell.Track();
 
         end
         % }}}
         
-        % AnalyzeMulti {{{
-        function anaCells = AnalyzeMulti( resRegExp)
-            % uses AnalysisBank to analyze results from multiple movies
-            % second argument can also be a cell array of multiple
+        % TrackMulti {{{
+        function TCells = TrackMulti( resRegExp)
+            % uses Tracking to track features from multiple movies
             
-            % Make sure we have the correct paths
-            %warning('off', 'MATLAB:rmpath:DirNotFound');
-            %rmpath( genpath(pwd) );
-            %warning('on', 'MATLAB:rmpath:DirNotFound');
-            %addpath( pwd);
             addpath( genpath( [pwd, filesep, 'classes']) );
-            params = initAnalysisParams();
+            params = initTrackingParams();
             addpath( params.pathParent);
 
             % Get all folder names in parent
@@ -669,18 +662,18 @@ classdef AnalysisSingleCell < handle
 
             fprintf('\n')
             fprintf('-----------------------------------------------------------------\n')
-            fprintf('-------------------- ANALYSIS MULTI CELL ------------------------\n')
+            fprintf('-------------------- TRACKING MULTI CELL ------------------------\n')
             fprintf('-----------------------------------------------------------------\n\n')
             fprintf('    Total Cells : %d\n', numCells);
 
             % for each cell we'll run an AnalyzeSingle function
             for jCell = 1 : numCells
                 addpath( genpath( folds{jCell} ) );
-                anaCells{jCell} = AnalysisSingleCell.AnalyzeSingle( folds{ jCell}, params ); 
+                TCells{jCell} = Tracking.TrackSingle( folds{ jCell}, params ); 
             end
 
             % Graph comparisons
-            AnalysisSingleCell.GraphMultiCell( anaCells)
+            %Tracking.GraphMultiCell( TCells)
 
         end
         % }}}
@@ -762,147 +755,6 @@ classdef AnalysisSingleCell < handle
             [par, ~, ~] = fileparts( Cells{1}.path );
             saveas( f, [par, filesep, 'spindle_lengths_all.png'])
             close(f)
-
-        end
-        % }}}
-
-        % GraphMulti_Cut7AlongSpindle {{{
-        function GraphMulti_Cut7AlongSpindle( Cells, channel)
-            % Compare Cut7 distibutions along the spindle
-
-            fprintf('Comparing cut7 distirbution along the spindle...\n')
-            nCells = length( Cells);
-
-            f = figure('NumberTitle', 'off', 'Name', 'cut7_intensity_spindle_avg_all'); 
-            ax = axes;
-            grid on; grid minor
-            xlabel( 'Distance along spindle ( normalized)')
-            ylabel( 'Mean intensity')
-            set( ax, 'FontSize', 20)
-            title('Cut7 average distribution along spindle ')
-            hold on;
-
-            % Process data for plotting
-            % cut7 intensity 
-            for jCell = 1 : nCells
-                int = mean( Cells{jCell}.data{channel}.cut7SpindleInt, 1);
-                if mean( int(1: floor(end/3) ) ) < mean( int( ceil(2*end/3): end) )
-                    int = flip( int);
-                end
-                cut7int{jCell} = int/max(int);
-            end
-            % Distance along spindle 
-            for jCell = 1 : nCells
-                dist{jCell} = Cells{jCell}.data{channel}.cut7Range;
-            end
-            
-            % plot mean and shaded error
-            AnalysisSingleCell.plotAreaShadedError( cut7int, dist, ax);
-
-            for jCell = 1 : nCells
-                saveas( f, [Cells{jCell}.path, filesep, 'cut7_intensity_spindle_avg_all.png'])
-            end
-            [par, ~, ~] = fileparts( Cells{1}.path );
-            saveas( f, [par, filesep, 'cut7_intensity_spindle_avg_all.png'])
-            close(f)
-
-
-
-        end
-        % }}}
-
-        % GraphMulti_MTDistributionAwayFromPoleMicrons{{{
-        function GraphMulti_MTDistributionAwayFromPoleMicrons( Cells, channel)
-            % Compare Cut7 distibutions along the spindle
-
-            fprintf('Comparing tubulin distribution away from pole...\n')
-            nCells = length( Cells);
-
-            f = figure('NumberTitle', 'off', 'Name', 'tub_intensity_monopolar_all_um'); 
-            ax = axes;
-            grid on; grid minor
-            xlabel( 'Distance from pole [\mum]', 'interpreter', 'Tex')
-            ylabel( 'Mean intensity')
-            set( ax, 'FontSize', 20)
-            title('Tub intensity vs distance from pole')
-            hold on;
-
-            % Process data for plotting
-            % cut7 intensity 
-            for jCell = 1 : nCells
-                mtint{jCell} = Cells{jCell}.data{channel}.mtRadialInt_raw;
-                mtint{jCell} = mean( mtint{jCell}, 1);
-                %cut7int{jCell} = cut7int{jCell}/ max( cut7int{jCell});
-            end
-
-            % Distance from pole 
-            for jCell = 1 : nCells
-                dist{jCell} = Cells{jCell}.data{channel}.mtRadialVal;
-                dist{jCell} = mean( dist{jCell}, 1);
-                dist{jCell} = dist{jCell}.*Cells{jCell}.sizeVoxels(1);
-            end
-            
-            % plot mean and shaded error
-            AnalysisSingleCell.plotAreaShadedError( mtint, dist, ax);
-
-            for jCell = 1 : nCells
-                saveas( f, [Cells{jCell}.path, filesep, 'tub_intensity_monopolar_all_um.png'])
-            end
-            [par, ~, ~] = fileparts( Cells{1}.path );
-            saveas( f, [par, filesep, 'tub_intensity_monopolar_all_um.png'])
-            close(f)
-            save([par,filesep,'tubdist.mat'], 'mtint', 'dist', '-v7.3')
-
-        end
-        % }}}
-        
-        % GraphMulti_Cut7DistributionAwayFromPoleMicrons{{{
-        function GraphMulti_Cut7DistributionAwayFromPoleMicrons( Cells, channel)
-            % Compare Cut7 distibutions along the spindle
-
-            fprintf('Comparing cut7 distribution away from pole...\n')
-            nCells = length( Cells);
-
-            f = figure('NumberTitle', 'off', 'Name', 'cut7_intensity_monopolar_all_um'); 
-            ax = axes;
-            grid on; grid minor
-            xlabel( 'Distance from pole [\mum]', 'interpreter', 'Tex')
-            ylabel( 'Mean intensity')
-            set( ax, 'FontSize', 20)
-            title('Cut7 intensity vs distance from pole')
-            hold on;
-
-            % Process data for plotting
-            % cut7 intensity 
-            for jCell = 1 : nCells
-                try
-                    cut7int{jCell} = Cells{jCell}.data{channel}.cut7RadialInt_raw;
-                    cut7int{jCell} = mean( cut7int{jCell}, 1);
-                catch
-                    disp('here')
-                    cut7int{jCell} = Cells{jCell}.data{channel}.cut7RadialInt_raw;
-                    cut7int{jCell} = mean( cut7int{jCell}, 1);
-                end
-                %cut7int{jCell} = cut7int{jCell}/ max( cut7int{jCell});
-            end
-
-            % Distance from pole J
-            for jCell = 1 : nCells
-                dist{jCell} = Cells{jCell}.data{channel}.cut7RadialVal;
-                dist{jCell} = mean( dist{jCell}, 1);
-                dist{jCell} = dist{jCell}.*Cells{jCell}.sizeVoxels(1);
-            end
-            
-            % plot mean and shaded error
-            AnalysisSingleCell.plotAreaShadedError( cut7int, dist, ax);
-
-            for jCell = 1 : nCells
-                saveas( f, [Cells{jCell}.path, filesep, 'cut7_intensity_monopolar_all_um.png'])
-            end
-            [par, ~, ~] = fileparts( Cells{1}.path );
-            saveas( f, [par, filesep, 'cut7_intensity_monopolar_all_um.png'])
-            close(f)
-            save([par,filesep,'cut7dist.mat'], 'cut7int', 'dist', '-v7.3')
 
         end
         % }}}

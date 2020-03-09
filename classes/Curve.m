@@ -347,6 +347,19 @@ classdef Curve < BasicElement
         end
         % }}}
 
+        % GetStructInfo {{{
+        function feat = GetStructInfo(obj)
+            feat.type = type;
+            feat.startPosition = obj.startPosition;
+            feat.amplitude = obj.amplitude;
+            feat.sigma = obj.sigma;
+            feat.length = obj.GetLength();
+            feat.orientation = obj.GetOrientation();
+            coords = obj.GetCoords(); 
+            feat.endPosition = coords(:,end);
+        end
+        % }}}
+
     end
 
     methods ( Static = true )

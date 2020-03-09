@@ -95,6 +95,7 @@ classdef Spot < BasicElement
 
         end
         % }}}
+        
         % BleachSpot {{{
         function imgBleached = BleachSpot( obj, imgIn, bleachRadius)
             % Bleaches the Spot location with a circle of zeros of radius bleachRad
@@ -176,6 +177,15 @@ classdef Spot < BasicElement
         end
         % }}}
         
+        % GetStructInfo {{{
+        function feat = GetStructInfo(obj)
+            feat.type = obj.type;
+            feat.position = obj.position;
+            feat.amplitude = obj.amplitude;
+            feat.sigma = obj.sigma;
+        end
+        % }}}
+
     end
     
     methods (Static = true)
@@ -229,5 +239,4 @@ classdef Spot < BasicElement
         % }}}
         
     end
-
 end

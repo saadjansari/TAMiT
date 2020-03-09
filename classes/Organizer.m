@@ -404,6 +404,25 @@ classdef Organizer < Feature
         end
         % }}}
 
+        % GetStructBasicFeatures {{{
+        function feats = GetStructBasicFeatures(obj)
+
+            next = 1
+            for jf = 1 : obj.numFeatures
+                type = obj.featureList{jf}.type;
+                if any(strcmp( superclasses( type), 'BasicElement'))
+                    feats(next) = obj.featureList{jf}.GetStructInfo();
+                    next = next+1;
+                elseif any(strcmp( superclasses( type), 'Organizer'))
+                    feat = obj.featureList{jf}.GetStructBasicFeatures();
+                    feats(next:next+length(feat)-1) = feat;
+                    next = next+length(feat);
+                end
+            end
+
+        end
+        % }}}
+
     end
 
 end

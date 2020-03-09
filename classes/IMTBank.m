@@ -378,6 +378,45 @@ classdef IMTBank < OrganizerMaster
 %         end
         % }}}
         
+        % GetStructBasicFeatures {{{
+        function feats = GetStructBasicFeatures(obj)
+
+            for jf = 1 : obj.numFeatures
+                next = 1;
+                feats(jf).type = obj.featureList{jf}.type;
+                switch feats(jf).type
+                    case 'Spot'
+                        feats(next).position = obj.featureList{jf}.position;
+                        feats(next).amplitude = obj.featureList{jf}.amplitude;
+                        feats(next).sigma = obj.featureList{jf}.sigma;
+                        next = next+1;
+
+                    case 'Line'
+                        feats(next).startPosition = obj.featureList{jf}.startPosition;
+                        feats(next).endPosition = obj.featureList{jf}.endPosition;
+                        feats(next).amplitude = obj.featureList{jf}.amplitude;
+                        feats(next).sigma = obj.featureList{jf}.sigma;
+                        feats(next).length = obj.featureList{jf}.GetLength();
+                        feats(next).orientation = obj.featureList{jf}.GetOrientation();
+                        next = next+1;
+
+                    case 'Curve'
+                        feats(next).startPosition = obj.featureList{jf}.startPosition;
+                        feats(next).amplitude = obj.featureList{jf}.amplitude;
+                        feats(next).sigma = obj.featureList{jf}.sigma;
+                        feats(next).length = obj.featureList{jf}.GetLength();
+                        feats(next).orientation = obj.featureList{jf}.GetOrientation();
+                        coords = obj.featureList{jf}.GetCoords(); 
+                        feats(jf).endPosition = coords(:,end);
+                        next = next+1;
+
+                    case 'AsterMT'
+                        feats( 
+                end
+            end
+        end
+        % }}}
+
     end
 
     methods( Static = true )
