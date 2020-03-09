@@ -555,6 +555,8 @@ classdef AnalysisSingleCell < handle
                 close(f)
 
             end
+            
+            obj.writeMovie(jChannel);
 
         end
         % }}}
