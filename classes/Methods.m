@@ -1594,6 +1594,31 @@ classdef Methods
             end
         end
         % }}}
+        
+         % CheckEscapeMask {{{
+        function [status,amt] = CheckEscapeZ( imageIn, mask, sens)
+            % Check if features escape the 3rd dimension planes
+            % imageIn: simulated image of any number of features
+
+            if nargin < 3
+                sens = 0.5;
+            end
+            status = 0; amt=0;
+            % Maximum Intensity of simulated image
+            maxSim = max( imageIn(:) );
+            
+            % Intensity image outside mask
+            intOutside = imcomplement( logical( mask) ) .* imageIn;
+
+            % Intensity threshold for penalizing
+            intThresh = sens * maxSim;
+
+            if max( intOutside(:) ) > intThresh 
+                status = 1;
+                amt = sum( intOutside(:) );
+            end
+        end
+        % }}}
 
         % combineStructsIntoArray {{{
         function st = combineStructsIntoArray( res1, res2)

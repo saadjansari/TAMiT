@@ -956,9 +956,11 @@ classdef Cell < handle & matlab.mixin.Copyable
             end
 
             % if microtubule pokes out in z dimension out of real volume, then we set values to infinity.
-            if dim==3 && length( coeffs)==2 && ( sum( coeffs{3}) < 1 || sum( coeffs{3} > size(imageIn,3)))
+            if dim==3 && length( coeffssum( coeffs{3})
+%                 imageCurve = 10 * ones( size(imageIn) ) *( 1 + 1*( sum( zDat(zDat > size(imageIn,3))-size(imageIn,3)) + sum( abs( zDat(zDat < 1)-1 ) ) ) );
                 imageCurve = imageIn;
                 error_code = 1;
+%                 disp('    Warning: Cell.drawGaussianCurve3D - Z poked out of the real volume. Forced Scaling to guide optimization.')
                 return
             end
             

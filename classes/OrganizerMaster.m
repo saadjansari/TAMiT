@@ -113,10 +113,19 @@ classdef OrganizerMaster < Organizer
             cFeature = obj.findObjectFromID( featureID);
 
             % Simulate feature 
-            imageOut = cFeature.simulateFeature( size(imageIn) );
+            try
+                [imageOut,error_code] = cFeature.simulateFeature( size(imageIn) );
+            catch
+                imageOut = cFeature.simulateFeature( size(imageIn) ); error_code = 0;
+            end
             
             % Penalize if features exceed mask region
             imageOut = PenalizeOutsideMask( imageOut, obj.mask);
+            
+            if error_code
+                imageOut = ones(size(imageOut));
+                return
+            end
             
             % Fill background where features are not prominent-er
             if ~isempty( obj.background)

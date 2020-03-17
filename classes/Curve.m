@@ -105,7 +105,7 @@ classdef Curve < BasicElement
         % }}}
         
         % simulateFeature {{{
-        function imageOut = simulateFeature( obj, sizeImage)
+        function [imageOut,error_code] = simulateFeature( obj, sizeImage)
 
             if nargin < 2
                 error('simulateFeature: input needed for size of image to simulate the feature in ')
@@ -117,20 +117,22 @@ classdef Curve < BasicElement
             % Simulate a gaussian curve 
             if isfield( obj.params, 'idx')
                 if obj.dim == 2
-                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianCurve2D( coeffs, obj.sigma, imageOut, obj.params.idx, obj.params.x, obj.params.y) );
+                    imGraph = Cell.drawGaussianCurve2D( coeffs, obj.sigma, imageOut, obj.params.idx, obj.params.x, obj.params.y);
+                    error_code = 0;
                 elseif obj.dim == 3
-                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianCurve3D( coeffs, obj.sigma, imageOut, obj.params.idx, obj.params.x, obj.params.y, obj.params.z) );
+                    [imGraph, error_code] = Cell.drawGaussianCurve3D( coeffs, obj.sigma, imageOut, obj.params.idx, obj.params.x, obj.params.y, obj.params.z);
                 end
             else
                 if obj.dim == 2
-                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianCurve2D( coeffs, obj.sigma, imageOut) );
+                    imGraph = Cell.drawGaussianCurve2D( coeffs, obj.sigma, imageOut);
+                    error_code = 0;
                 elseif obj.dim == 3
-                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianCurve3D( coeffs, obj.sigma, imageOut) );
+                    [imGraph, error_code] = Cell.drawGaussianCurve3D( coeffs, obj.sigma, imageOut);
                 end
             end
+            imageFeat = obj.amplitude * mat2gray( imGraph);
             obj.imageSim = imageFeat;
             imageOut = imageFeat + imageOut;
-            %imageOut( imageFeat > imageIn) = imageFeat( imageFeat > imageIn);
 
         end
         % }}}
@@ -326,12 +328,12 @@ classdef Curve < BasicElement
             % shorten any curves whose mtoc is within the mask.
 
             % Simulate image
-            imFeat = obj.simulateFeature( size(mask) );
+            [imFeat,outsideZ] = obj.simulateFeature( size(mask) );
             
             % if escapes from mask, shorten until inside mask
-            outside = Methods.CheckEscapeMask( imFeat, mask, 0.02);
+            outsideXY = Methods.CheckEscapeMask( imFeat, mask, 0.02);
 
-            while outside 
+            while outsideXY || outsideZ
 
                 % Shorten
                 coords = obj.GetCoords( linspace(0,0.95)); 
@@ -343,8 +345,8 @@ classdef Curve < BasicElement
                 end
 
                 % Check again
-                imFeat = obj.simulateFeature( size(mask) );
-                outside = Methods.CheckEscapeMask( imFeat, mask);
+                [imFeat,outsideZ] = obj.simulateFeature( size(mask) );
+                outsideXY = Methods.CheckEscapeMask( imFeat, mask);
                 obj.GetLength();
 
             end
@@ -352,10 +354,10 @@ classdef Curve < BasicElement
             % Also ensure that feature is within the z-planes if 3D
             if obj.dim == 3
                 if obj.startPosition(3) >= 7
-                    obj.cZ(end) = -0.01;
+                    obj.cZ(end) = -0.1;
                 end
                 if obj.startPosition(3) <= 1
-                    obj.cZ(end) = 0.01;
+                    obj.cZ(end) = 0.1;
                 end
             end
             

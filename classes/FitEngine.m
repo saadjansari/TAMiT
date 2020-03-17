@@ -203,7 +203,7 @@ classdef FitEngine
             end
             [obj, fitInfo.Old] = obj.DecreaseFeatureNumber( obj.feature, fitInfo.Old, 'Basic');
             
-            fprintf('- FINAL N =  %d\n', obj.feature.getSubFeatureNumber() )
+            fprintf('- FINAL N =  %d\n', obj.feature.getSubFeatureNumber() )                                   
             fitInfo = fitInfo.Old;
         end
         % }}}
@@ -307,6 +307,10 @@ classdef FitEngine
                         [~, successRemove ] = featureNew.removeOrganizers( refImage);
                 end
                 featureNew.updateFeatureMap();
+                
+                if featureNew.getSubFeatureNumber() == 0
+                    successRemove = 0;
+                end
                 
                 % A removal could fail if there are no features left to remove
                 if successRemove
@@ -666,10 +670,9 @@ classdef FitEngine
                                 'OptimalityTolerance', 1e-12, ...
                                 'MaxIter', 3, ...
                                 'TolFun', 1e-9, ...
-                                'FiniteDifferenceStepSize', 1e-2, ...
+                                'FiniteDifferenceStepSize', 1e-3, ...
                                 'FiniteDifferenceType', 'central', ...
-                                'StepTolerance', 1e-5,...
-                                'ScaleProblem', 'jacobian');
+                                'StepTolerance', 1e-5);
 
             % Set configurable options
             switch config.state
@@ -681,7 +684,7 @@ classdef FitEngine
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
                                         'display', 'iter' ,...
-                                        'MaxIter', 5);
+                                        'MaxIter', 15);
             end
             
             % Set Parallel Optimization
@@ -808,7 +811,7 @@ classdef FitEngine
 
             % Sigma
             minSig = [1.2, 1.2, 1.0];
-            maxSig = [2.0, 2.0, 2.0];
+            maxSig = [1.6, 1.6, 1.5];
             if dim == 2
                 minSig(end) = []; maxSig(end) = [];
             end
@@ -944,7 +947,12 @@ classdef FitEngine
                     % find the range of these coefs ( model with a gaussian and keep up to a certain number of standard deviations)
                     sigX = std( xcfs, 0, 1);
                     sigY = std( ycfs, 0, 1);
-                    if obj.feature.dim==3, sigZ = std( zcfs, 0, 1); end
+                    if obj.feature.dim==3, 
+                        sigZ = std( zcfs, 0, 1); 
+                        if all( sigZ < 0.01)
+                            sigZ = 2*ones(size(sigZ));
+                        end
+                    end
 
                     % We will keep half a standard deviation above the max coeff val and half a std below the min coeff value
                     ubX = max( xcfs, [], 1) + sigKeep * sigX;

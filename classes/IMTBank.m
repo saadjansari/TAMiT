@@ -105,10 +105,7 @@ classdef IMTBank < OrganizerMaster
             % Then we will pick the best of the possibilities and add them to our feature list.
 
             successAdd = 0;
-            polyOrder = [2 2 1];
-            try
-                polyOrder = obj.polyOrder;
-            end
+            minLength = 5;
 
             if obj.dim == 2
                 sigma=[1.2 1.2];
@@ -154,7 +151,7 @@ classdef IMTBank < OrganizerMaster
                         end
                         
                         % Find coefficients
-                        coeffs = Curve.estimatePolyCoefficients( coords, polyOrder);
+                        coeffs = Curve.estimatePolyCoefficients( coords, obj.polyOrder);
                         if obj.dim == 3 && all( coords(3,:) == size(Image2Find,3) )
                             coeffs{3} = -coeffs{3};
                         end
@@ -174,6 +171,9 @@ classdef IMTBank < OrganizerMaster
                         
                         % Find length and unit residual of prospective feature
                         len = feature{jFeature}.GetLength();
+                        if len < minLength
+                            continue
+                        end
                         imFeat2D = max( feature{jFeature}.simulateFeature( size(obj.image) ), [], 3);
                         imFeat2DMask = imFeat2D > 0.1*max(imFeat2D(:));
                         Image2Find2D = max(Image2Find,[],3);
@@ -251,12 +251,7 @@ classdef IMTBank < OrganizerMaster
             % curve features. For each aster, we will find a possible microtubule to add.
             % Then we will pick the best of the possibilities and add them to our feature list.
 
-            polyOrder = [2 2 1];
-            try
-                polyOrder = obj.polyOrder;
-            end
-
-            minLength = 10;
+            minLength = 5;
             [Image2Find2D, idxZ] = max(Image2Find, [],3);
             if obj.dim == 2
                 sigma=[1.2 1.2];
@@ -307,6 +302,9 @@ classdef IMTBank < OrganizerMaster
             mtoc = Spot( Seed, IntSeed, sigma, obj.dim, obj.props2Fit.fit{obj.dim}.spot, ...
                 obj.props2Fit.graphics.spot);
             
+            % Initialize interphase bundle
+            aster = AsterMT( obj.dim, mtoc );
+            
             % Break curve into 2 mts
             mts{1} = [ cX( IdxSeed:-1:1); cY( IdxSeed:-1:1) ];
             mts{2} = [ cX( IdxSeed:end); cY( IdxSeed:end) ];
@@ -320,7 +318,7 @@ classdef IMTBank < OrganizerMaster
             for jmt = 1 : length( mts )
 
                 % Get Coefficients of iMT
-                coeffs = Curve.estimatePolyCoefficients( mts{jmt}, polyOrder);
+                coeffs = Curve.estimatePolyCoefficients( mts{jmt}, obj.polyOrder);
                 
                 if obj.dim == 3 && all( mts{jmt}(3,:) == size(Image2Find,3) )
                     coeffs{3} = -coeffs{3};
@@ -331,14 +329,20 @@ classdef IMTBank < OrganizerMaster
                     warning( 'curveAmp was less than 0')
                 end
 
-                iMT{jmt} = Curve( mtoc.position, coeffs, curveAmp, sigma, obj.dim, obj.props2Fit.fit{obj.dim}.curve, ...
+                imt = Curve( mtoc.position, coeffs, curveAmp, sigma, obj.dim, obj.props2Fit.fit{obj.dim}.curve, ...
                     obj.props2Fit.graphics.curve);
-                iMT{jmt}.findVoxelsInsideMask( logical(Image2Find) );
+                imt.findVoxelsInsideMask( logical(Image2Find) );
+                
+                if imt.GetLength() >= minLength
+                    aster.addFeatureToList( imt);
+                end
 
             end
-
-            % Store iMTOC + iMTs in Aster Objects
-            aster = AsterMT( obj.dim, mtoc, iMT{:} );
+            if aster.numFeatures == 1
+                stophere = 1;
+                disp('htf this did happen?')
+            end
+%             aster = AsterMT( obj.dim, mtoc, iMT{:} );
             
             % Add the aster
             obj.addFeatureToList( aster );
