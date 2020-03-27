@@ -27,7 +27,7 @@ classdef Line < BasicElement
         % }}}
         
         % getVec {{{
-        function [vec, vecLabels] = getVec( obj, props2get)
+        function [vec, vecLabels, ub, lb] = getVec( obj, props2get)
 
             % sample props2get
             if nargin==1

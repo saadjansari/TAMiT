@@ -633,7 +633,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                     
         end
         % }}}
-        % drawGaussianPoint3D {{{
+        % drawGaussianPoint2D {{{
         function imagePoint = drawGaussianPoint2D( pos, sigma, imageIn, idx, x, y)
             % Draws a gaussian point using an analytical framework
 
@@ -783,7 +783,7 @@ classdef Cell < handle & matlab.mixin.Copyable
 
         end
         % }}}
-        % drawGaussianLine3D {{{
+        % drawGaussianLine2D {{{
         function imageLine = drawGaussianLine2D( startPos, endPos, sigma, imageIn, idx, x, y)
             % Draws a gaussian straight line using an analytical framework
 
@@ -891,28 +891,31 @@ classdef Cell < handle & matlab.mixin.Copyable
         end
         % }}}
         % drawGaussianCurve3D {{{
-        function [imageCurve,error_code] = drawGaussianCurve3D( coeffs, sigma, imageIn, idx, x,y,z)
+        function [imageCurve,error_code] = drawGaussianCurve3D( coeffs, sigma, imageIn, varargin)
             % Draw a gaussian curve in 3D using numerical integration
 
             if numel( size(imageIn) ) ~= 3 || length( coeffs) ~= 3 || length(sigma)~= 3
-                sigma
-                size(imageIn)
                 error('drawGaussianLine3D: all data must be 3-dimensional')
             end
 
-            if nargin < 4
-                idx = 1 : numel( imageIn);
-            end
-            if nargin < 7
-                [y, x, z] = ind2sub( size( imageIn), idx);
-                x=x'; y=y';z=z';
-            end
-            error_code = 0;
             dim = length( size(imageIn) );
+            error_code = 0;
+
+            % Parse options
+            opts = parseArgs( imageIn, varargin{:});
+
+            % Check if microtubule escapes the z-planes. Exit with error.
+            zends = polyval( coeffs{3}, opts.T);
+            if any(zends <1) || any( zends > size(imageIn, 3))
+                imageCurve = imageIn;
+                error_code = 1;
+                return
+            end
+
             % Create coordinates for numerical integration
             % create parametric coord
             speedUp = 2.0;
-            Tvec = linspace(0,1, round(100/speedUp) );
+            Tvec = opts.T(1) : 0.01*speedUp : opts.T(2);
             Tvec( end) = [];
 
             % Now for each value of the parameter, we'll do a gauss
@@ -937,51 +940,50 @@ classdef Cell < handle & matlab.mixin.Copyable
             % re-parametrize by length
             dParam = 1;
             for jk = 1 : length( xLoc) -1
-                if dim == 2
-                    dParam = [ dParam, dParam(end) + sqrt( diff( xLoc( jk:jk+1)).^2 + diff(yLoc(jk:jk+1)).^2)];
-                elseif dim == 3
-                    dParam = [ dParam, dParam(end) + sqrt( diff( xLoc( jk:jk+1)).^2 + diff(yLoc(jk:jk+1)).^2 + diff(zLoc(jk:jk+1)).^2)]; 
-                end
+                dParam = [ dParam, dParam(end) + sqrt( diff( xLoc( jk:jk+1)).^2 + diff(yLoc(jk:jk+1)).^2 + diff(zLoc(jk:jk+1)).^2)]; 
             end
             dParamNew = linspace( dParam(1), dParam(end), length(dParam) );
 
             % fit once again, and find now parametric coordinates
+            try
             fitX = fit( dParam', xLoc, 'linearinterp');
+            catch
+                stoph = 1;
+            end
             fitY = fit( dParam', yLoc, 'linearinterp');
             xDat = fitX( dParamNew);
             yDat = fitY( dParamNew);
-            if dim==3
-                fitZ = fit( dParam', zLoc, 'linearinterp'); 
-                zDat = fitZ( dParamNew); 
-            end
+            fitZ = fit( dParam', zLoc, 'linearinterp'); 
+            zDat = fitZ( dParamNew); 
+            PtGaussLoc = [ xDat , yDat , zDat];
 
-            % if microtubule pokes out in z dimension out of real volume, then we set values to infinity.
-            if dim==3 && length( coeffs)==2 && ( sum( coeffs{3}) < 1 || sum( coeffs{3} > size(imageIn,3)))
-                imageCurve = imageIn;
-                error_code = 1;
-                return
-            end
+            imageCurve = Cell.NumericalConv( sigma, PtGaussLoc, {opts.X,opts.Y,opts.Z}, imageIn, opts.Idx );
             
-            % if microtubule pokes out in z dimension out of real volume, then we set values to infinity.
-            if dim==3 && ( any(zDat < 1) || any( zDat > size(imageIn,3)))
-%                 imageCurve = 10 * ones( size(imageIn) ) *( 1 + 1*( sum( zDat(zDat > size(imageIn,3))-size(imageIn,3)) + sum( abs( zDat(zDat < 1)-1 ) ) ) );
-                imageCurve = imageIn;
-                error_code = 1;
-%                 disp('    Warning: Cell.drawGaussianCurve3D - Z poked out of the real volume. Forced Scaling to guide optimization.')
-                return
-            end
+            % parseArgs {{{
+            function opts = parseArgs( imageIn, varargin)
+               
+                % default Index
+                defIdx = 1 : numel( imageIn);
+                [defy, defx, defz] = ind2sub( size( imageIn), defIdx);
+                defx=defx'; defy=defy';defz=defz';
+                defT = [0 1];
 
-            if dim == 2
-                PtGaussLoc = [ xDat , yDat ];
-            elseif dim == 3
-                PtGaussLoc = [ xDat , yDat , zDat];
+                % Input Parser
+                p = inputParser;
+                addParameter( p, 'X', defx);
+                addParameter( p, 'Y', defy);
+                addParameter( p, 'Z', defz);
+                addParameter( p, 'Idx', defIdx);
+                addParameter( p, 'T', defT);
+
+                parse( p, varargin{:});
+                opts = p.Results;
+
             end
-                    
-            imageCurve = Cell.NumericalConv( sigma, PtGaussLoc, {x,y,z}, imageIn, idx );
-            
+            % }}}
         end
         % }}}
-        % drawGaussianCurve3D {{{
+        % drawGaussianCurve2D {{{
         function imageCurve = drawGaussianCurve2D( coeffs, sigma, imageIn, idx, x,y)
             % Draw a gaussian curve in 3D using numerical integration
 
@@ -1787,9 +1789,18 @@ classdef Cell < handle & matlab.mixin.Copyable
             curve.graphics.blue = {'Color', [0 0 1] , 'LineWidth', 2};
             curve.graphics.red = {'Color', [1 0 0] , 'LineWidth', 2};
 
+            % Bundle 
+            bundle.fit{2} = {'cX','cY', 'amplitude', 'sigma', 'T', 'ef'};
+            bundle.fit{3} = {'cX','cY','cZ', 'amplitude', 'sigma', 'T', 'ef'};
+            bundle.graphics.magenta = {'Color', [0.7 0 0.7] , 'LineWidth', 2};
+            bundle.graphics.green = {'Color', [0 1 0] , 'LineWidth', 2};
+            bundle.graphics.blue = {'Color', [0 0 1] , 'LineWidth', 2};
+            bundle.graphics.red = {'Color', [1 0 0] , 'LineWidth', 2};
+
             props.spot = spot;
             props.line = line;
             props.curve = curve;
+            props.bundle = bundle;
             % }}}
             
             % Organizers {{{
@@ -1803,12 +1814,10 @@ classdef Cell < handle & matlab.mixin.Copyable
             props.asterLine = asterLine;
 
             % Curve Aster
-            asterCurve.fit{2}.spot = spot.fit{2};
-            asterCurve.fit{2}.curve = curve.fit{2}(2:end);
-            asterCurve.fit{3}.spot = spot.fit{3};
-            asterCurve.fit{3}.curve = curve.fit{3}(2:end);
+            asterCurve.fit{2}.curve = bundle.fit{2};
+            asterCurve.fit{3}.curve = bundle.fit{3};
             asterCurve.graphics.spot = spot.graphics.blue;
-            asterCurve.graphics.curve = curve.graphics.red;
+            asterCurve.graphics.curve = bundle.graphics.red;
             props.asterCurve = asterCurve;
             % }}}
 

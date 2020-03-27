@@ -197,10 +197,10 @@ classdef FitEngine
             % We will iteratively add and remove basic features to find the optimum number
             disp('Feature Number Optimization...')
             [obj, fitInfo.Old] = obj.IncreaseFeatureNumber( obj.feature, fitInfo.Old, 'Basic');
-            if strcmp(obj.feature.type,'IMTBank')
-                disp('Adding Organizers...')
-                [obj, fitInfo.Old] = obj.IncreaseFeatureNumber( obj.feature, fitInfo.Old, 'Organizer');
-            end
+%             if strcmp(obj.feature.type,'IMTBank')
+%                 disp('Adding Organizers...')
+%                 [obj, fitInfo.Old] = obj.IncreaseFeatureNumber( obj.feature, fitInfo.Old, 'Organizer');
+%             end
             [obj, fitInfo.Old] = obj.DecreaseFeatureNumber( obj.feature, fitInfo.Old, 'Basic');
             
             fprintf('- FINAL N =  %d\n', obj.feature.getSubFeatureNumber() )                                   
@@ -247,10 +247,10 @@ classdef FitEngine
                     fitInfo.fitResults = obj.SolveOptimizationProblem( fitProblem );
 
                     % Check if added feature was worth it
-                    im1_raw = feature.imageSim;
-                    im2_raw = featureNew.imageSim;
-                    im1 = feature.simulateFeature( size( obj.image) );
-                    im2 = featureNew.simulateFeature( size( obj.image) );
+                    im1_raw = feature.simulateFeature( size(obj.image));
+                    im2_raw = featureNew.simulateFeature( size(obj.image));
+                    im1 = feature.simulateAll( 0*obj.image, feature.ID );
+                    im2 = featureNew.simulateAll( 0*obj.image, featureNew.ID );
                     numP1 = length( fitInfoOld.fitVecs.vec);
                     numP2 = length( fitInfo.fitVecs.vec);
 
@@ -684,7 +684,7 @@ classdef FitEngine
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
                                         'display', 'iter' ,...
-                                        'MaxIter', 15);
+                                        'MaxIter', 10);
             end
             
             % Set Parallel Optimization
@@ -696,7 +696,7 @@ classdef FitEngine
         % }}}
 
         % SimulateImage{{{
-        function imageOut = SimulateImage( vec, fitInfo)
+        function [imageOut,err] = SimulateImage( vec, fitInfo)
             % Simulates an image with the feature from fitInfo
             
             % Apply the speedExploration vector to transform to real parameters
@@ -717,7 +717,7 @@ classdef FitEngine
             
             % Simulate the feature
 %             feature.fillParams( size(fitInfo.image) );
-            imageOut = fitInfo.featureMain.simulateAll( 0*fitInfo.image, featureID);
+            [imageOut,err] = fitInfo.featureMain.simulateAll( 0*fitInfo.image, featureID);
             
         end
         % }}}
@@ -776,7 +776,8 @@ classdef FitEngine
             errVal = @OptimizationFcn;
 
             function err = OptimizationFcn( p)
-                err = FitEngine.SimulateImage( p, fitInfo) - ImageFit;
+                [imSim, errScale] = FitEngine.SimulateImage( p, fitInfo);
+                err = sqrt(errScale) *( imSim - ImageFit);
                 err = err( fitInfo.mask(:) );
 %                 err = err(:);
             end
@@ -851,22 +852,25 @@ classdef FitEngine
                 ub( idxBkg ) = maxBkg;
                 lb( idxBkg ) = minBkg; end
 
+            % Bounds for Special Objects
+            % Interphase curves
+            if strcmp(obj.feature.type, 'IMTBank')
+                %[ub, lb] = FitEngine.GetVectorBoundsCurves( obj, vec, ub,lb, vecLabels);
+                [ub, lb] = FitEngine.GetVectorBoundsBundles( obj, vec, ub,lb, vecLabels);
+            end
+            
             if any( lb > ub) || any(ub < lb) || any( vec < lb) || any(vec > ub)
                 badIdx = unique([ find( lb > ub),  find(ub < lb) , find( vec < lb) , find(vec > ub)]);
                 disp('Bad prop labels')
                 badProps = vecLabels( badIdx)
-                disp(vecLabels)
-                disp( ub )
-                disp( vec)
-                disp( lb )
+                disp(vecLabels( badIdx))
+                disp( ub( badIdx) )
+                disp( vec( badIdx))
+                disp( lb( badIdx) )
                 error('getUpperLowerBounds : bounds are wrong')
             end
             
-            % Bounds for Special Objects
-            % Interphase curves
-            if strcmp(obj.feature.type, 'IMTBank')
-                [ub, lb] = FitEngine.GetVectorBoundsCurves( obj, vec, ub,lb, vecLabels);
-            end
+            
 
             fitVecs.vec = vec;
             fitVecs.ub = ub;
@@ -978,20 +982,173 @@ classdef FitEngine
         end
         % }}}
         
+        % GetVectorBoundsBundles {{{
+        function [ub,lb] = GetVectorBoundsBundles( obj, vec, ub, lb, vecLabels)
+            % Get bounds for coefficients of polynomial curves
+           
+            % Determine if this is local or global fitting
+            def = 'global';
+            if any( cellfun( @(x) strcmp(x,'cX'), vecLabels) )
+                def = 'local';
+            end
+            
+            for jb = 1: obj.feature.numFeatures
+                   
+                % Search through vecLabels
+                switch def
+                    case 'local'
+                        str2find_x = 'cX';
+                        str2find_y = 'cY';
+                        str2find_z = 'cZ';
+                        str2find_t = 'T';
+                        str2find_ef = 'ef';
+                    case 'global'
+                        str2find_x = ['B', num2str(jb), '_cX'];
+                        str2find_y = ['B', num2str(jb), '_cY'];
+                        str2find_z = ['B', num2str(jb), '_cZ'];
+                        str2find_t = ['B', num2str(jb), '_T'];
+                        str2find_ef = ['B', num2str(jb), '_ef'];
+                end
+
+                % Find Coefficients
+                idxCX = find( ~cellfun( @isempty, strfind( vecLabels, str2find_x) ) );
+                idxCY = find( ~cellfun( @isempty, strfind( vecLabels, str2find_y) ) );
+                idxCZ = find( ~cellfun( @isempty, strfind( vecLabels, str2find_z) ) );
+                cX = vec( idxCX);
+                cY = vec( idxCY);
+                if obj.feature.dim == 3
+                   cZ = vec( idxCZ);
+                end
+                idxT = find( ~cellfun( @isempty, strfind( vecLabels, str2find_t) ) );
+                t = vec( idxT);
+                idxEF = find( ~cellfun( @isempty, strfind( vecLabels, str2find_ef) ) );
+                    
+                xcfs = []; ycfs = []; zcfs = [];
+                tt = linspace(0,1);
+                sigKeep = 0.5;
+                % Vary the curvature by add/sub with + (x-0.5)^2
+                eu = 4*( tt-0.5).^2;
+                xo = polyval( cX, tt);
+                yo = polyval( cY, tt);
+                zo = polyval( cZ, tt);
+                xu = xo + eu; xl = xo-eu;
+                yu = yo + eu; yl = yo-eu;
+                zu = zo + eu; zl = zo-eu;
+               
+                xcfs = [ xcfs; polyfit( tt, xu, length(cX)-1); polyfit( tt, xl, length(cX)-1)];
+                ycfs = [ ycfs; polyfit( tt, yu, length(cY)-1); polyfit( tt, yl, length(cY)-1)];
+                if obj.feature.dim==3, 
+                    zcfs = [zcfs ; polyfit( tt, zu, length(cZ)-1); polyfit( tt, zl, length(cZ)-1) ]; 
+                end
+                
+                % Vary the length on both ends by 20%
+                % End 1
+                tNew = linspace( -0.2, 1 );
+                xNew = polyval( cX, tNew);
+                yNew = polyval( cY, tNew);
+                if obj.feature.dim==3, zNew = polyval( cZ, tNew); end
+                % Get new coefficients for new length
+                xcfnew = polyfit( tt, xNew, length(cX)-1);
+                ycfnew = polyfit( tt, yNew, length(cY)-1);
+                if obj.feature.dim==3, zcfnew = polyfit( tt, zNew, length(cZ)-1); end
+                % Add coefficients to matrix
+                xcfs = [xcfs ; xcfnew ];
+                ycfs = [ycfs ; ycfnew ];
+                if obj.feature.dim==3, zcfs = [zcfs ; zcfnew ]; end
+                
+                % End 2
+                tNew = linspace( 0, 1.2 );
+                xNew = polyval( cX, tNew);
+                yNew = polyval( cY, tNew);
+                if obj.feature.dim==3, zNew = polyval( cZ, tNew); end
+                % Get new coefficients for new length
+                xcfnew = polyfit( tt, xNew, length(cX)-1);
+                ycfnew = polyfit( tt, yNew, length(cY)-1);
+                if obj.feature.dim==3, zcfnew = polyfit( tt, zNew, length(cZ)-1); end
+                % Add coefficients to matrix
+                xcfs = [xcfs ; xcfnew ];
+                ycfs = [ycfs ; ycfnew ];
+                if obj.feature.dim==3, zcfs = [zcfs ; zcfnew ]; end
+
+                % find the range of these coefs ( model with a gaussian and keep up to a certain number of standard deviations)
+                sigX = std( xcfs, 0, 1);
+                sigY = std( ycfs, 0, 1);
+                if obj.feature.dim==3
+                    sigZ = std( zcfs, 0, 1); 
+                    if all( sigZ < 0.01)
+                        sigZ = 2*ones(size(sigZ));
+                    end
+                end
+
+                % We will keep half a standard deviation above the max coeff val and half a std below the min coeff value
+%                 sigX(end)=4*sigX(end);
+%                 sigY(end)=4*sigY(end);
+%                 ubX = cX + sigKeep * sigX; ubX(end) = cX(end)+8;
+%                 ubY = cY + sigKeep * sigY; ubY(end) = cY(end)+8;
+%                 lbX = cX - sigKeep * sigX; lbX(end) = cX(end)-8;
+%                 lbY = cY - sigKeep * sigY; lbY(end) = cY(end)-8;
+%                 ubX = max(xcfs,[],1) + sigKeep * sigX; ubX(end) = cX(end)+8;
+%                 ubY = max(ycfs,[],1) + sigKeep * sigY; ubY(end) = cY(end)+8;
+%                 lbX = min(xcfs,[],1) - sigKeep * sigX; lbX(end) = cX(end)-8;
+%                 lbY = min(ycfs,[],1) - sigKeep * sigY; lbY(end) = cY(end)-8;
+                ubX = max(xcfs,[],1) + sigKeep * sigX; 
+                ubY = max(ycfs,[],1) + sigKeep * sigY; 
+                lbX = min(xcfs,[],1) - sigKeep * sigX; 
+                lbY = min(ycfs,[],1) - sigKeep * sigY;
+%                 ubX = max(xcfs,[],1); ubX(end) = cX(end)+8;
+%                 ubY = max(ycfs,[],1); ubY(end) = cY(end)+8;
+%                 lbX = min(xcfs,[],1); lbX(end) = cX(end)-8;
+%                 lbY = min(ycfs,[],1); lbY(end) = cY(end)-8;
+                if obj.feature.dim==3 
+                    ubZ = cZ + sigKeep * sigZ; ubZ(1) = 1; 
+                    lbZ = cZ - sigKeep * sigZ; lbZ(1) = -1;
+                end
+                
+                
+%                 ubX = cX + [2 7 5 5]; lbX = cX - [2 7 5 5];
+%                 ubY = cY + [2 7 5 5]; lbY = cY - [2 7 5 5];
+                
+                ub( idxCX) = ubX;
+                ub( idxCY) = ubY;
+                lb( idxCX) = lbX;
+                lb( idxCY) = lbY;
+                if obj.feature.dim == 3
+                    ub( idxCZ) = ubZ;
+                    lb( idxCZ) = lbZ;
+                end
+                if length(idxT) == 1
+                    ub( idxT ) = 0.97;
+                    lb( idxT ) = 0.03;
+                elseif length(idxT) == 2
+                    ub( idxT ) = [0.97 0.97];
+                    lb( idxT ) = [0.03 0.03];
+                else
+                    disp('dang')
+                end
+                ub( idxEF) = 4;
+                lb( idxEF) = 1.5;
+
+                
+           end
+        
+        end
+        % }}}
+        
         % getExplorationSpeedVector {{{
         function speedVec = getExplorationSpeedVector( vecLabels)
             % Creates a weighing vector to allow a user to assign different importance to different kinds of parameters. This will infact allow the fitting optimization engine to explore the parameters space at different speeds
-            
+            % The smaller, the faster
             % Exlporation Speed : unassigned speeds are kept at 1.0
 %             speedAmp = 100;
 %             speedBkg = 10;
 %             speedSigma = 1;
 %             speedPos = 10;
-            speedAmp = 0.1;
-            speedBkg = 0.1;
-            speedSigma = 1;
+            speedAmp = 1;
+            speedBkg = 1;
+            speedSigma = 10;
             speedPos = 10;
-            speedCXYZ = 1;
+            speedCXYZ = 10;
+            speedT = 0.01;
             speedVec = ones( size(vecLabels) );
 
             % Find the index of these speeds
@@ -1020,6 +1177,10 @@ classdef FitEngine
             speedVec( idxAmp) = speedCXYZ;
             idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'cZ') ) );
             speedVec( idxAmp) = speedCXYZ;
+            
+            % T
+            idxT = find( ~cellfun( @isempty, strfind( vecLabels, 'T') ) );
+            speedVec( idxT) = speedT;
 
         end
         % }}}

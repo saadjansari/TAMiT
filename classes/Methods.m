@@ -1601,7 +1601,7 @@ classdef Methods
             % imageIn: simulated image of any number of features
 
             if nargin < 3
-                sens = 0.5;
+                sens = 0.1;
             end
             status = 0; amt=0;
             % Maximum Intensity of simulated image

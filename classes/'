@@ -22,9 +22,10 @@ classdef IMTBank < OrganizerMaster
 
             % Loop over mt arrays and get their vectors. Remove the MTOCs from the fit vectors. 
             for jAster = 1 : obj.numFeatures
-                [vec_mtarray, vecLabels_mtarray] = getVec( obj.featureList{ jAster}, obj.props2Fit.fit{obj.dim}.aster.curve);
+                [vec_mtarray, vecLabels_mtarray] = getVec( obj.featureList{ jAster}, obj.props2Fit.fit{obj.dim}.aster.spot, ...
+                    obj.props2Fit.fit{obj.dim}.aster.curve);
                 vec = [vec , vec_mtarray];
-                vecLabels_mtarray = strcat( 'B', num2str( jAster), '_', vecLabels_mtarray);
+                vecLabels_mtarray = strcat( 'A', num2str( jAster), '_', vecLabels_mtarray);
                 vecLabels = { vecLabels{:}, vecLabels_mtarray{:} };
             end
 
@@ -84,7 +85,7 @@ classdef IMTBank < OrganizerMaster
             % Searches for missing subfeatures and adds them to the featureList
             % We look for missing microtubule bundles            
 
-            bkg = median( Image2Find( Image2Find(:) > 0) );
+            bkg = median( imagein( imagein(:) > 0) );
             minLength = 10;
             [Image2Find2D, idxZ] = max(Image2Find, [],3);
             if obj.dim == 2
@@ -116,7 +117,7 @@ classdef IMTBank < OrganizerMaster
             end
 
             % Get coefficients
-            coeffs = Bundle.estimatePolyCoefficients( coord, obj.polyOrder(1:2));
+            coeffs = Bundle.estimatePolyCoefficients( coord, obj.PolyOrder(1:2));
             % coeff Z
             [cX,cY] = Methods.InterpolateCoords( coord(1,:), coord(2,:), 20); 
             indXY = sub2ind( size(Image2Find2D), round(cY), round(cX) );
@@ -147,34 +148,25 @@ classdef IMTBank < OrganizerMaster
             thr = multithresh( amps(:), 1);
             
             % Find parameters vals when amplitude is above threshold
-            idx1 = find(amps > thr, 1, 'first');
-            idx2 = find(amps > thr, 1, 'last');
+            idx1 = find(amps > thr, 1, 'first')
+            idx2 = find(amps > thr, 1, 'last')
             if idx1 == 0
-                disp('overlap region is at the start of the curve')
+                disp('whaaaa1')
             end
             if idx2 == length(amps) 
-                disp('overlap region is ar the end of the curve')
+                disp('whaaaa2')
             end
-            t = [idx1 idx2]/length(amps);
-            t(1) = max( [ t(1) 0.03]);
-            t(1) = min( [ t(1) 0.97]);
-            t(2) = max( [ t(2) 0.03]);
-            t(2) = min( [ t(2) 0.97]);
-            
+            t = [0 idx1 idx2 1]./length(amps)
+
             % Find amplitude and amplitude enhancement factor
             amp = median( amps(amps <= thr) );
             ef = median( amps(amps > thr) )/amp;
-            if ef < 1.5
-                disp('enhancement factor is less than 1. set to 1.6')
-                ef = 1.6;
-            end
-            if ef > 4
-                disp('enhancement factor is greater than 4. set to 3.9')
-                ef = 3.9;
+            if ef < 1
+                disp('whaaaeF')
             end
                 
             % Create 
-            bundle = Bundle( coeffs, amp, sigma, obj.dim, obj.props2Fit.fit{obj.dim}.curve, obj.props2Fit.graphics.curve, t, ef);
+            bundle = Bundle( coeffs, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve, t, ef);
             
             if bundle.GetLength() <= minLength
                 successAdd = 0;
@@ -199,29 +191,39 @@ classdef IMTBank < OrganizerMaster
             % Look at the residual under each astral microtubule
             % Remove the one with the biggest unit residual per length.
             % If there are no microtubules to remove
-            successRemove = 1;        
-
-            % If no features to remove, exit the function
-            if obj.numFeatures == 0
-                successRemove = 0; return
-            end
-
-            % Find prominence of features
-            p = zeros(1, obj.numFeatures);
-            for idx = 1 : obj.numFeatures
-                
-                % find Prominence
-                p(idx) = obj.featureList{ idx }.amplitude * ...
-                    obj.featureList{ idx }.GetLength() * ...
-                    mean( obj.featureList{ idx }.sigma);
-
+            successRemove = 1;
+            
+            % Ask asters to give their worst microtubule features
+            feat = cell( 1, obj.numFeatures);
+            succ = zeros( 1, obj.numFeatures);
+            for jFeature = 1 : obj.numFeatures
+                [feat{jFeature}, succ(jFeature) ] = obj.featureList{jFeature}.findLeastPromFeature();
             end
             
-            % Find least prominent worst feature
-            [~, idxRm ] = min(p);
+            % If no features to remove, exit the function
+            if all( succ == 0)
+                successRemove = 0;
+                return
+            end
+
+            % Find least prominent feature
+            p = 1e6; idxAster = 0; idx = 0;
+            for jFeature = 1 : obj.numFeatures
+                if succ(jFeature) && feat{jFeature}.p < p
+                    p = feat{jFeature}.p;
+                    idxAster = jFeature;
+                    idx = feat{jFeature}.idx;
+                end
+            end          
 
             % Remove the worst microtubule
-            obj.removeFeatureFromList( idxRm);
+            obj.featureList{ idxAster}.removeFeatureFromList( idx);
+            
+            % If, as a result, an aster contains only a spot, remove it
+            % with the microtubule
+            if obj.featureList{ idxAster}.numFeatures == 1
+                obj.removeFeatureFromList( idxAster);
+            end
                 
         end
         % }}}
@@ -248,14 +250,11 @@ classdef IMTBank < OrganizerMaster
         end
         % }}}
         
-%         function obj = finalizeAddedFeatures(obj)
-%             
-%             % Reset t parameter for bundles
-%             for jb = 1 : obj.numFeatures
-%                 obj.featureList{jb}.resetT();
-%             end
-%             
+        % getSubFeatureNumber {{{
+%         function numFeat = getSubFeatureNumber( obj)
+%             numFeat = length( obj.featureList);
 %         end
+        % }}}
         
         % GetStructBasicFeatures {{{
         function feats = GetStructBasicFeatures(obj)
@@ -324,7 +323,7 @@ classdef IMTBank < OrganizerMaster
 
             % Get dimensionality and background
             dim = length( size(imageIn) );
-            bkg = median( imageIn( imageIn(:) > 0) );
+            bkg = median( imagein( imagein(:) > 0) );
 
             % Define sigma for this bank
             if dim == 2
@@ -346,7 +345,7 @@ classdef IMTBank < OrganizerMaster
 
                 % Get coord: unite the two curves
                 if length( coords{jb}) == 2
-                    coord = [ coords{jb}{2}(:, end:-1:2), coords{jb}{1} ];
+                    coord = [ flip(coords{jb}{2}(2:end, :)), coords{jb}{1} ];
                 else
                     coord = coords{jb}{1};
                 end
@@ -362,41 +361,33 @@ classdef IMTBank < OrganizerMaster
                 thr = multithresh( amps(:), 1);
                 
                 % Find parameters vals when amplitude is above threshold
-                idx1 = find(amps > thr, 1, 'first');
-                idx2 = find(amps > thr, 1, 'last');
+                idx1 = find(amps > thr, 1, 'first')
+                idx2 = find(amps > thr, 1, 'last')
                 if idx1 == 0
-                    disp('overlap region is at the start of the curve')
+                    disp('whaaaa1)
                 end
                 if idx2 == length(amps) 
-                    disp('overlap region is ar the end of the curve')
+                    disp('whaaaa2')
                 end
-                t = [idx1 idx2]/length(amps);
-                t(1) = max( [ t(1) 0.03]);
-                t(1) = min( [ t(1) 0.97]);
-                t(2) = max( [ t(2) 0.03]);
-                t(2) = min( [ t(2) 0.97]);
+                t = [0 idx1 idx2 1]./length(amps)
 
                 % Find amplitude and amplitude enhancement factor
                 amp = median( amps(amps <= thr) );
                 ef = median( amps(amps > thr) )/amp;
-                if ef < 1.5
-                    disp('enhancement factor is less than 1. set to 1.6')
-                    ef = 1.6;
-                end
-                if ef > 4
-                    disp('enhancement factor is greater than 4. set to 3.9')
-                    ef = 3.9;
+                if ef < 1
+                    disp('whaaaeF')
                 end
                     
                 % Ensure coefficients are within the image region
-                if dim == 3
-                    if coeffs{3}(2) == 1
-                        coeffs{3}(1) = 0.5;
-                    elseif coeffs{3}(2) == size(imageIn, 3)
-                        coeffs{3}(1) = -0.5;
-                    end
+                if all( coord(3,:) == size(imageIn,3) )
+                    coeffs{3}(1:end-1) = -abs(coeffs{3}(1:end-1));
                 end
-                
+                    
+                % Ensure coefficients are within the image region
+                if all( coords{jMTOC}{jmt}(3,:) == 1 )
+                    coeffs{3}(1:end-1) = +abs(coeffs{3}(1:end-1));
+                end
+                    
                 % Create 
                 bundles{jb} = Bundle( coeffs, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve, t, ef);
 

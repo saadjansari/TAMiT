@@ -107,25 +107,26 @@ classdef OrganizerMaster < Organizer
         % }}}
 
         % simulateAll {{{
-        function imageOut = simulateAll( obj, imageIn, featureID)
+        function [imageOut, err] = simulateAll( obj, imageIn, featureID)
            
             % Find the feature to simulate using ID
             cFeature = obj.findObjectFromID( featureID);
 
             % Simulate feature 
             try
-                [imageOut,error_code] = cFeature.simulateFeature( size(imageIn) );
+                [imageOut,error_code, err1] = cFeature.simulateFeature( size(imageIn) );
             catch
-                imageOut = cFeature.simulateFeature( size(imageIn) ); error_code = 0;
+                imageOut = cFeature.simulateFeature( size(imageIn) ); err1 = 0; error_code =0;
             end
             
             % Penalize if features exceed mask region
-            imageOut = PenalizeOutsideMask( imageOut, obj.mask);
+            err2 = PenalizeOutsideMask( imageOut, obj.mask);
             
-            if error_code
-                imageOut = ones(size(imageOut));
-                return
-            end
+            %if error_code
+                %imageOut = ones(size(imageOut));
+                %return
+            %end
+            err = 1+err1+err2;
             
             % Fill background where features are not prominent-er
             if ~isempty( obj.background)
@@ -141,7 +142,7 @@ classdef OrganizerMaster < Organizer
             imageOut = imageOut .* obj.mask;
 
             % PenalizeOutsideMask {{{
-            function imageOut = PenalizeOutsideMask( imageIn, mask)
+            function amt = PenalizeOutsideMask( imageIn, mask)
                 % Penalize features outside 2D mask
 
                 if nargin < 2
@@ -150,13 +151,13 @@ classdef OrganizerMaster < Organizer
                
                 % Check if escape mask
                 [outside, amt] = Methods.CheckEscapeMask( imageIn, mask);
-                scaling = 0.05;
-                if outside
-                    imageOut = imageIn*(1+scaling*0.1) -amt*scaling*obj.image;
-                    disp('   Warning: OrganizerMaster.simulateAll - feature escaped 2D mask, applying scaled cost to force reflection')
-                else
-                    imageOut = imageIn;
-                end
+%                 scaling = 0.02;
+%                 if outside
+%                     imageOut = imageIn*(1+scaling*0.1) -amt*scaling*obj.image;
+%                     disp('   Warning: OrganizerMaster.simulateAll - feature escaped 2D mask, applying scaled cost to force reflection')
+%                 else
+%                     imageOut = imageIn;
+%                 end
             end
             % }}}
             

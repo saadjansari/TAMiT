@@ -105,23 +105,24 @@ classdef Organizer < Feature
         % }}}
 
         % simulateFeature {{{ 
-        function [imageOut,error_code] = simulateFeature( obj, sizeImage)
+        function [imageOut,error_code, err] = simulateFeature( obj, sizeImage)
 
             if nargin < 2
                 error('simulateFeature: must pass an imageSize to make a simulated Image')
             end
-            error_code = 0;
+            error_code = 0; err=0;
             % Simulate all the features
             imageOut = zeros( sizeImage);
             for jFeat = 1 : obj.numFeatures
                 try
-                    [imNew, error_code_new] = simulateFeature( obj.featureList{ jFeat}, sizeImage);
+                    [imNew, error_code_new, errr] = simulateFeature( obj.featureList{ jFeat}, sizeImage);
                 catch
                     imNew = simulateFeature( obj.featureList{ jFeat}, sizeImage);
                     error_code_new = 0;
                 end
                 imageOut = imageOut + imNew;
                 error_code = any( [error_code, error_code_new]);
+                err = mean( [err, errr]);
             end
             obj.imageSim = imageOut;
 
