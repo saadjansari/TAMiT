@@ -1023,7 +1023,7 @@ classdef FitEngine
                 t = vec( idxT);
                 idxEF = find( ~cellfun( @isempty, strfind( vecLabels, str2find_ef) ) );
                     
-                xcfs = []; ycfs = []; zcfs = [];
+                xcfs = cX; ycfs = cY; zcfs = cZ;
                 tt = linspace(0,1);
                 sigKeep = 0.5;
                 % Vary the curvature by add/sub with + (x-0.5)^2
@@ -1081,33 +1081,14 @@ classdef FitEngine
                 end
 
                 % We will keep half a standard deviation above the max coeff val and half a std below the min coeff value
-%                 sigX(end)=4*sigX(end);
-%                 sigY(end)=4*sigY(end);
-%                 ubX = cX + sigKeep * sigX; ubX(end) = cX(end)+8;
-%                 ubY = cY + sigKeep * sigY; ubY(end) = cY(end)+8;
-%                 lbX = cX - sigKeep * sigX; lbX(end) = cX(end)-8;
-%                 lbY = cY - sigKeep * sigY; lbY(end) = cY(end)-8;
-%                 ubX = max(xcfs,[],1) + sigKeep * sigX; ubX(end) = cX(end)+8;
-%                 ubY = max(ycfs,[],1) + sigKeep * sigY; ubY(end) = cY(end)+8;
-%                 lbX = min(xcfs,[],1) - sigKeep * sigX; lbX(end) = cX(end)-8;
-%                 lbY = min(ycfs,[],1) - sigKeep * sigY; lbY(end) = cY(end)-8;
                 ubX = max(xcfs,[],1) + sigKeep * sigX; 
                 ubY = max(ycfs,[],1) + sigKeep * sigY; 
                 lbX = min(xcfs,[],1) - sigKeep * sigX; 
                 lbY = min(ycfs,[],1) - sigKeep * sigY;
-%                 ubX = max(xcfs,[],1); ubX(end) = cX(end)+8;
-%                 ubY = max(ycfs,[],1); ubY(end) = cY(end)+8;
-%                 lbX = min(xcfs,[],1); lbX(end) = cX(end)-8;
-%                 lbY = min(ycfs,[],1); lbY(end) = cY(end)-8;
                 if obj.feature.dim==3 
                     ubZ = cZ + sigKeep * sigZ; ubZ(1) = 1; 
                     lbZ = cZ - sigKeep * sigZ; lbZ(1) = -1;
                 end
-                
-                
-%                 ubX = cX + [2 7 5 5]; lbX = cX - [2 7 5 5];
-%                 ubY = cY + [2 7 5 5]; lbY = cY - [2 7 5 5];
-                
                 ub( idxCX) = ubX;
                 ub( idxCY) = ubY;
                 lb( idxCX) = lbX;
