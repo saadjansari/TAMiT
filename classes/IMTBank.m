@@ -85,7 +85,7 @@ classdef IMTBank < OrganizerMaster
             % We look for missing microtubule bundles            
 
             bkg = median( Image2Find( Image2Find(:) > 0) );
-            minLength = 10;
+            minLength = 20;
             [Image2Find2D, idxZ] = max(Image2Find, [],3);
             if obj.dim == 2
                 sigma=[1.2 1.2];
@@ -160,6 +160,12 @@ classdef IMTBank < OrganizerMaster
             t(1) = min( [ t(1) 0.97]);
             t(2) = max( [ t(2) 0.03]);
             t(2) = min( [ t(2) 0.97]);
+            
+            if abs(diff(t)) < 0.03
+                t(1) = max( [ 0.03, t(1)-0.02]);
+                t(2) = min( [ 0.97, t(1)+0.02]);
+                disp('modified t because values were too close')
+            end
             
             % Find amplitude and amplitude enhancement factor
             amp = median( amps(amps <= thr) );
