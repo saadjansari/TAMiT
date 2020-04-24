@@ -542,7 +542,7 @@ classdef AnalysisSingleCell < handle
 
                 % make figure
                 f = figure('visible', 'on'); 
-                h = tight_subplot(1,2);
+                h = tight_subplot(1,3);
                 set(f, 'currentaxes', h(1) );
                 imagesc( h(1), max(img , [], 3) ), 
                 colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
@@ -552,6 +552,10 @@ classdef AnalysisSingleCell < handle
                 colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
                 feat.displayFeature( h(2) );
                 title(sprintf('feature: T = %d', obj.times(jTime) ) );
+                set(f, 'currentaxes', h(3) );
+                imagesc( h(3), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
+                colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
+                title(sprintf('sim: T = %d', obj.times(jTime) ) );
                 obj.data{jChannel}.mov( jTime) = getframe(f);
                 close(f)
 

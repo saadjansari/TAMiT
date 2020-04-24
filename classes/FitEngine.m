@@ -684,7 +684,7 @@ classdef FitEngine
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
                                         'display', 'iter' ,...
-                                        'MaxIter', 10);
+                                        'MaxIter', 5);
             end
             
             % Set Parallel Optimization
@@ -856,7 +856,7 @@ classdef FitEngine
             % Interphase curves
             if strcmp(obj.feature.type, 'IMTBank')
                 %[ub, lb] = FitEngine.GetVectorBoundsCurves( obj, vec, ub,lb, vecLabels);
-                [ub, lb] = FitEngine.GetVectorBoundsBundles( obj, vec, ub,lb, vecLabels);
+                [ub, lb] = FitEngine.GetVectorBoundsBundlesNew( obj, vec, ub,lb, vecLabels);
             end
             
             if any( lb > ub) || any(ub < lb) || any( vec < lb) || any(vec > ub)
@@ -869,9 +869,6 @@ classdef FitEngine
                 disp( lb( badIdx) )
                 error('getUpperLowerBounds : bounds are wrong')
             end
-            
-            
-
             fitVecs.vec = vec;
             fitVecs.ub = ub;
             fitVecs.lb = lb;
@@ -981,7 +978,6 @@ classdef FitEngine
         
         end
         % }}}
-        
         % GetVectorBoundsBundles {{{
         function [ub,lb] = GetVectorBoundsBundles( obj, vec, ub, lb, vecLabels)
             % Get bounds for coefficients of polynomial curves
@@ -1114,6 +1110,86 @@ classdef FitEngine
         
         end
         % }}}
+        % GetVectorBoundsBundlesNew {{{
+        function [ub,lb] = GetVectorBoundsBundlesNew( obj, vec, ub, lb, vecLabels)
+            % Get bounds for coefficients of polynomial curves
+           
+            % Determine if this is local or global fitting
+            def = 'global';
+            if any( cellfun( @(x) strcmp(x,'origin'), vecLabels) )
+                def = 'local';
+            end
+            
+            for jb = 1: obj.feature.numFeatures
+                   
+                % Search through vecLabels
+                switch def
+                    case 'local'
+                        str2find_origin = 'origin';
+                        str2find_thetaInit = 'thetaInit';
+                        str2find_normalVec = 'normalVec';
+                        str2find_L = 'L';
+                        str2find_t = 'T';
+                        str2find_ef = 'ef';
+                    case 'global'
+                        str2find_origin = ['B', num2str(jb), '_origin'];
+                        str2find_thetaInit = ['B', num2str(jb), '_thetaInit'];
+                        str2find_normalVec = ['B', num2str(jb), '_normalVec'];
+                        str2find_L = ['B', num2str(jb), '_L'];
+                        str2find_t = ['B', num2str(jb), '_T'];
+                        str2find_ef = ['B', num2str(jb), '_ef'];
+                end
+                
+                % thetaInit
+                idxThetaInit = find( ~cellfun( @isempty, strfind( vecLabels, str2find_thetaInit) ) );
+                thetaInit = vec( idxThetaInit);
+                ub(idxThetaInit) = thetaInit + [0.1, 0, 0.1, 0];
+                lb(idxThetaInit) = thetaInit - [0.1, 0, 0.1, 0];
+                for jj = [2,4]
+                    if thetaInit(jj) >= 0
+                        ub(idxThetaInit(jj)) = thetaInit(jj)+0.05;
+                        lb(idxThetaInit(jj)) = 0;
+                    else
+                        ub(idxThetaInit(jj)) = 0;
+                        lb(idxThetaInit(jj)) = thetaInit(jj)-0.05;
+                    end
+                end
+                
+                % Origin
+                idxOrig = find( ~cellfun( @isempty, strfind( vecLabels, str2find_origin) ) );
+                origin = vec( idxOrig);
+                tanVec = round( abs( 7*[cos(thetaInit(1,1)), sin(thetaInit(1,1)) ]));
+                ub(idxOrig) = [ origin(1)+tanVec(1), origin(2)+tanVec(2), 7];
+                lb(idxOrig) = [ origin(1)-tanVec(1), origin(2)-tanVec(2), 1];
+                
+                % normal vector
+                idxNV = find( ~cellfun( @isempty, strfind( vecLabels, str2find_normalVec) ) );
+                nV = vec(idxNV);
+                ub(idxNV) = [ nV(1)+0.005, nV(2)+0.003, nV(3)+0.005, nV(4)+0.003];
+                lb(idxNV) = [ nV(1)-0.005, nV(2)-0.003, nV(3)-0.005, nV(4)-0.003];
+                
+                % L
+                idxL = find( ~cellfun( @isempty, strfind( vecLabels, str2find_L) ) );
+                L = vec( idxL);
+                ub(idxL) = L+10;
+                lb(idxL) = min( [L-10, 8]);
+                
+                % T
+                idxT = find( ~cellfun( @isempty, strfind( vecLabels, str2find_t) ) );
+                t = vec( idxT);
+                ub(idxT) = t+10;
+                lb(idxT) = 2;
+                
+                % Enhancement factor
+                idxEF = find( ~cellfun( @isempty, strfind( vecLabels, str2find_ef) ) );
+                ef = vec( idxEF);
+                ub(idxEF) = 4;
+                lb(idxEF) = 1.5;
+                
+           end
+        
+        end
+        % }}}
         
         % getExplorationSpeedVector {{{
         function speedVec = getExplorationSpeedVector( vecLabels)
@@ -1129,7 +1205,8 @@ classdef FitEngine
             speedSigma = 10;
             speedPos = 10;
             speedCXYZ = 10;
-            speedT = 0.01;
+            speedT = 10;
+            speedNormal = 0.01;
             speedVec = ones( size(vecLabels) );
 
             % Find the index of these speeds
@@ -1160,8 +1237,11 @@ classdef FitEngine
             speedVec( idxAmp) = speedCXYZ;
             
             % T
-            idxT = find( ~cellfun( @isempty, strfind( vecLabels, 'T') ) );
-            speedVec( idxT) = speedT;
+            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'origin') ) );speedVec( idxAmp) = speedPos;
+            idxT = find( ~cellfun( @isempty, strfind( vecLabels, 'T') ) );speedVec( idxT) = speedT;
+            idx = find( ~cellfun( @isempty, strfind( vecLabels, 'L') ) );speedVec( idx) = speedT;
+            idx = find( ~cellfun( @isempty, strfind( vecLabels, 'normalVec') ) ); speedVec( idx) = speedNormal;
+            idx = find( ~cellfun( @isempty, strfind( vecLabels, 'thetaInit') ) ); speedVec( idx) = speedNormal;
 
         end
         % }}}

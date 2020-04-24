@@ -487,8 +487,10 @@ classdef Bundle < BasicElement
             end
 
             % interpolate for better accuracy
-            xi = interp1( linspace(0,1,size(coords,2) ), coords(1,:), t, 'linear', 'extrap');
-            yi = interp1( linspace(0,1,size(coords,2) ), coords(2,:), t, 'linear', 'extrap');
+%             xi = interp1( linspace(0,1,size(coords,2) ), coords(1,:), t, 'linear', 'extrap');
+%             yi = interp1( linspace(0,1,size(coords,2) ), coords(2,:), t, 'linear', 'extrap');
+            xi = coords(1,:);
+            yi = coords(2,:);
             
             % fit polynomial of order polyOrder
             if size(coords,1) == 2

@@ -18,6 +18,8 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
             [imageFeat, error_code, error_amount] = drawGaussianCurve2D( opts.Coeff, sigma, imageIn, opts.T, opts.Idx, opts.X, opts.Y);
         case 'Curve3'
             [imageFeat, error_code, error_amount] = drawGaussianCurve3D( opts.Coeff, sigma, imageIn, opts.T, opts.Idx, opts.X, opts.Y, opts.Z);
+        case 'Curve3Coords'
+            [imageFeat, error_code, error_amount] = drawGaussianCurve3DCoords( opts.Coord, sigma, imageIn, opts.Idx, opts.X, opts.Y, opts.Z);
         otherwise
             error('DrawGaussian: unknown feature type')
     end
@@ -48,6 +50,9 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         % Coefficients
         defCoeff = [];
 
+        % Coefficients
+        defCoord = [];
+        
         % Index/XYZ
         defIdx = 1 : numel( imageIn);
         if defDim == 2
@@ -77,6 +82,7 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         addParameter( p, 'Idx', defIdx);
         addParameter( p, 'T', defT);
         addParameter( p, 'Plot', defPlot);
+        addParameter( p, 'Coord', defCoord);
 
         parse( p, varargin{:});
         opts = p.Results;
@@ -471,6 +477,57 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
 
         PtGaussLoc = [ xDat , yDat , zDat];
         imageCurve = NumericalConv( sigma, PtGaussLoc, {X,Y,Z}, imageIn, Idx );
+
+        % TrimAndGetErrorZ {{{
+        function [X,Y,Z,error_amount] = TrimAndGetErrorZ( X,Y,Z,imageIn)
+            rmIdx = [];
+            for jz = 1: length(Z)
+                if Z(jz) < 1 || Z(jz) > size(imageIn,3)
+                    rmIdx = [rmIdx, jz];
+                end
+            end
+            error_amount = length(rmIdx)/length(X);
+            X( rmIdx) = [];
+            Y( rmIdx) = [];
+            Z( rmIdx) = [];
+        end
+        % }}}
+
+    end
+    % }}}
+    
+    % drawGaussianCurve3D {{{
+    function [imageCurve, error_code, error_amount] = drawGaussianCurve3DCoords( coords, sigma, imageIn, Idx, X, Y, Z)
+        % Draw a gaussian curve in 3D using numerical integration
+
+        if isempty( coords) 
+            error('drawGaussianCurve3DCoords: coords not provided')
+        end
+        if numel( size(imageIn) ) ~= 3 || size( coords,1) ~= 3 || length(sigma)~= 3
+            error('drawGaussianCurve3D: all data must be 3-dimensional')
+        end
+
+        dim = length( size(imageIn) );
+        error_code = 0;
+        error_amount = 0;
+
+        % Check if microtubule escapes the z-planes. Exit with error.
+        %zends = polyval( coeffs{3}, T);
+        %if any(zends <1) || any( zends > size(imageIn, 3))
+            %imageCurve = imageIn;
+            %error_code = 1;
+            %return
+        %end
+
+        if any(coords(3,:) < 1) || any(coords(3,:) >= size(imageIn,3))
+            [xDat,yDat,zDat,error_amount] = TrimAndGetErrorZ( coords(1,:), coords(2,:), coords(3,:),imageIn);
+        else
+            xDat = coords(1,:);
+            yDat = coords(2,:);
+            zDat = coords(3,:);
+        end
+
+        imageCurve = NumericalConv( sigma, [ xDat' , yDat' , zDat'], {X,Y,Z}, imageIn, Idx );
 
         % TrimAndGetErrorZ {{{
         function [X,Y,Z,error_amount] = TrimAndGetErrorZ( X,Y,Z,imageIn)

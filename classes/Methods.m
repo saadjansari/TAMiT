@@ -1418,6 +1418,39 @@ classdef Methods
         end
         % }}}
         
+        % InterpolateCoords3 {{{
+        function [cX, cY,cZ] = InterpolateCoords3( coordX, coordY, coordZ, numIntervals)
+
+            if any( size(coordX) ~= size(coordY) ), error( 'input size of coords is different'), end
+
+            nC = length( coordX);
+
+            cX = [];
+            cY = [];
+            cZ = [];
+
+            for jC = 1 : nC-1
+                cXX = linspace( coordX(jC), coordX(jC+1), numIntervals);
+                cYY = linspace( coordY(jC), coordY(jC+1), numIntervals);
+                cZZ = linspace( coordZ(jC), coordZ(jC+1), numIntervals);
+                cX = [ cX, cXX(1:end-1)];
+                cY = [ cY, cYY(1:end-1)];
+                cZ = [ cZ, cZZ(1:end-1)];
+                if jC == nC-1
+                    cX = [cX, cXX(end)]; cY = [cY, cYY(end)]; cZ = [cZ, cZZ(end)];
+                end
+
+            end
+
+            if isempty(cX)
+                cX = coordX;
+                cY = coordY;
+                cZ = coordZ;
+            end
+
+        end
+        % }}}
+        
         % FilterImageForCurveDetection {{{
         function [imFilt, imSteer] = FilterImageForCurveDetection( imageIn, varargin)
 

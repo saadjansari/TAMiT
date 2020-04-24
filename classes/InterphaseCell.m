@@ -67,12 +67,18 @@ classdef InterphaseCell < Cell
                 bestFrame = bestFrame - 1;
             end
 
+            % Get image
+            Image = obj.imageData.GetImage();
+            Im3 = im2double( Image(:,:,:, cTime, cChannel) );
+
+
             % Duplicate feature from best recent frame
             obj.featureList{ idxChannel, cTime} = obj.featureList{ idxChannel, bestFrame}.copyDeep();
+            % Get new feature for next frame
+%             obj.featureList{ idxChannel, cTime} = obj.featureList{ idxChannel, bestFrame}.estimateFeatureNextFrame(Im3);
 
-            % Ensure the image is from the actual frame
-            Image = obj.imageData.GetImage();
-            obj.featureList{ idxChannel, cTime}.image = im2double( Image(:,:,:, cTime, cChannel) );
+            % Update image for next frame
+            obj.featureList{ idxChannel, cTime}.image = Im3;
 
         end
         % }}}

@@ -435,6 +435,21 @@ classdef Cell < handle & matlab.mixin.Copyable
             
         end
         % }}}
+        % }}}% findAmplitudeAlongCurveCoords {{{
+        function amplitude = findAmplitudeAlongCurveCoords( imageIn, coord)
+            % used to measure intensity while using coordinates
+            
+            dim = length (size( imageIn) );
+            
+            if dim ==2
+                idx = sub2ind( size(imageIn), coord(2, :), coord(1, :) );
+            elseif dim ==3
+                idx = sub2ind( size(imageIn), coord(2, :), coord(1, :), coord(3, :) );
+            end
+            amplitude = imageIn( idx);
+            
+        end
+        % }}}
         % radIntegrate2D {{{
         function [phiIntensity, phiValues] = radIntegrate2D( imageIn, startPoint)
 
@@ -1790,8 +1805,10 @@ classdef Cell < handle & matlab.mixin.Copyable
             curve.graphics.red = {'Color', [1 0 0] , 'LineWidth', 2};
 
             % Bundle 
-            bundle.fit{2} = {'cX','cY', 'amplitude', 'sigma', 'T', 'ef'};
-            bundle.fit{3} = {'cX','cY','cZ', 'amplitude', 'sigma', 'T', 'ef'};
+%             bundle.fit{2} = {'cX','cY', 'amplitude', 'sigma', 'T', 'ef'};
+%             bundle.fit{3} = {'cX','cY','cZ', 'amplitude', 'sigma', 'T', 'ef'};
+            bundle.fit{2} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'T', 'L','ef'};
+            bundle.fit{3} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'T', 'L','ef'};
             bundle.graphics.magenta = {'Color', [0.7 0 0.7] , 'LineWidth', 2};
             bundle.graphics.green = {'Color', [0 1 0] , 'LineWidth', 2};
             bundle.graphics.blue = {'Color', [0 0 1] , 'LineWidth', 2};
@@ -1864,8 +1881,8 @@ classdef Cell < handle & matlab.mixin.Copyable
             intBank.fit{2}.spot = spot.fit{2};
             intBank.fit{3}.spot = spot.fit{3};
             intBank.graphics.spot = spot.graphics.blue;
-            intBank.fit{2}.curve = curve.fit{2};
-            intBank.fit{3}.curve = curve.fit{3};
+            intBank.fit{2}.curve = bundle.fit{2};
+            intBank.fit{3}.curve = bundle.fit{3};
             intBank.graphics.curve = curve.graphics.red;
             props.intBank = intBank;
             % }}}
