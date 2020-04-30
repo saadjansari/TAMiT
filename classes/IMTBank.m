@@ -139,6 +139,11 @@ classdef IMTBank < OrganizerMaster
 %             x2 = polyval( cf2{1}, t2); y2 = polyval( cf2{2}, t2);
                 
             origin = [cf1{1}(end), cf1{2}(end),cf1{3}(end)];
+            if origin(3) >= size( Image2Find,3)
+                origin(3) = size(Image2Find,3)-0.2;
+            elseif origin(3) <= 1
+                origin(3) = 1.2;
+            end
             % Get initial tangent vector
             tanInit{1} = [cf1{1}(3), cf1{2}(3), 0];
             tanInit{2} = [cf2{1}(3), cf2{2}(3), 0];
@@ -535,8 +540,8 @@ classdef IMTBank < OrganizerMaster
                 x2 = polyval( cf2{1}, t2); y2 = polyval( cf2{2}, t2);
                 
                 origin = [cf1{1}(end), cf1{2}(end),cf1{3}(end)];
-                if origin(3) >= size( origin,3)
-                    origin(3) = size(origin,3)-0.2;
+                if origin(3) >= size( imageIn,3)
+                    origin(3) = size(imageIn,3)-0.2;
                 elseif origin(3) <= 1
                     origin(3) = 1.2;
                 end
