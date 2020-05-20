@@ -525,75 +525,70 @@ classdef IMTBank < OrganizerMaster
 
                 % Get length
                 L(1) = sum( sqrt( diff( coords{jb}{1}(1,:)).^2 + diff( coords{jb}{1}(2,:)).^2 + diff( coords{jb}{1}(3,:)).^2 ) );
-                L(2) = sum( sqrt( diff( coords{jb}{2}(1,:)).^2 + diff( coords{jb}{2}(2,:)).^2 + diff( coords{jb}{2}(3,:)).^2 ) );
                 nInt1 = round( L(1)/ length( coords{jb}{1}(1,:) ) );
-                nInt2 = round( L(2)/ length( coords{jb}{2}(1,:) ) );
-                if nInt1 < 5
-                    nInt1=5;
-                end
-                if nInt2 < 5
-                    nInt2=5;
-                end
                 [cX1,cY1,cZ1] = Methods.InterpolateCoords3( coords{jb}{1}(1,:), coords{jb}{1}(2,:), coords{jb}{1}(3,:), nInt1 );
-                [cX2,cY2,cZ2] = Methods.InterpolateCoords3( coords{jb}{2}(1,:), coords{jb}{2}(2,:), coords{jb}{2}(3,:), nInt2 );
-
                 % Get Coeff
                 cf1 = Bundle.estimatePolyCoefficients( [cX1;cY1;cZ1], [3 3 1], linspace(0,L(1),length(cX1 )));
-                cf2 = Bundle.estimatePolyCoefficients( [cX2;cY2;cZ2], [3 3 1], linspace(0,L(2), length(cY2)));
-                
                 % Get coordinates from coeffs
                 t1 = linspace(0,L(1),length(cX1 ));
-                t2 = linspace(0,L(2),length(cX2 ));
-                if length(t1) < 8
-                    t1 = linspace(t1(0), t1(end), 9);
-                end
-                if length(t2) < 8
-                    t2 = linspace(t2(1), t2(end), 9);
-                end
                 x1 = polyval( cf1{1}, t1); y1 = polyval( cf1{2}, t1);
-                x2 = polyval( cf2{1}, t2); y2 = polyval( cf2{2}, t2);
                 
+                % Get origin
                 origin = [cf1{1}(end), cf1{2}(end),cf1{3}(end)];
                 if origin(3) >= size( imageIn,3)
                     origin(3) = size(imageIn,3)-0.2;
                 elseif origin(3) <= 1
                     origin(3) = 1.2;
                 end
-                
-                % Get initial tangent vector
+                % Get initial tangent vector and theta vector
                 tanInit{1} = [cf1{1}(3), cf1{2}(3), 0];
-                tanInit{2} = [cf2{1}(3), cf2{2}(3), 0];
-
-                % Angle of tanInit
-                thetaInit = zeros(2,2);
-                thetaInit(1,1) = atan2( tanInit{1}(2), tanInit{1}(1) );
-                thetaInit(2,1) = atan2( tanInit{2}(2), tanInit{2}(1) );
-                thetaInit(1,2) = pi/2; thetaInit(2,2) = pi/2;
-
+                thetaInit = [atan2( tanInit{1}(2), tanInit{1}(1) ), pi/2];
                 % Normal Magnitude Coefficients
-                nV = zeros(2,2);
-                nV(1,1) = 2*(cf1{1}(3)*cf1{2}(2) - cf1{1}(2)*cf1{2}(3));
-                nV(1,2) = 6*(cf1{1}(3)*cf1{2}(1) - cf1{1}(1)*cf1{2}(3));
-                nV(2,1) = 2*(cf2{1}(3)*cf2{2}(2) - cf2{1}(2)*cf2{2}(3));
-                nV(2,2) = 6*(cf2{1}(3)*cf2{2}(1) - cf2{1}(1)*cf2{2}(3));
+                nV = [ 2*(cf1{1}(3)*cf1{2}(2) - cf1{1}(2)*cf1{2}(3)), ...
+                    6*(cf1{1}(3)*cf1{2}(1) - cf1{1}(1)*cf1{2}(3))];
+                
+                % If two extensions
+                if length( coords{jb}) == 2
+                    L(2) = sum( sqrt( diff( coords{jb}{2}(1,:)).^2 + diff( coords{jb}{2}(2,:)).^2 + diff( coords{jb}{2}(3,:)).^2 ) );
+                    nInt2 = round( L(2)/ length( coords{jb}{2}(1,:) ) );
+                    [cX2,cY2,cZ2] = Methods.InterpolateCoords3( coords{jb}{2}(1,:), coords{jb}{2}(2,:), coords{jb}{2}(3,:), nInt2 );
+                    % Get Coeff
+                    cf2 = Bundle.estimatePolyCoefficients( [cX2;cY2;cZ2], [3 3 1], linspace(0,L(2), length(cY2)));
+                    % Get coordinates from coeffs
+                    t2 = linspace(0,L(2),length(cX2 ));
+                    x2 = polyval( cf2{1}, t2); y2 = polyval( cf2{2}, t2);
+                    % Get initial tangent vector
+                    tanInit{2} = [cf2{1}(3), cf2{2}(3), 0];
+                    thetaInit = [thetaInit; [atan2( tanInit{2}(2), tanInit{2}(1) ), pi/2]];
+                    % Normal Magnitude Coefficients
+                    nV = [ nV; [2*(cf2{1}(3)*cf2{2}(2) - cf2{1}(2)*cf2{2}(3)) ,...
+                        6*(cf2{1}(3)*cf2{2}(1) - cf2{1}(1)*cf2{2}(3))]];
+                end
                 
                 % Get amplitude along each bundle
                 A1 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX1;cY1]) ) - bkg);
-                A2 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX2;cY2]) ) - bkg);
-                A1( A1 < bkg) = bkg; A2( A2 < bkg) = bkg;
-                % Threshold amplitude
-                thr1 = multithresh( A1(:), 1); thr2 = multithresh( A2(:), 1);
+                A1( A1 < bkg) = bkg; thr1 = multithresh( A1(:), 2);
                 % Find parameters vals when amplitude is above threshold
-                idx1 = find(A1 >thr1, 1, 'last'); idx2 = find(A2 >thr2, 1, 'last');
+                idx1 = find(A1 >thr1(2), 1, 'last'); 
                 LO(1) = sum( sqrt( diff( cX1(1:idx1)).^2 + diff( cY1(1:idx1)).^2 + diff( cZ1(1:idx1)).^2 ) );
-                LO(2) = sum( sqrt( diff( cX2(1:idx2)).^2 + diff( cY2(1:idx2)).^2 + diff( cZ2(1:idx2)).^2 ) );
                 LO_mu = mean( LO); LO_mu = max( [2.0, LO_mu]);
-                L(1) = max( [L(1), 8]);L(2) = max( [L(2), 8]);
-
-
-                % Find amplitude and amplitude enhancement factor
-                amp = median( [ A1(A1 <= thr1); A2(A2 <= thr2)] );
-                ef = median( [ A1(A1 > thr1); A2(A2 > thr2)] )/amp;
+                L(1) = max( [L(1), 8]);
+                amp = median( [ A1(A1 <= thr1(2))] );
+                ef = median( [ A1(A1 > thr1(2))] )/amp;
+                
+                if length( coords{jb}) == 2
+                    A2 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX2;cY2]) ) - bkg);
+                    A2( A2 < bkg) = bkg; thr2 = multithresh( A2(:), 2);
+                    % Find parameters vals when amplitude is above threshold
+                    idx2 = find(A2 >thr2(2), 1, 'last');
+                    LO(2) = sum( sqrt( diff( cX2(1:idx2)).^2 + diff( cY2(1:idx2)).^2 + diff( cZ2(1:idx2)).^2 ) );
+                    LO_mu = mean( LO); LO_mu = max( [2.0, LO_mu]);
+                    L(2) = max( [L(2), 8]);
+                    % Find amplitude and amplitude enhancement factor
+                    amp = median( [ A1(A1 <= thr1(2)); A2(A2 <= thr2(2))] );
+                    ef = median( [ A1(A1 > thr1(2)); A2(A2 > thr2(2))] )/amp;
+                end
+                
                 if ef < 1.5
                     disp('enhancement factor is less than 1. set to 1.6')
                     ef = 1.6;
@@ -607,21 +602,24 @@ classdef IMTBank < OrganizerMaster
                 if dim == 3
                     if origin(3) == 1
                         thetaInit(1,2) = pi/2 - 0.03;
-                        thetaInit(2,2) = pi/2 - 0.03;
+                        try thetaInit(2,2) = pi/2 - 0.03; end
                     elseif origin(3) == size(imageIn, 3)
                         thetaInit(1,2) = pi/2 + 0.03;
-                        thetaInit(2,2) = pi/2 + 0.03;
+                        try thetaInit(2,2) = pi/2 + 0.03; end
                     end
                 end
-                thetaInit = [ thetaInit(1,:) , thetaInit(2,:) ];
-                nV = [ nV(1,:) , nV(2,:) ];
+                try
+                    thetaInit = [ thetaInit(1,:) , thetaInit(2,:) ];
+                    nV = [ nV(1,:) , nV(2,:) ];
+                end
                 
-                % Create 
+                % Create
                 bundles{jb} = BundleNew( origin, thetaInit,nV, LO_mu, L, ef, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
                 
 %                 subplot(2,nBundles,nBundles+jb)
 %                 imagesc( max(imageIn,[],3)); colormap gray; axis equal; xlim([0 150]); ylim([0 150]); xticks([]); yticks([]); hold on;
-%                 plot(x1,y1, 'c*', 'markerSize', 4, 'linewidth', 4); plot(x2,y2, 'c*', 'markerSize', 4, 'linewidth', 4);
+%                 plot(x1,y1, 'c*', 'markerSize', 4, 'linewidth', 4); 
+%                 try plot(x2,y2, 'c*', 'markerSize', 4, 'linewidth', 4); end
 %                 bundles{jb}.displayFeature(gca);
 %                 plot(cX1(1), cY1(1), 'c*', 'markerSize', 12, 'linewidth', 3); hold off
                 

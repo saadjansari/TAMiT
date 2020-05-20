@@ -21,6 +21,7 @@ classdef BundleNew < BasicElement
         ef = 2 % enhancement factor for amplitude of overlap region
         length % filament length
         orientation % average orientation
+        two_sided = 1
     end
 
     methods
@@ -44,6 +45,9 @@ classdef BundleNew < BasicElement
             obj.L = L; obj.L( obj.L < 8) = 9;
             obj.T = T;
             obj.ef = ef;
+            if length(obj.L) == 1
+                obj.two_sided = 0; % only 1 extension
+            end
 
         end
         % }}}
@@ -137,28 +141,27 @@ classdef BundleNew < BasicElement
 
             ftype = ['Curve', num2str(obj.dim) 'Coords'];
             % Simulate 1st region of curve
-            if obj.L(1) > obj.T
-                [imGraph1, err_code1, err1] = DrawGaussian( obj.sigma, imageOut, ftype, 'Coord', obj.GetCoords(1,obj.L(1),obj.T), graphVars{:});
-                imageOut = imageOut + obj.amplitude*mat2gray(imGraph1);
-            else
-                err_code1 = 0;
-                err1 = 0;
-            end
+            [imGraph1, err_code1, err1] = DrawGaussian( obj.sigma, imageOut, ftype, 'Coord', obj.GetCoords(1,obj.L(1),obj.T), graphVars{:});
+            imageOut = imageOut + obj.amplitude*mat2gray(imGraph1);
             
-            % Simulate overlap region 
-            [imGraph2, err_code2, err2] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(0,obj.T,0), graphVars{:});
+            % Simulate overlap region 1 
+            [imGraph2, err_code2, err2] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(1,obj.T,0), graphVars{:});
             imageOut = imageOut + obj.ef*obj.amplitude*mat2gray(imGraph2);
+            error_code = max( [err_code1, err_code2]);
+            err_amt = mean( [err1,err2]);
             
-            % Simulate 3rd region of curve
-            if obj.L(2) > obj.T
-                [imGraph3, err_code3, err3] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(2,obj.L(2),obj.T), graphVars{:});
-                imageOut = imageOut + obj.amplitude*mat2gray(imGraph3);
-            else
-                err_code3 = 0;
-                err3 = 0;
+            if obj.two_sided
+                % Simulate overlap region 2 
+                [imGraph3, err_code3, err3] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(2,obj.T,0), graphVars{:});
+                imageOut = imageOut + obj.ef*obj.amplitude*mat2gray(imGraph3);
+
+                % Simulate 3rd region of curve
+                [imGraph4, err_code4, err4] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(2,obj.L(2),obj.T), graphVars{:});
+                imageOut = imageOut + obj.amplitude*mat2gray(imGraph4);
+                error_code = max( [err_code1, err_code2, err_code3, err_code4]);
+                err_amt = mean( [err1,err2,err3,err4]);
             end
-            error_code = max( [err_code1, err_code2, err_code3]);
-            err_amt = mean( [err1,err2,err3]);
+            
             if err_amt > 0
                 stoph = 1;
             end
@@ -191,7 +194,7 @@ classdef BundleNew < BasicElement
         % fillParams {{{
         function obj = fillParams( obj, sizeImage)
 
-            obj.params = BundleNew.findVoxelsNearCurve( obj.GetCoords(), sizeImage, 7);
+            obj.params = BundleNew.findVoxelsNearCurve( obj.GetCoords(), sizeImage, 10);
             
         end
         % }}}
@@ -226,6 +229,9 @@ classdef BundleNew < BasicElement
             if nargin < 2
                 whichExt = 0;
             end
+            if obj.two_sided == 0
+                whichExt = 1;
+            end
             if nargin < 3
                 tmax = obj.L;
             end
@@ -233,11 +239,12 @@ classdef BundleNew < BasicElement
             if nargin < 4
                 tmin = 0;
             end
-            nV = [obj.normalVec(1:2); obj.normalVec(3:4)];
-            thInit = [ obj.thetaInit(1:2); obj.thetaInit(3:4)];
+            
             Rot = [ 0 -1; 1 0]; % Rotation matrix
             switch whichExt
                 case 0
+                    nV = [obj.normalVec(1:2); obj.normalVec(3:4)];
+                    thInit = [ obj.thetaInit(1:2); obj.thetaInit(3:4)];
                     if nargin < 3
                         tmax = obj.L;
                     end
@@ -273,7 +280,8 @@ classdef BundleNew < BasicElement
                     cc = [flip( xxs{1}(:,2:end), 2) xxs{2} ];
                     
                 case 1
-                    
+                    nV = obj.normalVec(1:2);
+                    thInit = obj.thetaInit(1:2);
                     if nargin < 3
                         tmax = obj.L(1);
                     end
@@ -301,7 +309,8 @@ classdef BundleNew < BasicElement
                     cc = xx(:,idxStart:end);
                     
                 case 2
-                    
+                    nV = [obj.normalVec(1:2); obj.normalVec(3:4)];
+                    thInit = [ obj.thetaInit(1:2); obj.thetaInit(3:4)];
                     if nargin < 3
                         tmax = obj.L(2);
                     end

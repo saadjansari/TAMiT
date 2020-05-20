@@ -1143,15 +1143,28 @@ classdef FitEngine
                 % thetaInit
                 idxThetaInit = find( ~cellfun( @isempty, strfind( vecLabels, str2find_thetaInit) ) );
                 thetaInit = vec( idxThetaInit);
-                ub(idxThetaInit) = thetaInit + [0.1, 0, 0.1, 0];
-                lb(idxThetaInit) = thetaInit - [0.1, 0, 0.1, 0];
+                if length(thetaInit) == 2
+                    onesided=1;
+                else
+                    onesided=0;
+                end
+                
+                if onesided
+                    ub(idxThetaInit) = thetaInit + [0.1, 0];
+                    lb(idxThetaInit) = thetaInit - [0.1, 0];
+                else
+                    ub(idxThetaInit) = thetaInit + [0.1, 0, 0.1, 0];
+                    lb(idxThetaInit) = thetaInit - [0.1, 0, 0.1, 0];
+                end
                 for jj = [2,4]
-                    if thetaInit(jj) >= 0
-                        ub(idxThetaInit(jj)) = thetaInit(jj)+0.05;
-                        lb(idxThetaInit(jj)) = 0;
-                    else
-                        ub(idxThetaInit(jj)) = 0;
-                        lb(idxThetaInit(jj)) = thetaInit(jj)-0.05;
+                    try
+                        if thetaInit(jj) >= 0
+                            ub(idxThetaInit(jj)) = thetaInit(jj)+0.05;
+                            lb(idxThetaInit(jj)) = 0;
+                        else
+                            ub(idxThetaInit(jj)) = 0;
+                            lb(idxThetaInit(jj)) = thetaInit(jj)-0.05;
+                        end
                     end
                 end
                 
@@ -1165,9 +1178,13 @@ classdef FitEngine
                 % normal vector
                 idxNV = find( ~cellfun( @isempty, strfind( vecLabels, str2find_normalVec) ) );
                 nV = vec(idxNV);
-                ub(idxNV) = [ nV(1)+0.005, nV(2)+0.003, nV(3)+0.005, nV(4)+0.003];
-                lb(idxNV) = [ nV(1)-0.005, nV(2)-0.003, nV(3)-0.005, nV(4)-0.003];
-                
+                if onesided
+                    ub(idxNV) = [ nV(1)+0.005, nV(2)+0.003];
+                    lb(idxNV) = [ nV(1)-0.005, nV(2)-0.003];
+                else
+                    ub(idxNV) = [ nV(1)+0.005, nV(2)+0.003, nV(3)+0.005, nV(4)+0.003];
+                    lb(idxNV) = [ nV(1)-0.005, nV(2)-0.003, nV(3)-0.005, nV(4)-0.003];
+                end
                 % L
                 idxL = find( ~cellfun( @isempty, strfind( vecLabels, str2find_L) ) );
                 L = vec( idxL);
