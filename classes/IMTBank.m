@@ -524,6 +524,7 @@ classdef IMTBank < OrganizerMaster
             for jb = 1 : nBundles
 
                 % Get length
+                L = []; LO = [];
                 L(1) = sum( sqrt( diff( coords{jb}{1}(1,:)).^2 + diff( coords{jb}{1}(2,:)).^2 + diff( coords{jb}{1}(3,:)).^2 ) );
                 nInt1 = round( L(1)/ length( coords{jb}{1}(1,:) ) );
                 [cX1,cY1,cZ1] = Methods.InterpolateCoords3( coords{jb}{1}(1,:), coords{jb}{1}(2,:), coords{jb}{1}(3,:), nInt1 );
@@ -567,26 +568,26 @@ classdef IMTBank < OrganizerMaster
                 
                 % Get amplitude along each bundle
                 A1 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX1;cY1]) ) - bkg);
-                A1( A1 < bkg) = bkg; thr1 = multithresh( A1(:), 2);
+                A1( A1 < bkg) = bkg; thr1 = multithresh( A1(:), 2); thr1 = mean(thr1);
                 % Find parameters vals when amplitude is above threshold
-                idx1 = find(A1 >thr1(2), 1, 'last'); 
+                idx1 = find(A1 >thr1, 1, 'last'); 
                 LO(1) = sum( sqrt( diff( cX1(1:idx1)).^2 + diff( cY1(1:idx1)).^2 + diff( cZ1(1:idx1)).^2 ) );
                 LO_mu = mean( LO); LO_mu = max( [2.0, LO_mu]);
                 L(1) = max( [L(1), 8]);
-                amp = median( [ A1(A1 <= thr1(2))] );
-                ef = median( [ A1(A1 > thr1(2))] )/amp;
+                amp = median( [ A1(A1 <= thr1)] );
+                ef = median( [ A1(A1 > thr1)] )/amp;
                 
                 if length( coords{jb}) == 2
                     A2 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX2;cY2]) ) - bkg);
-                    A2( A2 < bkg) = bkg; thr2 = multithresh( A2(:), 2);
+                    A2( A2 < bkg) = bkg; thr2 = multithresh( A2(:), 2); thr2 = mean(thr2);
                     % Find parameters vals when amplitude is above threshold
-                    idx2 = find(A2 >thr2(2), 1, 'last');
+                    idx2 = find(A2 >thr2, 1, 'last');
                     LO(2) = sum( sqrt( diff( cX2(1:idx2)).^2 + diff( cY2(1:idx2)).^2 + diff( cZ2(1:idx2)).^2 ) );
                     LO_mu = mean( LO); LO_mu = max( [2.0, LO_mu]);
                     L(2) = max( [L(2), 8]);
                     % Find amplitude and amplitude enhancement factor
-                    amp = median( [ A1(A1 <= thr1(2)); A2(A2 <= thr2(2))] );
-                    ef = median( [ A1(A1 > thr1(2)); A2(A2 > thr2(2))] )/amp;
+                    amp = median( [ A1(A1 <= thr1); A2(A2 <= thr2)] );
+                    ef = median( [ A1(A1 > thr1); A2(A2 > thr2)] )/amp;
                 end
                 
                 if ef < 1.5

@@ -138,30 +138,33 @@ classdef BundleNew < BasicElement
             elseif obj.dim == 3
                 graphVars = {'Idx', obj.params.idx, 'X', obj.params.x, 'Y', obj.params.y, 'Z', obj.params.z};
             end
-
+            errs = []; errcodes = [];
             ftype = ['Curve', num2str(obj.dim) 'Coords'];
             % Simulate 1st region of curve
-            [imGraph1, err_code1, err1] = DrawGaussian( obj.sigma, imageOut, ftype, 'Coord', obj.GetCoords(1,obj.L(1),obj.T), graphVars{:});
+            [imGraph1, ec1, err1] = DrawGaussian( obj.sigma, imageOut, ftype, 'Coord', obj.GetCoords(1,obj.L(1),obj.T), graphVars{:});
             imageOut = imageOut + obj.amplitude*mat2gray(imGraph1);
+            errs = [errs, err1]; errcodes = [errcodes, ec1];
             
             % Simulate overlap region 1 
-            [imGraph2, err_code2, err2] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(1,obj.T,0), graphVars{:});
+            [imGraph2, ec2, err2] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(1,obj.T,0), graphVars{:});
             imageOut = imageOut + obj.ef*obj.amplitude*mat2gray(imGraph2);
-            error_code = max( [err_code1, err_code2]);
-            err_amt = mean( [err1,err2]);
+            errs = [errs, err2]; errcodes = [errcodes, ec2];
             
             if obj.two_sided
                 % Simulate overlap region 2 
-                [imGraph3, err_code3, err3] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(2,obj.T,0), graphVars{:});
+                [imGraph3, ec3, err3] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(2,obj.T,0), graphVars{:});
                 imageOut = imageOut + obj.ef*obj.amplitude*mat2gray(imGraph3);
+                errs = [errs, err3]; errcodes = [errcodes, ec3];
 
                 % Simulate 3rd region of curve
-                [imGraph4, err_code4, err4] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(2,obj.L(2),obj.T), graphVars{:});
-                imageOut = imageOut + obj.amplitude*mat2gray(imGraph4);
-                error_code = max( [err_code1, err_code2, err_code3, err_code4]);
-                err_amt = mean( [err1,err2,err3,err4]);
+                if obj.L(2) > obj.T
+                    [imGraph4, ec4, err4] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(2,obj.L(2),obj.T), graphVars{:});
+                    imageOut = imageOut + obj.amplitude*mat2gray(imGraph4);
+                    errs = [errs, err4]; errcodes = [errcodes, ec4];
+                end
             end
-            
+            error_code = max( errcodes);
+            err_amt = mean( errs);
             if err_amt > 0
                 stoph = 1;
             end
@@ -452,6 +455,13 @@ classdef BundleNew < BasicElement
                 yp2 = [ yp2 ; round(coords(2,:)'+jr) ];
                 xp2 = [ xp2 ; round(coords(1,:)') ];
             end
+            % Add half circle near endpoints
+            imt = zeros(sizeImage(1:2)); 
+            imt(round(coords(2,1)),round(coords(1,1)))=1; imt(round(coords(2,end)),round(coords(1,end)))=1; 
+            imt = imdilate( imt, strel('disk',rad)); idxEnd = find(imt);
+            [ye, xe] = ind2sub( sizeImage(1:2), idxEnd);
+            xp2 = [xe; xp2]; yp2 = [ye; yp2];
+            
             pts = unique( [xp2 , yp2] ,'rows');
             lineVox.x = pts(:,1); lineVox.y = pts(:,2);
             
