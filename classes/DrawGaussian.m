@@ -500,7 +500,7 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
     function [imageCurve, error_code, error_amount] = drawGaussianCurve3DCoords( coords, sigma, imageIn, Idx, X, Y, Z)
         % Draw a gaussian curve in 3D using numerical integration
 
-        if isempty( coords) 
+        if isempty( coords)
             error('drawGaussianCurve3DCoords: coords not provided')
         end
         if numel( size(imageIn) ) ~= 3 || size( coords,1) ~= 3 || length(sigma)~= 3

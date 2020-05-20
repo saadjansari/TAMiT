@@ -729,7 +729,7 @@ classdef Methods
                     orientsAster = [];
                     for jAng = 1:2
                         cMT = estimateMicrotubulePoints( [xmtoc; ymtoc], phi(jAng), imMT, 5, 20, 70, bkg_thresholding);
-                        if size( cMT, 2)*step > minMTlength
+                        if size( cMT, 2)*step > 1
                             coordsAster = { coordsAster{:}, cMT};
                             orientsAster = [ orientsAster, phi(jAng)];
                             % coords = { coords{:}, cMT};

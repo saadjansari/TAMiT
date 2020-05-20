@@ -137,17 +137,26 @@ classdef BundleNew < BasicElement
 
             ftype = ['Curve', num2str(obj.dim) 'Coords'];
             % Simulate 1st region of curve
-            [imGraph1, err_code1, err1] = DrawGaussian( obj.sigma, imageOut, ftype, 'Coord', obj.GetCoords(1,obj.L(1),obj.T), graphVars{:});
-            imageOut = imageOut + obj.amplitude*mat2gray(imGraph1);
+            if obj.L(1) > obj.T
+                [imGraph1, err_code1, err1] = DrawGaussian( obj.sigma, imageOut, ftype, 'Coord', obj.GetCoords(1,obj.L(1),obj.T), graphVars{:});
+                imageOut = imageOut + obj.amplitude*mat2gray(imGraph1);
+            else
+                err_code1 = 0;
+                err1 = 0;
+            end
             
             % Simulate overlap region 
             [imGraph2, err_code2, err2] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(0,obj.T,0), graphVars{:});
             imageOut = imageOut + obj.ef*obj.amplitude*mat2gray(imGraph2);
             
             % Simulate 3rd region of curve
-            [imGraph3, err_code3, err3] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(2,obj.L(2),obj.T), graphVars{:});
-            imageOut = imageOut + obj.amplitude*mat2gray(imGraph3);
-
+            if obj.L(2) > obj.T
+                [imGraph3, err_code3, err3] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(2,obj.L(2),obj.T), graphVars{:});
+                imageOut = imageOut + obj.amplitude*mat2gray(imGraph3);
+            else
+                err_code3 = 0;
+                err3 = 0;
+            end
             error_code = max( [err_code1, err_code2, err_code3]);
             err_amt = mean( [err1,err2,err3]);
             if err_amt > 0

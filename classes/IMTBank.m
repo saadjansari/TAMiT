@@ -526,8 +526,16 @@ classdef IMTBank < OrganizerMaster
                 % Get length
                 L(1) = sum( sqrt( diff( coords{jb}{1}(1,:)).^2 + diff( coords{jb}{1}(2,:)).^2 + diff( coords{jb}{1}(3,:)).^2 ) );
                 L(2) = sum( sqrt( diff( coords{jb}{2}(1,:)).^2 + diff( coords{jb}{2}(2,:)).^2 + diff( coords{jb}{2}(3,:)).^2 ) );
-                [cX1,cY1,cZ1] = Methods.InterpolateCoords3( coords{jb}{1}(1,:), coords{jb}{1}(2,:), coords{jb}{1}(3,:), round( L(1)/ length( coords{jb}{1}(1,:) ) ) );
-                [cX2,cY2,cZ2] = Methods.InterpolateCoords3( coords{jb}{2}(1,:), coords{jb}{2}(2,:), coords{jb}{2}(3,:), round( L(2)/ length( coords{jb}{2}(1,:) ) ) );
+                nInt1 = round( L(1)/ length( coords{jb}{1}(1,:) ) );
+                nInt2 = round( L(2)/ length( coords{jb}{2}(1,:) ) );
+                if nInt1 < 5
+                    nInt1=5;
+                end
+                if nInt2 < 5
+                    nInt2=5;
+                end
+                [cX1,cY1,cZ1] = Methods.InterpolateCoords3( coords{jb}{1}(1,:), coords{jb}{1}(2,:), coords{jb}{1}(3,:), nInt1 );
+                [cX2,cY2,cZ2] = Methods.InterpolateCoords3( coords{jb}{2}(1,:), coords{jb}{2}(2,:), coords{jb}{2}(3,:), nInt2 );
 
                 % Get Coeff
                 cf1 = Bundle.estimatePolyCoefficients( [cX1;cY1;cZ1], [3 3 1], linspace(0,L(1),length(cX1 )));
@@ -536,6 +544,12 @@ classdef IMTBank < OrganizerMaster
                 % Get coordinates from coeffs
                 t1 = linspace(0,L(1),length(cX1 ));
                 t2 = linspace(0,L(2),length(cX2 ));
+                if length(t1) < 8
+                    t1 = linspace(t1(0), t1(end), 9);
+                end
+                if length(t2) < 8
+                    t2 = linspace(t2(1), t2(end), 9);
+                end
                 x1 = polyval( cf1{1}, t1); y1 = polyval( cf1{2}, t1);
                 x2 = polyval( cf2{1}, t2); y2 = polyval( cf2{2}, t2);
                 
@@ -605,7 +619,7 @@ classdef IMTBank < OrganizerMaster
                 % Create 
                 bundles{jb} = BundleNew( origin, thetaInit,nV, LO_mu, L, ef, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
                 
-%                 subplot(2,nBundles,2*(nBundles-1)+jb-1)
+%                 subplot(2,nBundles,nBundles+jb)
 %                 imagesc( max(imageIn,[],3)); colormap gray; axis equal; xlim([0 150]); ylim([0 150]); xticks([]); yticks([]); hold on;
 %                 plot(x1,y1, 'c*', 'markerSize', 4, 'linewidth', 4); plot(x2,y2, 'c*', 'markerSize', 4, 'linewidth', 4);
 %                 bundles{jb}.displayFeature(gca);
