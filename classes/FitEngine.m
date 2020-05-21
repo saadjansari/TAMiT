@@ -111,6 +111,9 @@ classdef FitEngine
                 [ fitProblem{jFeature}, fitInfo{jFeature}] = obj.PrepareOptimizeLocal( jFeature);
 
                 % Solve Optimization Problem
+%                 if jFeature == 4
+%                     stoph = 1;
+%                 end
                 fitInfo{ jFeature}.fitResults = obj.SolveOptimizationProblem( fitProblem{ jFeature} );
                 obj.updateFinalFeature( fitInfo{jFeature} );
                 
@@ -1172,8 +1175,8 @@ classdef FitEngine
                 idxOrig = find( ~cellfun( @isempty, strfind( vecLabels, str2find_origin) ) );
                 origin = vec( idxOrig);
                 tanVec = round( abs( 7*[cos(thetaInit(1,1)), sin(thetaInit(1,1)) ]));
-                ub(idxOrig) = [ origin(1)+tanVec(1), origin(2)+tanVec(2), 7];
-                lb(idxOrig) = [ origin(1)-tanVec(1), origin(2)-tanVec(2), 1];
+                ub(idxOrig) = [ origin(1)+tanVec(1)+5, origin(2)+tanVec(2)+5, 7];
+                lb(idxOrig) = [ origin(1)-tanVec(1)-5, origin(2)-tanVec(2)-5, 1];
                 
                 % normal vector
                 idxNV = find( ~cellfun( @isempty, strfind( vecLabels, str2find_normalVec) ) );

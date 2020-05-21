@@ -172,7 +172,7 @@ classdef IMTBank < OrganizerMaster
             LO(1) = sum( sqrt( diff( coords{1}(1,1:idx1)).^2 + diff( coords{1}(2,1:idx1)).^2 + diff( coords{1}(3,1:idx1)).^2 ) );
             LO(2) = sum( sqrt( diff( coords{2}(1,1:idx2)).^2 + diff( coords{2}(2,1:idx2)).^2 + diff( coords{2}(3,1:idx2)).^2 ) );
             LO_mu = mean( LO); LO_mu = max( [2.0, LO_mu]);
-            L(1) = max( [L(1), 8]);L(2) = max( [L(2), 8]);
+            
 
             % Find amplitude and amplitude enhancement factor
             amp = median( [ A1(A1 <= thr1); A2(A2 <= thr2)] );
@@ -198,8 +198,26 @@ classdef IMTBank < OrganizerMaster
             end
             thetaInit = [ thetaInit(1,:) , thetaInit(2,:) ];
             nV = [ nV(1,:) , nV(2,:) ];
+            
+            skip1=0; skip2=0;
+            if size(coords{1},2) < 4
+                skip1 = 1;
+                L = L(2);
+                thetaInit = thetaInit(3:4);
+                nV = nV(3:4);
+            end
+            if size(coords{2},2) < 4
+                skip2 = 1;
+                if ~skip1
+                    L = L(1); thetaInit = thetaInit(1:2); nV = nV(1:2);
+                else
+                    successAdd = 0;
+                    return
+                end
+            end
                 
             % Create 
+            L(L < 8) = 8;
             bundle = BundleNew( origin, thetaInit,nV, LO_mu, L, ef, amp, sigma, obj.dim, obj.featureList{1}.props2Fit, obj.featureList{1}.display);
                 
             if bundle.GetLength() <= minLength
