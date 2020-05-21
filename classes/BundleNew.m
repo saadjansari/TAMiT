@@ -141,11 +141,12 @@ classdef BundleNew < BasicElement
             errs = []; errcodes = [];
             ftype = ['Curve', num2str(obj.dim) 'Coords'];
             % Simulate 1st region of curve
-            [imGraph1, ec1, err1] = DrawGaussian( obj.sigma, imageOut, ftype, 'Coord', obj.GetCoords(1,obj.L(1),obj.T), graphVars{:});
-            imageOut = imageOut + obj.amplitude*mat2gray(imGraph1);
-            errs = [errs, err1]; errcodes = [errcodes, ec1];
-            
-            % Simulate overlap region 1 
+            if obj.L(1)>obj.T
+                [imGraph1, ec1, err1] = DrawGaussian( obj.sigma, imageOut, ftype, 'Coord', obj.GetCoords(1,obj.L(1),obj.T), graphVars{:});
+                imageOut = imageOut + obj.amplitude*mat2gray(imGraph1);
+                errs = [errs, err1]; errcodes = [errcodes, ec1];
+            end
+            % Simulate overlap region 1
             [imGraph2, ec2, err2] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(1,obj.T,0), graphVars{:});
             imageOut = imageOut + obj.ef*obj.amplitude*mat2gray(imGraph2);
             errs = [errs, err2]; errcodes = [errcodes, ec2];
@@ -361,6 +362,7 @@ classdef BundleNew < BasicElement
 
                 % Shorten
                 obj.L = obj.L-1;
+                obj.T = max([2 obj.T-1]);
 
                 % Check again
                 [imFeat,outsideZ] = obj.simulateFeature( size(mask) );

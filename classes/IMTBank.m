@@ -129,8 +129,16 @@ classdef IMTBank < OrganizerMaster
             L(2) = sum( sqrt( diff( coords{2}(1,:)).^2 + diff( coords{2}(2,:)).^2 + diff( coords{2}(3,:)).^2 ) );
      
             % Get Coeff
-            cf1 = Bundle.estimatePolyCoefficients( coords{1}, [3 3 1], linspace(0,L(1), size(coords{1},2)));
-            cf2 = Bundle.estimatePolyCoefficients( coords{2}, [3 3 1], linspace(0,L(2), size(coords{2},2)));
+            if size(coords{1},2) > 3
+                cf1 = Bundle.estimatePolyCoefficients( coords{1}, [3 3 1], linspace(0,L(1), size(coords{1},2)));
+            else
+                cf1 = {[0.1 0.1 0.1 10],[0.1 0.1 0.1 10], [0.05 3]};
+            end
+            if size(coords{2},2) > 3
+                cf2 = Bundle.estimatePolyCoefficients( coords{2}, [3 3 1], linspace(0,L(2), size(coords{2},2)));
+            else
+                cf2 = {[0.1 0.1 0.1 10],[0.1 0.1 0.1 10], [0.05 3]};
+            end
 
             % Get coordinates from coeffs
 %             t1 = linspace(0,L(1),size(coords{1},2));
