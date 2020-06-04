@@ -594,7 +594,7 @@ classdef IMTBank < OrganizerMaster
                 
                 % Get amplitude along each bundle
                 A1 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX1;cY1]) ) - bkg);
-                A1( A1 < bkg) = bkg; thr1 = multithresh( A1(:), 2); thr1 = mean(thr1);
+                A1( A1 < bkg) = bkg; thr1 = multithresh( A1(:), 1); thr1 = mean(thr1);
                 % Find parameters vals when amplitude is above threshold
                 idx1 = find(A1 >thr1, 1, 'last'); 
                 LO(1) = sum( sqrt( diff( cX1(1:idx1)).^2 + diff( cY1(1:idx1)).^2 + diff( cZ1(1:idx1)).^2 ) );
@@ -605,7 +605,7 @@ classdef IMTBank < OrganizerMaster
                 
                 if length( coords{jb}) == 2
                     A2 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX2;cY2]) ) - bkg);
-                    A2( A2 < bkg) = bkg; thr2 = multithresh( A2(:), 2); thr2 = mean(thr2);
+                    A2( A2 < bkg) = bkg; thr2 = multithresh( A2(:), 1); thr2 = mean(thr2);
                     % Find parameters vals when amplitude is above threshold
                     idx2 = find(A2 >thr2, 1, 'last');
                     LO(2) = sum( sqrt( diff( cX2(1:idx2)).^2 + diff( cY2(1:idx2)).^2 + diff( cZ2(1:idx2)).^2 ) );
