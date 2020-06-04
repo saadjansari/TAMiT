@@ -7,7 +7,8 @@ import matlab.engine
 import argparse
 import re
 import pdb
-from subprocess import call
+import subprocess
+import numpy as np
 
 '''
 Name : RunSimulSingleCell.py
@@ -53,29 +54,26 @@ class SimulSingleCell( object):
         self.path_params = []
         self.path_analysis = []
 
-        # number of jobs, nodes and cores for this job
-        self.n_nodes = []
-        self.n_cores = []
-        self.n_jobs = []
-        self.n_cores_per_node = 24
-
         # filenames
         self.fname = {
                 'initparams' : "initParams",
-                'jobs' : "simul_single_cell_jobs",
-                'launch' : "simul_single_cell_launch.sh"
         }
 
         # sbatch options
-        self.sbatch = {
-                'username' : 'saan8193@colorado.edu',
-                'mailtype' : 'FAIL',
+        self.slurm= {
+                'routine' : 'multicore', # singlecore or multicore
                 'account' : 'ucb-summit-smr',
-                'jobname' : 'SimulSingleCell',
+                'time' : '00:20:00',
                 'qos' : 'condo',
                 'partition' : 'shas',
-                'time' : '10:00:00',
-                'output' : 'simul_single_cell.out'
+                'jobname' : 'SingleCell',
+                'output' : 'sim.log',
+                'error' : 'sim.err',
+                # Define architecture of clusters
+                'coresPerNode' : 24,
+                'socksPerNode' : 2,
+                # 'username' : 'saan8193@colorado.edu',
+                # 'mailtype' : 'FAIL',
         }
 
         # paths for different servers
@@ -117,18 +115,19 @@ class SimulSingleCell( object):
             # Initialize params for the different cells
             self.InitializeAnalysis()
 
-        # Find the number of cores and nodes these jobs should utilize
-        self.FindNumberCoresNodes()
-
-        # write list of bash commands to be executed by loadbalancer
-        self.WriteJobsFile()
-
         # create a bash script for executing the jobs
-        self.WriteLaunchScript()
+        jobStrings = self.WriteLaunchScript()
 
-        # Launch and Analyze the fits
-        if not self.opts.dryrun and (self.opts.fit or self.opts.analyze):
-           status = call(['sbatch', self.fname['launch']])  
+        # Launch individually
+        if (self.opts.fit or self.opts.analyze):
+            for spath, jobString in zip( self.path_params, jobStrings):
+                os.chdir( os.path.split(spath)[0])
+                with open('jobscript.sh', 'w') as f:
+                    f.write( jobString)
+                if not self.opts.dryrun:
+                    subprocess.call(["sbatch", "jobscript.sh"])
+        # if not self.opts.dryrun and (self.opts.fit or self.opts.analyze):
+           # status = call(['sbatch', self.fname['launch']])  
 
 
     def InitializeFit(self):
@@ -187,119 +186,60 @@ class SimulSingleCell( object):
             # number of jobs based on length of analysis paths 
             self.n_jobs = len( self.path_analysis)
 
-
-    def FindNumberCoresNodes(self):
-        # figure out number of cores and nodes based on simple division and modulus operation
-
-        # figure out nodes and cores numbers
-        self.n_nodes = 1 + self.n_jobs // self.n_cores_per_node
-        self.n_cores = self.n_jobs % self.n_cores_per_node 
-
-        print('Number of Jobs = {0}\nNumber of Nodes = {1}\nNumber of Cores = {2}'.format(self.n_jobs, self.n_nodes, self.n_cores) )
-
-    def WriteJobsFile(self):
-        # writes a list of bash commands for each Cell to be executed by loadbalancer
-
-        print( 'Writing jobs file : {0}'.format(self.fname['jobs']) )
-
-        # open file
-        f_jobs = open(self.fname['jobs'], "w+")
-
-        # Prefix for job command
-        cmd_pre = 'matlab -nodesktop -r "clear all; addpath({0});'.format( repr( 'classes') )
-
-        # Suffix for job command
-        cmd_post = '"\n'
-
-        # Fit and Analyze
-        if self.opts.fit and self.opts.analyze:
-            
-            for pathp, patha in zip(self.path_params, self.path_analysis):
-
-                cmd_launch = 'singleCell({0});'.format( repr(pathp) )
-                cmd_analysis = 'AnalysisSingleCell.AnalyzeSingle({0});'.format( repr( patha ) )
-                job_cmd = cmd_pre + cmd_launch + cmd_analysis + cmd_post
-                f_jobs.write( job_cmd) 
-        
-        # Fit Only
-        elif self.opts.fit:
-            
-            for pathp in self.path_params:
-
-                cmd_launch = 'singleCell({0});'.format( repr(pathp) )
-                job_cmd = cmd_pre + cmd_launch + cmd_post
-                f_jobs.write( job_cmd) 
-        
-        # Analyze Only
-        elif self.opts.analyze:
-
-            for patha in self.path_analysis:
-
-                cmd_analysis = 'AnalysisSingleCell.AnalyzeSingle({0});'.format( repr( patha ) )
-                job_cmd = cmd_pre + cmd_analysis + cmd_post
-                f_jobs.write( job_cmd) 
-
-        f_jobs.close()
-        print( 'Successful write to jobs file!') 
-
-
     def WriteLaunchScript(self):
         # create sbatch bash script for execution on summit
         
-        print( 'Writing launch file : {0}'.format(self.fname['launch']) )
+        jobStrings = []
+        nTasks = 1
+           
+        # Define jobString
+        jobStringDef = """#!/bin/bash
 
-        # Write sbatch options
-        self.WriteSbatchHeader()
+#SBATCH --job-name={0}
+#SBATCH --qos={1}
+#SBATCH --partition={2}
+#SBATCH --account={3}
+#SBATCH --output=fit.log
+#SBATCH --error=fit.err
+#SBATCH --time={4}
+#SBATCH --nodes={5}
+#SBATCH --cpus-per-task={6}
 
-        f_launch = open(self.fname['launch'], "a")
-        # Load modules
-        modules = ['intel', 'impi', 'python', 'loadbalance', 'matlab']
-        f_launch.write( '\n# clearing all modules\n')
-        f_launch.write( 'module purge\n')
-        f_launch.write( '\n# load required modules\n')
-        for module in modules:
-            f_launch.write( 'module load {0}\n'.format(module) )
+module purge
+module load intel
+module load impi 
+module load python 
+module load matlab
 
-        # Job execution command
-        f_launch.write( '\n# launch cell fitting jobs\n')
-        f_launch.write( 'mpirun lb {0}'.format( self.fname['jobs']) )
+"""
+        # Loop over seeds and make job strings to launch
+        for spath in self.path_params:
 
-        # Close the file
-        f_launch.close()
-        print( 'Successful write to launch file!') 
+            # Find number of nodes and number of processors/task
+            if self.slurm['routine'] == 'singlecore':
+                nCpuPerTask = 1
+                nNodes = int( np.ceil(nTasks/(float(self.slurm['coresPerNode'])/nCpuPerTask)) )
+            elif self.slurm['routine'] == 'multicore':
+                nCpuPerTask = 12 
+                nNodes = int( np.ceil(nTasks/(float(self.slurm['coresPerNode'])/nCpuPerTask)) )
 
+            # Jobname : SimName_SeedNumber
+            jobName = '__'.join( spath.split('/')[-2:] )
 
-    def WriteSbatchHeader(self):
-        # create sbatch bash script for execution on summit
-        
-        # open file
-        f_launch = open(self.fname['launch'], "w+")
+            # Write jobString 
+            jobString = jobStringDef.format( self.slurm['jobname'], self.slurm['qos'], self.slurm['partition'], self.slurm['account'], self.slurm['time'], nNodes, nCpuPerTask) 
 
-        # identiy bash evironment and define sbatch options
-        f_launch.write( '#!/bin/bash\n\n')
-        f_launch.write( '#SBATCH --job-name {0}\n'.format( self.sbatch['jobname']) )
-        f_launch.write( '#SBATCH --qos={0}\n'.format( self.sbatch['qos']) )
-        f_launch.write( '#SBATCH --partition={0}\n'.format( self.sbatch['partition']) )
-        f_launch.write( '#SBATCH --mail-type={0}\n'.format( self.sbatch['mailtype']) )
-        f_launch.write( '#SBATCH --mail-user={0}\n'.format( self.sbatch['username']) )
-        f_launch.write( '#SBATCH --account={0}\n'.format( self.sbatch['account']) )
-        f_launch.write( '#SBATCH --time {0}\n'.format( self.sbatch['time']) )
-        f_launch.write( '#SBATCH --output {0}\n'.format( self.sbatch['output']) )
-        f_launch.write( '#SBATCH --nodes {0}\n'.format(self.n_nodes) )
-        f_launch.write( '#SBATCH --ntasks {0}\n'.format(self.n_jobs) )
+            jobString = jobString + 'matlab -nodesktop -r "clear all; cd {0}; addpath({1}); singleCell({2})"\n'.format( repr('/projects/saan8193/ImageAnalysis/SingleCell'), repr('classes'), repr(spath))
+            jobStrings += [jobString]
 
-        # close the file
-        f_launch.close()
-
+        return jobStrings
 
 if __name__ == '__main__':
     
     # parse arguments
     opts = parse_args()
-
     # initialize multiple single cell jobs
     simulCells = SimulSingleCell(opts)
-
     # launch single cell jobs 
     simulCells.Launch()
 
