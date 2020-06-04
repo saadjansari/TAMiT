@@ -39,8 +39,12 @@ function features = singleCell( paramsPath)
     end
 
     % Initialize image data from single cell movie
-    imageData = ImageData.InitializeFromCell( params.cellInfo.moviePath, ...
-        'Lifetime', params.cellInfo.lifetime );
+    if ~isempty(params.cellInfo.lifetime)
+        imageData = ImageData.InitializeFromCell( params.cellInfo.moviePath, ...
+            'Lifetime', params.cellInfo.lifetime );
+    else
+        imageData = ImageData.InitializeFromCell( params.cellInfo.moviePath);
+    end
     sizeVoxels = imageData.GetSizeVoxels;
     timeStep = imageData.GetTimeStep;
     save( paramsPath, 'sizeVoxels', 'timeStep', '-append')

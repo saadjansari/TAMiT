@@ -2,6 +2,7 @@ classdef Spot < BasicElement
 
     properties
         position
+        bounds
     end
 
     methods ( Access = public )
@@ -12,6 +13,50 @@ classdef Spot < BasicElement
 
             obj = obj@BasicElement( dim, amplitude, sigma, props2Fit, display, 'Spot');
             obj.position = position;
+            obj.SetBounds();
+
+        end
+        % }}}
+        
+        % getVec {{{
+        function [vec, vecLabels, ub,lb] = getVec( obj, props2get)
+
+            % sample props2get
+            if nargin==1
+                props2get = {'position', 'amplitude', 'sigma'};
+            end
+            
+            % make sure props input matches properties defined in class
+            for jProp = 1 : length( props2get)
+                if ~any( strcmp( props2get{ jProp}, properties( obj) ) )
+                    error( 'getVec : unknown property in props')
+                end
+            end
+
+            % Get vector of Properties
+            vec = []; ub = []; lb = [];
+            for jProp = 1 : length( props2get)
+                vec = [ vec, obj.( props2get{jProp} ) ];
+                try
+                    ub = [ ub, obj.bounds.ub.( props2get{jProp} ) ];
+                    lb = [ lb, obj.bounds.lb.( props2get{jProp} ) ];
+                end
+            end
+
+            % Also get a string array with property names
+            vecLabels = {};
+            for jProp = 1 : length( props2get)
+                if numel( obj.( props2get{jProp} ) ) ~= length( obj.( props2get{jProp} ) )
+                    error('getVec : property selected is a non-singleton matrix')
+                end
+                numRep = length( obj.( props2get{jProp} ) );
+                labelRep = cell( 1, numRep);
+                labelRep(:) = props2get(jProp);
+                vecLabels = { vecLabels{:}, labelRep{:} };
+            end
+            if isempty(ub)
+                clearvars ub lb
+            end
 
         end
         % }}}
@@ -25,27 +70,26 @@ classdef Spot < BasicElement
 
             % Simulate a gaussian spot
             imageOut = zeros( sizeImage);
-            if isfield( 'idxVoxels', obj.params)
+            if isfield( obj.params, 'idx')
                 if obj.dim == 2
-                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint2D( obj.position, obj.sigma, ...
-                        imageOut, obj.params.idxVoxels.idx, obj.params.idxVoxels.X, obj.params.idxVoxels.Y) );
+                    [imGraph, ec, err] = DrawGaussian( obj.sigma, imageOut, 'Spot2', 'Pos', obj.position, 'Idx', obj.params.idx, 'X', obj.params.x, 'Y', obj.params.y);
                 elseif obj.dim == 3
-                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint3D( obj.position, obj.sigma, ...
-                        imageOut, obj.params.idxVoxels.idx, obj.params.idxVoxels.X, obj.params.idxVoxels.Y, obj.params.idxVoxels.Z) );
+                    [imGraph, ec, err] = DrawGaussian( obj.sigma, imageOut, 'Spot3', 'Pos', obj.position, 'Idx', obj.params.idx, 'X', obj.params.x, 'Y', obj.params.y, 'Z', obj.params.z);
                 end
+                imageOut = obj.amplitude * mat2gray( imGraph);
             else
                 if obj.dim == 2
-                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint2D( obj.position, obj.sigma, imageOut) );
+                    [imGraph, ec, err] = DrawGaussian( obj.sigma, imageOut, 'Spot2', 'Pos', obj.position);
                 elseif obj.dim == 3
-                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianPoint3D( obj.position, obj.sigma, imageOut) );
+                    [imGraph, ec, err] = DrawGaussian( obj.sigma, imageOut, 'Spot3', 'Pos', obj.position);
                 end
+                imageOut = obj.amplitude * mat2gray( imGraph);
             end
 
-            % FIXME
 %             imageFeat = imageOut;
-            obj.imageSim = imageFeat;
-            imageOut( imageOut < imageFeat) = imageFeat( imageOut < imageFeat);
-            imageOut = imageFeat + imageOut;
+            obj.imageSim = imageOut;
+%             imageOut( imageOut < imageFeat) = imageFeat( imageOut < imageFeat);
+%             imageOut = imageFeat + imageOut;
 
         end
         % }}}
@@ -118,10 +162,7 @@ classdef Spot < BasicElement
 
         % fillparams {{{
         function obj = fillParams( obj, sizeImage)
-            
             obj.params = Spot.findVoxelsNearSpot( obj.position, sizeImage, 10);
-%             [obj.params.y, obj.params.x, obj.params.z] = ind2sub( sizeImage, obj.params.idx);
-            
         end
         % }}}
         
@@ -184,6 +225,31 @@ classdef Spot < BasicElement
             feat.amplitude = obj.amplitude;
             feat.sigma = obj.sigma;
             feat.ID = obj.ID;
+        end
+        % }}}
+        
+        % SetBounds {{{
+        function SetBounds( obj)
+           
+            % amplitude
+            ub.amplitude = 1;
+            lb.amplitude = 0;
+            
+            % sigma % positions
+            if obj.dim == 3
+                ub.sigma = [2.0 2.0 2.0];
+                lb.sigma = [1.2 1.2 1.0];
+                ub.position = [150 150 7];
+                lb.position = [1 1 1];
+            elseif obj.dim == 2
+                ub.sigma = [2.0 2.0];
+                lb.sigma = [1.2 1.2];
+                ub.position = [150 150];
+                lb.position = [1 1];
+            end
+            obj.bounds.lb = lb;
+            obj.bounds.ub = ub;
+            
         end
         % }}}
 

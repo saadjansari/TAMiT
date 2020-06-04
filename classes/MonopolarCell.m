@@ -139,7 +139,11 @@ classdef MonopolarCell < Cell
                     lineAmp = median( Cell.findAmplitudeAlongLine( imageIn, Aster.MT{jmt}.startPosition, Aster.MT{jmt}.endPosition ) )-bkg;
 
                     newMT = Line( Aster.MT{jmt}.startPosition, Aster.MT{jmt}.endPosition, lineAmp, sigma, dim, props.fit{dim}.line, props.graphics.aster.line);
-                    lines = { lines{:}, newMT };
+                    % XXX : spherical set
+                    newMT.repr = 'spherical';
+                    if norm( [Aster.MT{jmt}.startPosition - Aster.MT{jmt}.endPosition]) > 4
+                        lines = { lines{:}, newMT };
+                    end
 
                 end
 

@@ -444,10 +444,14 @@ classdef FitEngine
             nFeatures = obj.feature.getSubFeatureNumber();
 
             % Obtain the features to fit, their fit vector and labels 
-            [ fitVec, fitLabels, fitObj] = getVecLocal( obj.feature);
-
+            try
+                [ fitVec, fitLabels, fitObj, ubList, lbList] = getVecLocal( obj.feature);
+            catch
+                [ fitVec, fitLabels, fitObj] = getVecLocal( obj.feature);
+                ubList = cell(1, length(fitVec)); lbList = cell(1, length(fitVec));
+            end
             % Get bounds of parameters to restrict the parameter space
-            fitVecs = FitEngine.GetVectorBounds(obj, fitVec{jFeature},fitLabels{jFeature});
+            fitVecs = FitEngine.GetVectorBounds(obj, fitVec{jFeature},fitLabels{jFeature}, ubList{jFeature}, lbList{jFeature});
 
             % Scale the parameters to vary the speed of exploration in the parameter space
             if obj.parameters.fitExploreSpeed
@@ -536,12 +540,17 @@ classdef FitEngine
             end
 
             % Obtain the features to fit, their fit vector and labels 
-            [ fitVec, fitLabels ] = getVec( obj.feature); 
-            fitObj = obj.feature; cFeature = 1; 
-            fitInfo.Nnew = obj.feature.getSubFeatureNumber();
-
             % Get bounds of parameters to restrict the parameter space
-            fitVecs = FitEngine.GetVectorBounds( obj, fitVec, fitLabels);
+            try
+                [ fitVec, fitLabels, ub, lb] = getVec( obj.feature);
+                fitVecs = FitEngine.GetVectorBounds(obj, fitVec,fitLabels, ub, lb);
+            catch
+                error('bad length of bound vectors')
+                [ fitVec, fitLabels ] = getVec( obj.feature);
+                fitVecs = FitEngine.GetVectorBounds(obj, fitVec,fitLabels);
+            end
+            fitObj = obj.feature; cFeature = 1; 
+            fitInfo.Nnew = obj.feature.getSubFeatureNumber();            
 
             % Scale the parameters to vary the speed of exploration in the parameter space
             if obj.parameters.fitExploreSpeed
@@ -671,7 +680,7 @@ classdef FitEngine
             opts = optimoptions( @lsqnonlin, ...
                                 'MaxFunEvals', 2000, ...
                                 'OptimalityTolerance', 1e-12, ...
-                                'MaxIter', 3, ...
+                                'MaxIter', 10, ...
                                 'TolFun', 1e-9, ...
                                 'FiniteDifferenceStepSize', 1e-3, ...
                                 'FiniteDifferenceType', 'central', ...
@@ -682,12 +691,12 @@ classdef FitEngine
                 case 'RELEASE'
                     opts = optimoptions( opts, ...
                                         'display', 'iter',...
-                                        'MaxIter', 10);
+                                        'MaxIter', 15);
 
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
                                         'display', 'iter' ,...
-                                        'MaxIter', 5);
+                                        'MaxIter', 10);
             end
             
             % Set Parallel Optimization
@@ -789,14 +798,21 @@ classdef FitEngine
         % }}}
         
         % GetVectorBounds {{{
-        function fitVecs = GetVectorBounds( obj, vec, vecLabels)
+        function fitVecs = GetVectorBounds( obj, vec, vecLabels, varargin)
             % Get upper and lower bounds for the parameters in the fit vector
+            
+            if length(varargin) == 0
+                ub = vec; lb = vec; bs = 1;
+            elseif length( varargin) == 2
+                ub = varargin{1}; lb = varargin{2}; bs = 0;
+            else
+                error('unknown number of input arguments')
+            end
             
             image = obj.GetImage();
             dim = length( size(image) );
-            ub = vec; lb = vec;
 
-            % Spatial 
+            % Spatial
             minVox = 1;
             maxVox = size( image);
             VoxSize = [maxVox(2), maxVox(1)];
@@ -829,16 +845,16 @@ classdef FitEngine
             idxP1 = find( ~cellfun( @isempty, strfind( vecLabels, 'endPosition') ) );
             idxP = find( ~cellfun( @isempty, strfind( vecLabels, 'position') ) );
             idxBkg = find( ~cellfun( @isempty, strfind( vecLabels, 'background') ) );
-
+            
             % Store upper and lower bounds correctly
             if ~isempty( idxAmp), 
                 ub( idxAmp) = maxAmp;
                 lb( idxAmp) = minAmp; 
                 vec( idxAmp( vec(idxAmp) < minAmp) ) = minAmp; end
-            if ~isempty( idxSig), 
-                nF = length( idxSig)/dim;
-                ub( idxSig) = repmat( maxSig, 1, nF);
-                lb( idxSig) = repmat( minSig, 1, nF); end
+%             if ~isempty( idxSig), 
+%                 nF = length( idxSig)/dim;
+%                 ub( idxSig) = repmat( maxSig, 1, nF);
+%                 lb( idxSig) = repmat( minSig, 1, nF); end
             if ~isempty( idxP0), 
                 nF = length( idxP0)/dim;
                 ub( idxP0 ) = repmat( VoxSize, 1, nF);
@@ -860,6 +876,9 @@ classdef FitEngine
             if strcmp(obj.feature.type, 'IMTBank')
                 %[ub, lb] = FitEngine.GetVectorBoundsCurves( obj, vec, ub,lb, vecLabels);
                 [ub, lb] = FitEngine.GetVectorBoundsBundlesNew( obj, vec, ub,lb, vecLabels);
+            end
+            if bs && strcmp(obj.feature.type, 'MonopolarAster')
+                [ub, lb] = FitEngine.GetVectorBoundsMonopolar( obj, vec, ub,lb, vecLabels);
             end
             
             if any( lb > ub) || any(ub < lb) || any( vec < lb) || any(vec > ub)
@@ -1151,65 +1170,105 @@ classdef FitEngine
                 else
                     onesided=0;
                 end
-                
-                if onesided
-                    ub(idxThetaInit) = thetaInit + [0.1, 0];
-                    lb(idxThetaInit) = thetaInit - [0.1, 0];
-                else
-                    ub(idxThetaInit) = thetaInit + [0.1, 0, 0.1, 0];
-                    lb(idxThetaInit) = thetaInit - [0.1, 0, 0.1, 0];
-                end
-                for jj = [2,4]
-                    try
-                        if thetaInit(jj) >= 0
-                            ub(idxThetaInit(jj)) = thetaInit(jj)+0.05;
-                            lb(idxThetaInit(jj)) = 0;
-                        else
-                            ub(idxThetaInit(jj)) = 0;
-                            lb(idxThetaInit(jj)) = thetaInit(jj)-0.05;
+                if length( idxThetaInit) ~= 0
+                    if onesided
+                        ub(idxThetaInit) = thetaInit + [0.1, 0];
+                        lb(idxThetaInit) = thetaInit - [0.1, 0];
+                    else
+                        ub(idxThetaInit) = thetaInit + [0.1, 0, 0.1, 0];
+                        lb(idxThetaInit) = thetaInit - [0.1, 0, 0.1, 0];
+                    end
+                    for jj = [2,4]
+                        try
+                            if thetaInit(jj) >= 0
+                                ub(idxThetaInit(jj)) = thetaInit(jj)+0.05;
+                                lb(idxThetaInit(jj)) = 0;
+                            else
+                                ub(idxThetaInit(jj)) = 0;
+                                lb(idxThetaInit(jj)) = thetaInit(jj)-0.05;
+                            end
                         end
                     end
                 end
                 
                 % Origin
                 idxOrig = find( ~cellfun( @isempty, strfind( vecLabels, str2find_origin) ) );
-                origin = vec( idxOrig);
-                tanVec = round( abs( 7*[cos(thetaInit(1,1)), sin(thetaInit(1,1)) ]));
-                ub(idxOrig) = [ origin(1)+tanVec(1)+5, origin(2)+tanVec(2)+5, 7];
-                lb(idxOrig) = [ origin(1)-tanVec(1)-5, origin(2)-tanVec(2)-5, 1];
-                
+                if length(idxOrig) ~= 0
+                    origin = vec( idxOrig);
+                    tanVec = round( abs( 7*[cos(thetaInit(1,1)), sin(thetaInit(1,1)) ]));
+                    ub(idxOrig) = [ origin(1)+tanVec(1)+5, origin(2)+tanVec(2)+5, 7];
+                    lb(idxOrig) = [ origin(1)-tanVec(1)-5, origin(2)-tanVec(2)-5, 1];
+                end
                 % normal vector
                 idxNV = find( ~cellfun( @isempty, strfind( vecLabels, str2find_normalVec) ) );
                 nV = vec(idxNV);
-                if onesided
-                    ub(idxNV) = [ nV(1)+0.005, nV(2)+0.003];
-                    lb(idxNV) = [ nV(1)-0.005, nV(2)-0.003];
-                else
-                    ub(idxNV) = [ nV(1)+0.005, nV(2)+0.003, nV(3)+0.005, nV(4)+0.003];
-                    lb(idxNV) = [ nV(1)-0.005, nV(2)-0.003, nV(3)-0.005, nV(4)-0.003];
+                if length(idxNV) ~= 0
+                    if onesided
+                        ub(idxNV) = [ nV(1)+0.005, nV(2)+0.003];
+                        lb(idxNV) = [ nV(1)-0.005, nV(2)-0.003];
+                    else
+                        ub(idxNV) = [ nV(1)+0.005, nV(2)+0.003, nV(3)+0.005, nV(4)+0.003];
+                        lb(idxNV) = [ nV(1)-0.005, nV(2)-0.003, nV(3)-0.005, nV(4)-0.003];
+                    end
                 end
                 % L
                 idxL = find( ~cellfun( @isempty, strfind( vecLabels, str2find_L) ) );
                 L = vec( idxL);
-                ub(idxL) = L+10;
-                lb(idxL) = min( [L-10, 8]);
+                if length(idxL) ~= 0
+                    ub(idxL) = L+10;
+                    lb(idxL) = min( [L-10, 8]);
+                end
                 
                 % T
                 idxT = find( ~cellfun( @isempty, strfind( vecLabels, str2find_t) ) );
-                t = vec( idxT);
-                ub(idxT) = t+10;
-                lb(idxT) = 2;
+                if length(idxT) ~= 0
+                    t = vec( idxT);
+                    ub(idxT) = t+10;
+                    lb(idxT) = 2;
+                end
                 
                 % Enhancement factor
                 idxEF = find( ~cellfun( @isempty, strfind( vecLabels, str2find_ef) ) );
-                ef = vec( idxEF);
-                ub(idxEF) = 4;
-                lb(idxEF) = 1.5;
+                if length(idxEF) ~= 0
+                    ef = vec( idxEF);
+                    ub(idxEF) = 4;
+                    lb(idxEF) = 1.5;
+                end
                 
            end
         
         end
         % }}}
+        % GetVectorBoundsBundlesNew {{{
+        function [ub,lb] = GetVectorBoundsMonopolar( obj, vec, ub, lb, vecLabels)
+            % Get bounds for monopolar aster
+           
+            % Determine if this is local or global fitting
+            def = 'global';
+            if any( cellfun( @(x) strcmp(x,'startPosition'), vecLabels) )
+                def = 'local';
+            end
+            idxPhi = find( ~cellfun( @isempty, strfind( vecLabels, 'phi') ) );
+            idxTheta = find( ~cellfun( @isempty, strfind( vecLabels, 'theta') ) );
+            idxL = find( ~cellfun( @isempty, strfind( vecLabels, 'length') ) );
+            
+            % Len flexible within  between 4 and 50
+            ub( idxL) = 50;
+            lb( idxL) = 4;
+            % Phi flexible within  pi/4
+            piRange = pi/4;
+            ub( idxPhi) = vec(idxPhi) + piRange;
+            lb( idxPhi) = vec(idxPhi) - piRange;
+            % Theta flexible within pi/4 from 0 to +pi
+            piRange = pi/4;
+            ub( idxTheta) = vec(idxTheta) + piRange;
+            lb( idxTheta) = vec(idxTheta) - piRange;
+            ub( idxTheta( ub(idxTheta) >= pi)) = pi -0.1;
+            lb( idxTheta( lb(idxTheta) <= 0)) = +0.1;
+            
+        end
+        % }}}
+        
         
         % getExplorationSpeedVector {{{
         function speedVec = getExplorationSpeedVector( vecLabels)
@@ -1221,12 +1280,14 @@ classdef FitEngine
 %             speedSigma = 1;
 %             speedPos = 10;
             speedAmp = 1;
-            speedBkg = 1;
+            speedBkg = 1000;
             speedSigma = 10;
             speedPos = 10;
             speedCXYZ = 10;
             speedT = 10;
+            speedL = 100;
             speedNormal = 0.01;
+            speedEF = 100;
             speedVec = ones( size(vecLabels) );
 
             % Find the index of these speeds
@@ -1262,7 +1323,16 @@ classdef FitEngine
             idx = find( ~cellfun( @isempty, strfind( vecLabels, 'L') ) );speedVec( idx) = speedT;
             idx = find( ~cellfun( @isempty, strfind( vecLabels, 'normalVec') ) ); speedVec( idx) = speedNormal;
             idx = find( ~cellfun( @isempty, strfind( vecLabels, 'thetaInit') ) ); speedVec( idx) = speedNormal;
-
+            idx = find( ~cellfun( @isempty, strfind( vecLabels, 'ef') ) ); speedVec( idx) = speedEF;
+            
+            % Monopolar Aster
+            % Length
+            idx = find( ~cellfun( @isempty, strfind( vecLabels, 'length') ) );speedVec( idx) = speedL;
+            % Theta
+            idx = find( ~cellfun( @isempty, strfind( vecLabels, 'theta') ) );speedVec( idx) = 10;
+            % Phi
+            idx = find( ~cellfun( @isempty, strfind( vecLabels, 'phi') ) );speedVec( idx) = 10;
+            
         end
         % }}}
         
