@@ -534,10 +534,16 @@ classdef AnalysisSingleCell < handle
         function makeMovie( obj, jChannel)
             % Create frames for a movie
             
+            global COUNTER
+            COUNTER =1;
+            
             for jTime = 1 : length( obj.times)
                 
                 % get feature
                 feat = obj.data{jChannel}.features{jTime};
+                feat.ID = COUNTER;
+                feat.updateFeatureIDs();
+                feat.updateFeatureMap();
                 img = im2double(feat.image);
 
                 % make figure
@@ -553,6 +559,7 @@ classdef AnalysisSingleCell < handle
                 feat.displayFeature( h(2) );
                 title(sprintf('feature: T = %d', obj.times(jTime) ) );
                 set(f, 'currentaxes', h(3) );
+%                 imagesc( h(3), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
                 imagesc( h(3), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
                 colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
                 title(sprintf('sim: T = %d', obj.times(jTime) ) );
