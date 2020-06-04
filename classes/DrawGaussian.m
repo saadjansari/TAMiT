@@ -6,9 +6,9 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
 
     switch ftype
         case 'Spot2'
-            [imageFeat, error_code, error_amount] = drawGaussianPoint2D( opts.Position, sigma, imageIn, opts.Idx, opts.X, opts.Y);
+            [imageFeat, error_code, error_amount] = drawGaussianPoint2D( opts.Pos, sigma, imageIn, opts.Idx, opts.X, opts.Y);
         case 'Spot3'
-            [imageFeat, error_code, error_amount] = drawGaussianPoint3D( opts.Position, sigma, imageIn, opts.Idx, opts.X, opts.Y);
+            [imageFeat, error_code, error_amount] = drawGaussianPoint3D( opts.Pos, sigma, imageIn, opts.Idx, opts.X, opts.Y, opts.Z);
         case 'Line2'
             error('2d line not set up')
             [imageFeat, error_code, error_amount] = drawGaussianLine2D( opts.PosStart, opts.PosEnd, sigma, imageIn, opts.Idx, opts.X, opts.Y);
@@ -92,7 +92,7 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
     % }}}
 
     % drawGaussianPoint2D {{{
-    function imagePoint = drawGaussianPoint2D( pos, sigma, imageIn, idx, x, y)
+    function [imageSpot, errorCode, error_amount] = drawGaussianPoint2D( pos, sigma, imageIn, idx, x, y)
         % Draws a gaussian 2D point using an analytical framework
 
         if isempty( pos)
@@ -103,6 +103,16 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         if numel( size(imageIn) ) ~= 2 || length(pos)~=2 || length(sigma)~=2
             error('drawGaussianPoint2D: all data must be 2-dimensional')
         end
+        
+        % Error-checking
+        errorCode = 0;
+        error_amount = 0;
+        if pos(1) > size(imageIn,2) || pos(2) > size(imageIn,1) ...
+                || pos(1) < 1 || pos(2) < 1
+            error_amount = 1;
+            imageSpot = 0*imageIn;
+            return
+        end
 
         % Amplitudes:
         ExpX = exp( -0.5*( (x- pos(1))./sigma(1)).^2 );
@@ -112,14 +122,14 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
 %         IntValues( IntValues == Inf) = min( IntValues(:) );
 
         % Initiliaze the volume and set the appropriate indices to these values
-        imagePoint = 0*imageIn;
-        imagePoint( idx) = IntValues;
+        imageSpot = 0*imageIn;
+        imageSpot( idx) = IntValues;
 
     end
     % }}}
 
     % drawGaussianPoint3D {{{
-    function imagePoint = drawGaussianPoint3D( pos, sigma, imageIn, idx, x, y, z)
+    function [imageSpot, errorCode, error_amount] = drawGaussianPoint3D( pos, sigma, imageIn, idx, x, y, z)
         % Draws a gaussian point using an analytical framework
 
         if isempty( pos)
@@ -129,18 +139,27 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         if numel( size(imageIn) ) ~= 3 || length(pos)~=3 || length(sigma)~=3
             error('drawGaussianPoint3D: all data must be 3-dimensional')
         end
+        % Error-checking
+        errorCode = 0;
+        error_amount = 0;
+        if pos(1) > size(imageIn,2) || pos(2) > size(imageIn,1) ...
+                || pos(1) < 1 || pos(2) < 1 || pos(3) < 1 || pos(3) > size(imageIn,3)
+            error_amount = 1;
+            imageSpot = 0*imageIn;
+            return
+        end
 
         % Amplitudes:
-        ExpX = exp( -0.5*( (x-pos(1))./sigma).^2 );
-        ExpY = exp( -0.5*( (y-pos(2))./sigma).^2 );
-        ExpZ = exp( -0.5*( (z-pos(3))./sigma).^2 );
+        ExpX = exp( -0.5*( (x-pos(1))./sigma(1)).^2 );
+        ExpY = exp( -0.5*( (y-pos(2))./sigma(2)).^2 );
+        ExpZ = exp( -0.5*( (z-pos(3))./sigma(3)).^2 );
         IntValues = ExpX .* ExpY .* ExpZ;
         %IntValues( isnan( IntValues) ) = min( IntValues(:) );
         %IntValues( IntValues == Inf) = min( IntValues(:) );
 
         % Initialize the volume and set the appropriate indices to these values
-        imagePoint = 0*imageIn;
-        imagePoint( idx) = IntValues;
+        imageSpot = 0*imageIn;
+        imageSpot( idx) = IntValues;
 
     end
     % }}}
@@ -246,7 +265,7 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
     % }}}
 
     % drawGaussianLine3D {{{
-    function imageLine = drawGaussianLine3D( startPos, endPos, sigma, imageIn, idx, x, y, z)
+    function [imageLine, errorCode, error_amount] = drawGaussianLine3D( startPos, endPos, sigma, imageIn, idx, x, y, z)
         % Draws a gaussian straight line using an analytical framework
 
         if isempty( startPos) || isempty(endPos)
@@ -256,10 +275,19 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         if numel( size(imageIn) ) ~= 3 || length(startPos)~=3 || length(endPos)~=3 || length(sigma)~=3
             error('drawGaussianLine3D: all data must be 3-dimensional')
         end
-
+        
         x0 = startPos(1); y0 = startPos(2); z0 = startPos(3);
         x1 = endPos(1); y1 = endPos(2); z1 = endPos(3);
         sx = sigma(1); sy = sigma(2); sz = sigma(3);
+        
+        if z0 < 1 || z0 > 7
+            error('3D line start point should not be outside of z region')
+        end
+        errorCode = 0;
+        error_amount = 0;
+        if z1 < 1 || z1 > size(imageIn,3)
+            [x1,y1,z1,error_amount] = TrimAndGetErrorZ( startPos,endPos,imageIn);
+        end
 
         % First lets parameterize this line with a parameter t. We'll find the
         % slopes of the line in each spatial dimension along with any offset
@@ -341,6 +369,22 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         % Initiliaze the volume and set the appropriate indices to these values
         imageLine = 0 * imageIn;
         imageLine( idx) = IntValues;
+        
+        % TrimAndGetErrorZ {{{
+        function [X,Y,Z,error_amount] = TrimAndGetErrorZ( startPos, endPos,imageIn)
+            
+            fun = @(idx) linspace(startPos(idx),endPos(idx),100);
+            xx = fun(1); yy = fun(2); zz = fun(3);
+            
+            if endPos(3) < 1
+                idxGood = find( zz < 1, 1, 'first') -1;
+            elseif endPos(3) > size(imageIn,3)
+                idxGood = find( zz > size(imageIn,3), 1, 'first') -1;
+            end
+            X = xx( idxGood); Y = yy( idxGood); Z = zz( idxGood);
+            error_amount = (100-idxGood)/100;
+        end
+        % }}}
 
     end
     % }}}

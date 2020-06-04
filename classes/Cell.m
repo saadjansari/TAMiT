@@ -245,12 +245,48 @@ classdef Cell < handle & matlab.mixin.Copyable
             obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx);
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
-
+            
             % Prepare fit params
             params = obj.params.fit;
             params.channel = parameters.channelTrue;
             params.time = parameters.time;
             params.saveDirectory = parameters.saveDirectory;
+            
+            % Do early fitting routines
+%             propsInit = mainFeature.props2Fit.fit{mainFeature.dim}.aster.curve;
+%             routines = Cell.SetFitRoutines();
+%             for i = 1 : length(routines)
+%                 route = routines{i};
+%                 paramsCpy = params;
+%                 if strcmp(route.type,'L')
+%                     paramsCpy.runLocalOptimization = 1;
+%                     paramsCpy.runGlobalOptimization = 0;
+%                     paramsCpy.runFeatureNumberOptimization = 0;
+%                     paramsCpy.display = 1;
+%                 elseif strcmp(route.type,'G')
+%                     paramsCpy.runLocalOptimization = 0;
+%                     paramsCpy.runGlobalOptimization = 1;
+%                     paramsCpy.runFeatureNumberOptimization = 0;
+%                     paramsCpy.display = 0;
+%                 elseif strcmp(route.type,'LG')
+%                     paramsCpy.runLocalOptimization = 1;
+%                     paramsCpy.runGlobalOptimization = 1;
+%                     paramsCpy.runFeatureNumberOptimization = 0;
+%                     paramsCpy.display = 1;
+%                 elseif strcmp(route.type,'GA')
+%                     paramsCpy.runLocalOptimization = 0;
+%                     paramsCpy.runGlobalOptimization = 1;
+%                     paramsCpy.runFeatureNumberOptimization = 1;
+%                     paramsCpy.display = 1;
+%                 elseif strcmp(route.type,'def')
+%                     paramsCpy=params;
+%                 end
+%                 mainFeature.props2Fit.fit{mainFeature.dim}.aster.curve = route.props;
+%                 fitEngine = FitEngine( Image2Fit, mainFeature, paramsCpy);
+%                 fitEngine = fitEngine.Optimize();
+%                 mainFeature = fitEngine.GetFeature();
+%             end
+%             mainFeature.props2Fit.fit{mainFeature.dim}.aster.curve = propsInit;
 
             % Fit Features via Fit Engine.
             fitEngine = FitEngine( Image2Fit, mainFeature, params);
@@ -1730,6 +1766,8 @@ classdef Cell < handle & matlab.mixin.Copyable
         function h = saveFinalFit( Image2Fit, mainFeature, fitInfo)
             % Save data for this particular fit
 
+            special_vals = 1;
+            
             % Book-keeping
             channel = uint8(fitInfo.channel);
             time = uint16(fitInfo.time);
@@ -1738,13 +1776,22 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             % Images Simulated
             try
-                imageSimI = uint16( FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo) );
-                imageSimF = uint16( FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo) );
+                imageSimI = im2uint16( FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo) );
+                imageSimF = im2uint16( FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo) );
             catch
                 imageSimI = [];
                 imageSimF = [];
             end
-
+            if special_vals
+                try
+                    maskk = (mainFeature.image > 0);
+                    imgg = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
+                    mu = mean(mainFeature.image( find(maskk)) - imgg(find(maskk)));
+                    stdev = std(mainFeature.image( find(maskk)) - imgg(find(maskk)));
+                    writematrix( [mu, stdev], [ fitInfo.saveDirectory, filesep, 'test.csv']);
+                end
+            end
+            
             % Main feature
             featureMainStruct = fitInfo.featureMain.saveAsStruct();
 
@@ -1788,8 +1835,10 @@ classdef Cell < handle & matlab.mixin.Copyable
             spot.graphics.red = {'Color', [1 0 0] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 2};
 
             % Line
-            line.fit{2} = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
-            line.fit{3} = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
+%             line.fit{2} = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
+%             line.fit{3} = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
+            line.fit{2} = {'startPosition', 'theta', 'amplitude', 'sigma'};
+            line.fit{3} = {'startPosition', 'theta', 'amplitude', 'sigma'};
             line.graphics.magenta = {'Color', [0.7 0 0.7] , 'LineWidth', 2};
             line.graphics.green = {'Color', [0 1 0] , 'LineWidth', 2};
             line.graphics.blue = {'Color', [0 0 1] , 'LineWidth', 2};
@@ -1887,6 +1936,36 @@ classdef Cell < handle & matlab.mixin.Copyable
             props.intBank = intBank;
             % }}}
 
+        end
+        
+        function routine = SetFitRoutines()
+            
+            % Routine type:
+            %   1) L : local
+            %   2) G : global
+            %   3) LG: local+global
+            %   4) GA: global+Add features
+            %   5) def: use default parameters
+            % routine 1
+            % background
+            routine{1}.type = 'G';
+            routine{1}.props = {};
+            
+            % routine 2
+            % origin, thetaInit, normalVec, L
+            routine{2}.type = 'L';
+            routine{2}.props = {'origin', 'thetaInit', 'normalVec','L'};
+            
+            % routine 3
+            % origin, thetaInit, normalVec, L
+            routine{3}.type = 'L';
+            routine{3}.props = {'amplitude', 'ef', 'T', 'sigma'};
+            
+            % routine 4
+            % origin, thetaInit, normalVec, L
+            routine{4}.type = 'GA';
+            routine{4}.props = {'normalVec', 'L','amplitude', 'T','ef'};
+            
         end
 
     end

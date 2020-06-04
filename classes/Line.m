@@ -4,7 +4,9 @@ classdef Line < BasicElement
         startPosition
         endPosition
         length
-%         orientation
+        theta % [phi,theta] physics convention (phi:0-2pi, theta:0-pi)
+        repr = 'cartesian' % cartesian or spherical
+        bounds
     end
 
     methods
@@ -22,16 +24,31 @@ classdef Line < BasicElement
             obj.startPosition = startPosition;
             obj.endPosition = endPosition;
             obj.length = norm( endPosition-startPosition);
-
+            if obj.length < 4
+                warning('line length is less than 4, increased to 5')
+            end
+            
+            % find orientations
+            obj.theta = atan2( obj.endPosition(2)-obj.startPosition(2),obj.endPosition(1)-obj.startPosition(1) );
+            if obj.dim == 3
+                phi = acos( (obj.endPosition(3)-obj.startPosition(3))/obj.length );
+                obj.theta = [obj.theta, phi];
+            end
+            obj.SetBounds();
+            
         end
         % }}}
         
         % getVec {{{
-        function [vec, vecLabels, ub, lb] = getVec( obj, props2get)
+        function [vec, vecLabels, ub,lb] = getVec( obj, props2get)
 
             % sample props2get
             if nargin==1
-                props2get = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
+                if strcmp( obj.repr, 'cartesian')
+                    props2get = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
+                elseif strcmp( obj.repr, 'spherical')
+                    props2get = {'startPosition','length', 'theta','amplitude', 'sigma'};
+                end
             end
             
             % make sure props input matches properties defined in class
@@ -42,9 +59,18 @@ classdef Line < BasicElement
             end
 
             % Get vector of Properties
-            vec = [];
+            vec = []; ub = []; lb = [];
             for jProp = 1 : length( props2get)
+                if strcmp( obj.repr, 'cartesian') && ( strcmp(props2get{jProp},'theta') || strcmp(props2get{jProp},'length'))
+                    continue
+                elseif strcmp( obj.repr, 'spherical') && strcmp(props2get{jProp},'endPosition')
+                    continue
+                end
                 vec = [ vec, obj.( props2get{jProp} ) ];
+                try
+                    ub = [ ub, obj.bounds.ub.( props2get{jProp} ) ];
+                    lb = [ lb, obj.bounds.lb.( props2get{jProp} ) ];
+                end
             end
 
             % Also get a string array with property names
@@ -53,10 +79,18 @@ classdef Line < BasicElement
                 if numel( obj.( props2get{jProp} ) ) ~= length( obj.( props2get{jProp} ) )
                     error('getVec : property selected is a non-singleton matrix')
                 end
+                if strcmp( obj.repr, 'cartesian') && ( strcmp(props2get{jProp},'theta') || strcmp(props2get{jProp},'length'))
+                    continue
+                elseif strcmp( obj.repr, 'spherical') && strcmp(props2get{jProp},'endPosition')
+                    continue
+                end
                 numRep = length( obj.( props2get{jProp} ) );
                 labelRep = cell( 1, numRep);
                 labelRep(:) = props2get(jProp);
                 vecLabels = { vecLabels{:}, labelRep{:} };
+            end
+            if isempty(ub)
+                clearvars ub lb
             end
 
         end
@@ -65,7 +99,7 @@ classdef Line < BasicElement
         % absorbVec {{{
         function obj = absorbVec( obj, vec, vecLabels)
 
-            props2find = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
+            props2find = {'startPosition', 'endPosition', 'amplitude', 'sigma','theta','phi', 'length'};
 
             % find the index of start positions
             for jProp = 1 : length( props2find)
@@ -83,12 +117,21 @@ classdef Line < BasicElement
                 obj.( props2find{ jProp} ) = vec( idxProp);
 
             end
+            
+            % Update props
+            if strcmp( obj.repr,'spherical')
+                if obj.dim == 3
+                    obj.endPosition = obj.startPosition + obj.length* [sin(obj.theta(2))*cos(obj.theta(1)), sin(obj.theta(2))*sin(obj.theta(1)), cos(obj.theta(2))];
+                elseif obj.dim == 2
+                    obj.endPosition = obj.startPosition + obj.length* [cos(obj.theta(1)), sin(obj.theta(1))];
+                end
+            end
 
         end
         % }}}
         
         % simulateFeature {{{
-        function imageOut = simulateFeature( obj, sizeImage)
+        function [imageOut,ec,err] = simulateFeature( obj, sizeImage)
 
             if nargin < 2
                 error('simulateFeature: input needed for size of image to simulate the feature in ')
@@ -98,21 +141,22 @@ classdef Line < BasicElement
             % Simulate a gaussian line
             if isfield( obj.params, 'idx')
                 if obj.dim == 2
-                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianLine2D( obj.startPosition, obj.endPosition, ...
-                        obj.sigma, imageOut, obj.params.idx, obj.params.x, obj.params.y) );
+                    [imGraph, ec, err] = DrawGaussian( obj.sigma, imageOut, 'Line2', 'PosStart', obj.startPosition, 'PosEnd', obj.endPosition,'Idx', obj.params.idx, 'X', obj.params.x, 'Y', obj.params.y);
+                    imageOut = obj.amplitude * mat2gray( imGraph);
                 elseif obj.dim == 3
-                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianLine3D( obj.startPosition, obj.endPosition, ...
-                        obj.sigma, imageOut, obj.params.idx, obj.params.x, obj.params.y, obj.params.z) );
+                    [imGraph, ec, err] = DrawGaussian( obj.sigma, imageOut, 'Line3', 'PosStart', obj.startPosition, 'PosEnd', obj.endPosition,'Idx', obj.params.idx, 'X', obj.params.x, 'Y', obj.params.y, 'Z', obj.params.z);
+                    imageOut = obj.amplitude * mat2gray( imGraph);
                 end
             else
                 if obj.dim == 2
-                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianLine2D( obj.startPosition, obj.endPosition, obj.sigma, imageOut) );
+                    [imGraph, ec, err] = DrawGaussian( obj.sigma, imageOut, 'Line2', 'PosStart', obj.startPosition, 'PosEnd', obj.endPosition);
+                    imageOut = obj.amplitude * mat2gray( imGraph);
                 elseif obj.dim == 3
-                    imageFeat = obj.amplitude * mat2gray( Cell.drawGaussianLine3D( obj.startPosition, obj.endPosition, obj.sigma, imageOut) );
+                    [imGraph, ec, err] = DrawGaussian( obj.sigma, imageOut, 'Line3', 'PosStart', obj.startPosition, 'PosEnd', obj.endPosition);
+                    imageOut = obj.amplitude * mat2gray( imGraph);
                 end
             end
-            obj.imageSim = imageFeat;
-            imageOut = imageFeat + imageOut;
+            obj.imageSim = imageOut;
             %imageOut( imageFeat > imageIn) = imageFeat( imageFeat > imageIn);
 
         end
@@ -259,10 +303,11 @@ classdef Line < BasicElement
             while outside 
 
                 % Shorten
-                for jc = 1 : obj.dim
-                    coords = linspace( obj.startPosition(jc), obj.endPosition(jc), 100);
-                    obj.endPosition(jc) = coords(95);
-                end
+%                 for jc = 1 : obj.dim
+%                     coords = linspace( obj.startPosition(jc), obj.endPosition(jc), 100);
+%                     obj.endPosition(jc) = coords(95);
+%                 end
+                obj.absorbVec( [obj.length*0.95], {'length'});
 
                 % Check again
                 imFeat = obj.simulateFeature( size(mask) );
@@ -283,11 +328,46 @@ classdef Line < BasicElement
             feat.amplitude = obj.amplitude;
             feat.sigma = obj.sigma;
             feat.length = obj.GetLength();
-            feat.orientation = obj.GetOrientation();
+            feat.phi = obj.phi;
+            feat.theta = obj.theta;
+%             feat.orientation = obj.GetOrientation();
             feat.ID = obj.ID;
         end
         % }}}
         
+        % SetBounds {{{
+        function SetBounds( obj)
+           
+            % amplitude
+            ub.amplitude = 1;
+            lb.amplitude = 0;
+            
+            % sigma % positions % theta
+            if obj.dim == 3
+                ub.sigma = [2.0 2.0 2.0];
+                lb.sigma = [1.2 1.2 1.0];
+                ub.startPosition = [150 150 7];
+                lb.endPosition = [1 1 1];
+                ub.theta = [pi pi];
+                lb.theta = [-pi 0];
+            elseif obj.dim == 2
+                ub.sigma = [2.0 2.0];
+                lb.sigma = [1.2 1.2];
+                ub.startPosition = [150 150];
+                lb.endPosition = [1 1];
+                ub.theta = [pi];
+                lb.theta = [-pi];
+            end
+            
+            % length
+            ub.length = 40;
+            lb.length = 4;
+            
+            obj.bounds.lb = lb;
+            obj.bounds.ub = ub;
+            
+        end
+        % }}}
     end
 
     methods ( Static = true )
@@ -300,10 +380,6 @@ classdef Line < BasicElement
             end
 
             obj = Line( S.startPosition, S.endPosition, S.amplitude, S.sigma, S.dim, S.props2Fit, S.display);
-%             obj = obj@BasicElement( S.dim, S.amplitude, S.sigma, S.props2Fit, S.display, 'Line');
-%             obj.startPosition = startPosition;
-%             obj.endPosition = endPosition;
-%             obj.length = norm( endPosition-startPosition);
 
         end
         % }}}

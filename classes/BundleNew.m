@@ -186,8 +186,25 @@ classdef BundleNew < BasicElement
                 error('displayFeature: must provide axes handle to display the feature in')
             end
 
+            cx = []; cy = [];
+            if obj.L(1)>obj.T
+                c1 = obj.GetCoords(1,obj.L(1),obj.T);
+                cx = [cx, c1(1,end:-1:1)]; cy = [cy, c1(2,end:-1:1)];
+            end
+            c2 = obj.GetCoords(1,obj.T,0);
+            cx = [cx, c2(1,end:-1:1)]; cy = [cy, c2(2,end:-1:1)];
+
+            if obj.two_sided
+                c3 = obj.GetCoords(2,obj.T,0);
+                cx = [cx, c3(1,:)]; cy = [cy, c3(2,:)];
+                if obj.L(2) > obj.T
+                    c4 = obj.GetCoords(2,obj.L(2),obj.T);
+                    cx = [cx, c4(1,:)]; cy = [cy, c4(2,:)];
+                end
+            end
+            coords = [cx; cy];
             % Get (x,y) coordinates of the curve
-            coords = obj.GetCoords();
+            %coords = obj.GetCoords();
 
             % Create the curve to display
             line( coords(1,:), coords(2,:), obj.display{:} )

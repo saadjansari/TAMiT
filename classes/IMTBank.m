@@ -510,7 +510,7 @@ classdef IMTBank < OrganizerMaster
 
             % Load all the features from their structures recursively
             for jFeat = 1 : length( S.featureList)
-                featureList{ jFeat} = Bundle.loadFromStruct( S.featureList{ jFeat} ); 
+                featureList{ jFeat} = BundleNew.loadFromStruct( S.featureList{ jFeat} ); 
             end
 
             obj = IMTBank( S.dim, S.image, featureList, S.props2Fit);

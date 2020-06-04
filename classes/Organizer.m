@@ -119,6 +119,7 @@ classdef Organizer < Feature
                 catch
                     imNew = simulateFeature( obj.featureList{ jFeat}, sizeImage);
                     error_code_new = 0;
+                    errr = 0;
                 end
                 imageOut = imageOut + imNew;
                 error_code = any( [error_code, error_code_new]);

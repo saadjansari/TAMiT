@@ -18,36 +18,46 @@ classdef AsterMT < Organizer
         % }}}
         
         % getVec {{{
-        function [vec, vecLabels] = getVec( obj, propsSPB, propsMT)
+        function [vec, vecLabels,ub,lb] = getVec( obj, propsSPB, propsMT)
 
             if nargin < 3
-                propsMT = {'endPosition', 'amplitude', 'sigma'};
+                propsMT = {'endPosition', 'theta','length','amplitude', 'sigma'};
             end
             if nargin < 2
                 propsSPB = {'position', 'amplitude', 'sigma'};
             end
             
-            vec = [];
+            vec = []; lb = []; ub = [];
             vecLabels = {};
 
             % get vectors from features
 
             % get SPB vector. Keep all its values
-            [vec_spb, vecLabels_spb] = getVec( obj.featureList{ 1}, propsSPB);
-
-            vec = [vec , vec_spb];
+            try
+                [vec_spb, vecLabels_spb, ub_spb, lb_spb] = getVec( obj.featureList{ 1}, propsSPB);
+            catch
+                [vec_spb, vecLabels_spb] = getVec( obj.featureList{ 1}, propsSPB);
+            end
+            vec = [vec , vec_spb]; lb = [lb, lb_spb]; ub = [ub, ub_spb];
             vecLabels_spb = strcat( 'SPB_', vecLabels_spb);
             vecLabels = { vecLabels{:}, vecLabels_spb{:} };
 
             % Loop over microtubules and get their vectors. We will truncate its vector to remove the start position
             for jmt = 2 : obj.numFeatures
-                [vec_mt, vecLabels_mt] = getVec( obj.featureList{ jmt}, propsMT );
+                try
+                    [vec_mt, vecLabels_mt, ub_mt, lb_mt] = getVec( obj.featureList{ jmt}, propsMT );
+                catch
+                    [vec_mt, vecLabels_mt] = getVec( obj.featureList{ jmt}, propsMT );
+                end
                 idxRm = find( strcmp( vecLabels_mt, 'startPosition') );
                 vec_mt( idxRm) = [];
                 vecLabels_mt( idxRm) = [];
-                vec = [vec , vec_mt];
+                vec = [vec , vec_mt]; lb = [lb, lb_mt]; ub = [ub, ub_mt];
                 vecLabels_mt = strcat( 'MT', num2str( jmt-1), '_', vecLabels_mt);
                 vecLabels = { vecLabels{:}, vecLabels_mt{:} };
+            end
+            if isempty(lb)
+                clearvars lb ub
             end
 
         end
