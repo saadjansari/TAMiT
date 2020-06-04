@@ -1783,13 +1783,11 @@ classdef Cell < handle & matlab.mixin.Copyable
                 imageSimF = [];
             end
             if special_vals
-                try
-                    maskk = (mainFeature.image > 0);
-                    imgg = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
-                    mu = mean(mainFeature.image( find(maskk)) - imgg(find(maskk)));
-                    stdev = std(mainFeature.image( find(maskk)) - imgg(find(maskk)));
-                    writematrix( [mu, stdev], [ fitInfo.saveDirectory, filesep, 'test.csv']);
-                end
+                maskk = (mainFeature.image > 0);
+                imgg = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
+                mu = mean(mainFeature.image( find(maskk)) - imgg(find(maskk)));
+                stdev = std(mainFeature.image( find(maskk)) - imgg(find(maskk)));
+                writematrix( [mu, stdev], [ fitInfo.saveDirectory, filesep, 'test.csv']);
             end
             
             % Main feature
