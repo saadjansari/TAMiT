@@ -541,14 +541,9 @@ classdef FitEngine
 
             % Obtain the features to fit, their fit vector and labels 
             % Get bounds of parameters to restrict the parameter space
-            try
-                [ fitVec, fitLabels, ub, lb] = getVec( obj.feature);
-                fitVecs = FitEngine.GetVectorBounds(obj, fitVec,fitLabels, ub, lb);
-            catch
-                error('bad length of bound vectors')
-                [ fitVec, fitLabels ] = getVec( obj.feature);
-                fitVecs = FitEngine.GetVectorBounds(obj, fitVec,fitLabels);
-            end
+            [ fitVec, fitLabels, ub, lb] = getVec( obj.feature);
+            fitVecs = FitEngine.GetVectorBounds(obj, fitVec,fitLabels, ub, lb);
+
             fitObj = obj.feature; cFeature = 1; 
             fitInfo.Nnew = obj.feature.getSubFeatureNumber();            
 
@@ -873,7 +868,7 @@ classdef FitEngine
 
             % Bounds for Special Objects
             % Interphase curves
-            if strcmp(obj.feature.type, 'IMTBank')
+            if bs && strcmp(obj.feature.type, 'IMTBank')
                 %[ub, lb] = FitEngine.GetVectorBoundsCurves( obj, vec, ub,lb, vecLabels);
                 [ub, lb] = FitEngine.GetVectorBoundsBundlesNew( obj, vec, ub,lb, vecLabels);
             end

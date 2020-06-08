@@ -2,7 +2,6 @@ classdef Spot < BasicElement
 
     properties
         position
-        bounds
     end
 
     methods ( Access = public )
@@ -95,15 +94,27 @@ classdef Spot < BasicElement
         % }}}
 
         % displayFeature {{{
-        function ax = displayFeature( obj, ax)
+        function ax = displayFeature( obj, ax, sizeZ)
 
             if nargin < 2
                 f = figure;
                 ax = axes; axis ij; hold on;
                 imagesc( max( obj.image, [], 3) ); colormap gray; axis equal;
             end
-
-            plot( obj.position(1), obj.position(2), obj.display{:} ) 
+            
+            if obj.dim==3 && nargin==3
+                
+                cm = cool;
+                col = cm( round((obj.position(3)/sizeZ)*length(cm)), :);
+                h1 = plot( obj.position(1), obj.position(2), 'Marker', 'o', 'MarkerSize',10, 'Color', 'w', 'LineWidth', 2);
+                set(h1, 'markerfacecolor', col);
+                colorbar('Ticks',linspace(0,1,sizeZ),'TickLabels',1:sizeZ)
+                
+            else
+                % Create the spot to display
+                plot( obj.position(1), obj.position(2), obj.display{:} );
+            end
+            
 
         end
         % }}}

@@ -252,7 +252,7 @@ classdef AsterMT < Organizer
         % }}}
 
         % displayFeature {{{
-        function ax = displayFeature( obj, ax)
+        function ax = displayFeature( obj, ax, varargin)
 
             if nargin < 2
                 error('must provide an axes to display feature on')
@@ -261,7 +261,7 @@ classdef AsterMT < Organizer
             % Ask subfeatures to display themselves
             % Do this in reverse so that the SPB is plotted last
             for jFeat = obj.numFeatures : -1 : 1
-                ax = obj.featureList{jFeat}.displayFeature( ax);
+                ax = obj.featureList{jFeat}.displayFeature( ax, varargin{:});
             end
 
         end

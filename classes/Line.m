@@ -6,7 +6,6 @@ classdef Line < BasicElement
         length
         theta % [phi,theta] physics convention (phi:0-2pi, theta:0-pi)
         repr = 'cartesian' % cartesian or spherical
-        bounds
     end
 
     methods
@@ -163,15 +162,31 @@ classdef Line < BasicElement
         % }}}
 
         % displayFeature {{{
-        function ax = displayFeature( obj, ax)
+        function ax = displayFeature( obj, ax, sizeZ)
 
             if nargin < 2
                 error('displayFeature: must provide axes handle to display the feature in')
             end
 
-            % Create the line to display
-            line( [obj.startPosition(1) obj.endPosition(1)], [obj.startPosition(2) obj.endPosition(2)], obj.display{:} )
-
+            % 2D color plot for 3D information
+            if obj.dim==3 && nargin==3
+                coords = [linspace(obj.startPosition(1), obj.endPosition(1),100); ...
+                    linspace(obj.startPosition(2), obj.endPosition(2),100); ...
+                    linspace(obj.startPosition(3), obj.endPosition(3),100)];
+                cm = cool;
+                col = cm( round((coords(3,:)/sizeZ)*length(cm)), :);
+                col = [ permute(col, [3 1 2]); permute(col, [3 1 2])];
+                z = zeros([ 1, size( coords,2)]);
+                surface([coords(1,:);coords(1,:)],[coords(2,:);coords(2,:)],[z;z],col,...
+                        'facecol','no',...
+                        'edgecol','interp',...
+                        'linew',4);
+                colorbar('Ticks',linspace(0,1,sizeZ),'TickLabels',1:sizeZ)
+            else
+                % Create the line to display
+                line( [obj.startPosition(1) obj.endPosition(1)], [obj.startPosition(2) obj.endPosition(2)], obj.display{:} )
+            end
+            
         end
         % }}}
         

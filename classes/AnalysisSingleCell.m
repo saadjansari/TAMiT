@@ -549,17 +549,23 @@ classdef AnalysisSingleCell < handle
                 % make figure
                 f = figure('visible', 'on'); 
                 h = tight_subplot(1,3);
+                
                 set(f, 'currentaxes', h(1) );
                 imagesc( h(1), max(img , [], 3) ), 
-                colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
+                colormap( h(1), gray); axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
                 title(sprintf('ref: T = %d', obj.times(jTime) ) );
+                
                 set(f, 'currentaxes', h(2) );
                 imagesc( h(2), max(img , [], 3) ), hold on
-                colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
-                feat.displayFeature( h(2) );
+                axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
+                colormap( h(2), cool);
+                % boundary
+                [B,~] = bwboundaries(max(img , [], 3) > 0,'noholes');
+                plot( B{1}(:,2), B{1}(:,1), 'color', 'w', 'linewidth',3)
+                feat.displayFeature( h(2),1);
                 title(sprintf('feature: T = %d', obj.times(jTime) ) );
+                
                 set(f, 'currentaxes', h(3) );
-%                 imagesc( h(3), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
                 imagesc( h(3), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
                 colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
                 title(sprintf('sim: T = %d', obj.times(jTime) ) );

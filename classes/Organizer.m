@@ -24,7 +24,7 @@ classdef Organizer < Feature
         % }}}
 
         % displayFeature {{{
-        function ax = displayFeature( obj, ax)
+        function ax = displayFeature( obj, ax, varargin)
 
             if nargin < 2
                 error('displayFeature: pass in an axes handle to display Feature')
@@ -32,7 +32,7 @@ classdef Organizer < Feature
 
             % Ask subfeatures to display themselves
             for jFeat = 1 : obj.numFeatures
-                ax = obj.featureList{jFeat}.displayFeature( ax);
+                ax = obj.featureList{jFeat}.displayFeature( ax, varargin{:});
             end
 
         end

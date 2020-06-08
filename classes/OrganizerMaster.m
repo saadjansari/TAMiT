@@ -27,6 +27,25 @@ classdef OrganizerMaster < Organizer
         end
         % }}}
 
+        % displayFeature {{{
+        function ax = displayFeature( obj, ax, col3D)
+
+            if nargin < 2
+                error('displayFeature: pass in an axes handle to display Feature')
+            end
+            
+            % Ask subfeatures to display themselves
+            for jFeat = 1 : obj.numFeatures
+                if nargin == 3 && col3D == 1
+                    ax = obj.featureList{jFeat}.displayFeature( ax, size(obj.image,3));
+                else
+                    ax = obj.featureList{jFeat}.displayFeature( ax);
+                end
+            end
+
+        end
+        % }}}
+        
         % findEnvironmentalConditions {{{
         function obj = findEnvironmentalConditions( obj)
             % Finds the cytoplasmic and the nucleoplasmic backgrounds

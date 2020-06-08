@@ -15,17 +15,18 @@ classdef IMTBank < OrganizerMaster
         % }}}
         
         % getVec {{{
-        function [vec, vecLabels] = getVec( obj)
+        function [vec, vecLabels, ub, lb] = getVec( obj)
 
             % Get general environmental properties
             [vec, vecLabels] = getVecEnvironment( obj);
-
+            ub = vec; lb = vec;
+            
             % Loop over mt arrays and get their vectors. Remove the MTOCs from the fit vectors. 
-            for jAster = 1 : obj.numFeatures
-                [vec_mtarray, vecLabels_mtarray] = getVec( obj.featureList{ jAster}, obj.props2Fit.fit{obj.dim}.aster.curve);
-                vec = [vec , vec_mtarray];
-                vecLabels_mtarray = strcat( 'B', num2str( jAster), '_', vecLabels_mtarray);
-                vecLabels = { vecLabels{:}, vecLabels_mtarray{:} };
+            for jFeat = 1 : obj.numFeatures
+                [vec_mt, vecLabels_mt, ub_mt, lb_mt] = getVec( obj.featureList{ jFeat}, obj.props2Fit.fit{obj.dim}.aster.curve);
+                vec = [vec , vec_mt]; lb = [lb, lb_mt]; ub = [ub, ub_mt];
+                vecLabels_mt = strcat( 'B', num2str( jFeat), '_', vecLabels_mt);
+                vecLabels = { vecLabels{:}, vecLabels_mt{:} };
             end
 
         end
@@ -55,26 +56,27 @@ classdef IMTBank < OrganizerMaster
         % }}}
 
         % getVecLocal {{{
-        function [ vecList, vecLabelsList, objList] = getVecLocal( obj)
+        function [ vecList, vecLabelsList, objList, ubList, lbList] = getVecLocal( obj)
 
             % I can have a list of vectors and a list of vectorLabels, and a list of objects
             vecList = {};
             vecLabelsList = {};
             objList = {};
+            ubList = {}; lbList = {};
 
             % bundle vectors
             for jb = 1 : obj.numFeatures
-                [ vecList{jb} , vecLabelsList{jb}] = getVec( obj.featureList{jb}, obj.props2Fit.fit{obj.dim}.aster.curve);
+                [ vecList{jb} , vecLabelsList{jb}, ubList{jb}, lbList{jb}] = getVec( obj.featureList{jb}, obj.props2Fit.fit{obj.dim}.aster.curve);
                 objList{jb} = obj.featureList{jb};
             end
                 
             % Prepend environmental parameters to each vec and vecLabel
-            [vecE, vecLabelsE] = getVecEnvironment( obj, obj.props2Fit.fit{obj.dim}.Environment);
+            %[vecE, vecLabelsE] = getVecEnvironment( obj, obj.props2Fit.fit{obj.dim}.Environment);
             
-            for jFeat = 1 : length( vecList)
-                vecList{jFeat} = [ vecE , [vecList{jFeat}(:)]' ];
-                vecLabelsList{jFeat} = { vecLabelsE{:} , vecLabelsList{jFeat}{:} };
-            end
+            %for jFeat = 1 : length( vecList)
+                %vecList{jFeat} = [ vecE , [vecList{jFeat}(:)]' ];
+                %vecLabelsList{jFeat} = { vecLabelsE{:} , vecLabelsList{jFeat}{:} };
+            %end
 
         end
         % }}}

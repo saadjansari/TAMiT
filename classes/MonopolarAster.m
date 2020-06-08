@@ -22,19 +22,17 @@ classdef MonopolarAster < OrganizerMaster
         function [vec, vecLabels,ub,lb] = getVec( obj, props)
 
             % Get general environmental properties
-            [vec, vecLabels] = obj.getVecEnvironment();
+            [vecE, vecLabelsE] = obj.getVecEnvironment();
+            ubE = vecE; lbE = vecE;
 
             % get vectors from features
             props.spb = {'position', 'amplitude', 'sigma'};
             props.mt = {'endPosition','length', 'theta','amplitude', 'sigma'};
 
             % get vectors from aster. 
-            try
-                [vec, vecLabels, ub, lb] = getVec( obj.featureList{1}, props.spb, props.mt);
-            catch
-                [vec, vecLabels] = getVec( obj.featureList{1}, props.spb, props.mt);
-            end
-            
+            [vec, vecLabels, ub, lb] = getVec( obj.featureList{1}, props.spb, props.mt);
+            vec = [vecE, vec]; ub = [ubE, ub]; lb = [lbE, lb]; 
+            vecLabels = { vecLabelsE{:}, vecLabels{:} };
         end
         % }}}
 

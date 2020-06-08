@@ -48,12 +48,13 @@ classdef BundleNew < BasicElement
             if length(obj.L) == 1
                 obj.two_sided = 0; % only 1 extension
             end
+            obj.SetBounds();
 
         end
         % }}}
 
         % getVec {{{
-        function [vec, vecLabels] = getVec( obj, props2get)
+        function [vec, vecLabels, ub, lb] = getVec( obj, props2get)
 
             % sample props2get
             if nargin==1
@@ -68,9 +69,11 @@ classdef BundleNew < BasicElement
             end
 
             % Get vector of Properties
-            vec = [];
+            vec = []; ub=[]; lb=[];
             for jProp = 1 : length( props2get)
                 vec = [ vec, obj.( props2get{jProp} ) ];
+                ub = [ ub, obj.bounds.ub.( props2get{jProp} ) ];
+                lb = [ lb, obj.bounds.lb.( props2get{jProp} ) ];
             end
 
             % Also get a string array with property names
@@ -110,7 +113,6 @@ classdef BundleNew < BasicElement
                     stoph = 1;
                 end
                 obj.( props2find{ jProp} ) = vec( idxProp);
-                
 
             end
 
@@ -180,34 +182,63 @@ classdef BundleNew < BasicElement
         % }}}
 
         % displayFeature {{{
-        function ax = displayFeature( obj, ax)
+        function ax = displayFeature( obj, ax, sizeZ)
 
             if nargin < 2
                 error('displayFeature: must provide axes handle to display the feature in')
             end
 
-            cx = []; cy = [];
+            cx = []; cy = []; cz=[]; cxfat=[]; cyfat=[]; czfat = []; lw = 4;
             if obj.L(1)>obj.T
                 c1 = obj.GetCoords(1,obj.L(1),obj.T);
-                cx = [cx, c1(1,end:-1:1)]; cy = [cy, c1(2,end:-1:1)];
+                cx = [cx, c1(1,end:-1:1)]; cy = [cy, c1(2,end:-1:1)]; try; cz = [cz, c1(3,end:-1:1)]; end
             end
             c2 = obj.GetCoords(1,obj.T,0);
-            cx = [cx, c2(1,end:-1:1)]; cy = [cy, c2(2,end:-1:1)];
-
+            cx = [cx, c2(1,end:-1:1)]; cy = [cy, c2(2,end:-1:1)]; try; cz = [cz, c2(3,end:-1:1)]; end
+            cxfat = [cxfat, c2(1,end:-1:1)]; cyfat = [cyfat, c2(2,end:-1:1)]; try; czfat = [czfat, c2(3,end:-1:1)]; end
             if obj.two_sided
                 c3 = obj.GetCoords(2,obj.T,0);
-                cx = [cx, c3(1,:)]; cy = [cy, c3(2,:)];
+                cx = [cx, c3(1,:)]; cy = [cy, c3(2,:)]; try; cz = [cz, c3(3,:)]; end
+                cxfat = [cxfat, c3(1,:)]; cyfat = [cyfat, c3(2,:)]; try; czfat = [czfat, c3(3,:)]; end
                 if obj.L(2) > obj.T
                     c4 = obj.GetCoords(2,obj.L(2),obj.T);
-                    cx = [cx, c4(1,:)]; cy = [cy, c4(2,:)];
+                    cx = [cx, c4(1,:)]; cy = [cy, c4(2,:)]; try; cz = [cz, c4(3,:)]; end
                 end
             end
-            coords = [cx; cy];
+            coords = [cx; cy; cz];
+            coordsFat = [cxfat; cyfat; czfat];
             % Get (x,y) coordinates of the curve
             %coords = obj.GetCoords();
-
-            % Create the curve to display
-            line( coords(1,:), coords(2,:), obj.display{:} )
+            
+            % 2D color plot for 3D information
+            if obj.dim==3 && nargin==3
+                cm = cool;
+                col = cm( round((coords(3,:)/sizeZ)*length(cm)), :);
+                col = [ permute(col, [3 1 2]); permute(col, [3 1 2])];
+                z = zeros([ 1, size( coords,2)]);
+                surface([coords(1,:);coords(1,:)],[coords(2,:);coords(2,:)],[z;z],col,...
+                        'facecol','no',...
+                        'edgecol','interp',...
+                        'linew',lw);
+                colorbar('Ticks',linspace(0,1,sizeZ),'TickLabels',1:sizeZ)
+                
+                % Fat lines
+                cm = cool;
+                col = cm( round((coordsFat(3,:)/sizeZ)*length(cm)), :);
+                col = [ permute(col, [3 1 2]); permute(col, [3 1 2])];
+                z = zeros([ 1, size( coordsFat,2)]);
+                surface([coordsFat(1,:);coordsFat(1,:)],[coordsFat(2,:);coordsFat(2,:)],[z;z],col,...
+                        'facecol','no',...
+                        'edgecol','interp',...
+                        'linew',lw*obj.ef);
+                colorbar('Ticks',linspace(0,1,sizeZ),'TickLabels',1:sizeZ)
+                
+            else
+                % Create the curve to display
+                line( coords(1,:), coords(2,:), obj.display{:} )
+            end
+            
+            
 
         end
         % }}}
@@ -440,6 +471,68 @@ classdef BundleNew < BasicElement
         end
         % }}}
 
+        % SetBounds {{{
+        function SetBounds( obj)
+           
+            % origin
+            tanVec = round( abs( 7*[cos(obj.thetaInit(1,1)), sin(obj.thetaInit(1,1)) ]));
+            ub.origin = [ obj.origin(1)+tanVec(1)+5, obj.origin(2)+tanVec(2)+5, 7];
+            lb.origin = [ obj.origin(1)-tanVec(1)-5, obj.origin(2)-tanVec(2)-5, 1];
+
+
+            % amplitude
+            ub.amplitude = 1;
+            lb.amplitude = 0;
+            
+            % sigma % positions % theta
+            if obj.dim == 3
+                ub.sigma = [2.0 2.0 2.0];
+                lb.sigma = [1.2 1.2 1.0];
+            elseif obj.dim == 2
+                ub.sigma = [2.0 2.0];
+                lb.sigma = [1.2 1.2];
+            end
+            
+            % L 
+            if obj.two_sided
+                ub.L = [ 100 100];
+                lb.L = [8 8];
+            else
+                ub.L = [100];
+                lb.L = [8];
+            end
+
+            % T
+            ub.T = obj.T+10;
+            lb.T = 2;
+
+            % thetaInit
+            if obj.two_sided 
+                ub.thetaInit = obj.thetaInit + [0.2, 0.1, 0.2, 0.1];
+                lb.thetaInit = obj.thetaInit - [0.2, 0.1, 0.2, 0.1];
+            else
+                ub.thetaInit = obj.thetaInit + [0.2, 0.1];
+                lb.thetaInit = obj.thetaInit - [0.2, 0.1];
+            end
+
+            % normalVec 
+            if obj.two_sided 
+                ub.normalVec = obj.normalVec + [0.005, 0.003, 0.005, 0.003];
+                lb.normalVec = obj.normalVec - [0.005, 0.003, 0.005, 0.003];
+            else
+                ub.normalVec = obj.normalVec + [0.005, 0.003];
+                lb.normalVec = obj.normalVec - [0.005, 0.003];
+            end
+
+            % Enhancement factor
+            ub.ef = 4;
+            lb.ef = 1.5;
+            
+            obj.bounds.lb = lb;
+            obj.bounds.ub = ub;
+            
+        end
+        % }}}
     end
 
     methods ( Static = true )
@@ -463,31 +556,28 @@ classdef BundleNew < BasicElement
             if size(coords,1) ~= dim
                 error('Coord size doesnt match dim of image')
             end
-            
+            % Get pixels coordinates perp to direction of curve
+            orient = atan2( coords(2,end)-coords(2,1) , coords(1,end)-coords(1,1) );
+            nVec = [cos(orient+pi/2); sin(orient+pi/2) ];
             rads = -rad:rad;
-            xp = []; yp = []; xp2 = []; yp2 = [];
-            for jr = rads
-                xp = [ xp ; round(coords(1,:)'+jr) ];
-                yp = [ yp; round(coords(2,:)')];
-            end
-            for jr = rads
-                yp2 = [ yp2 ; round(coords(2,:)'+jr) ];
-                xp2 = [ xp2 ; round(coords(1,:)') ];
+            c2 = zeros( 2, size(coords,2)*length(rads));
+            for jr = 1: length(rads)
+                c2(:, 1+(jr-1)*size(coords,2):(jr)*size(coords,2)) = round( coords(1:2,:)+ rads(jr)*nVec);
             end
             % Add half circle near endpoints
             imt = zeros(sizeImage(1:2)); 
             imt(round(coords(2,1)),round(coords(1,1)))=1; imt(round(coords(2,end)),round(coords(1,end)))=1; 
             imt = imdilate( imt, strel('disk',rad)); idxEnd = find(imt);
             [ye, xe] = ind2sub( sizeImage(1:2), idxEnd);
-            xp2 = [xe; xp2]; yp2 = [ye; yp2];
+            c2 = [c2 , [xe';ye']];
+            pts = unique( c2', 'rows');
             
-            pts = unique( [xp2 , yp2] ,'rows');
-            lineVox.x = pts(:,1); lineVox.y = pts(:,2);
-            
+            % store voxel info
             if dim == 2
+                lineVox.x = pts(:,1); lineVox.y = pts(:,2);
                 lineVox.idx = sub2ind( sizeImage, pts(:,2), pts(:,1) );
             elseif dim == 3
-                ps = zeros( sizeImage(3)*length(pts), 3);
+                ps = zeros( sizeImage(3)*size(pts,1), 3);
                 for zz = 1 : sizeImage(3)
                     ps( 1+length(pts)*(zz-1): zz*length(pts),:) = [pts , zz*ones(length(pts), 1)];
                 end

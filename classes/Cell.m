@@ -116,6 +116,80 @@ classdef Cell < handle & matlab.mixin.Copyable
         end
         % }}}
         
+        % FindFeaturesFrame {{{
+        function FindFeaturesFrame( obj, Image, parameters)
+            % Find and fit features for a single CT frame
+            
+            % Decide if fit should be performed. Skip otherwise
+            [obj, status] = DecideToFit( obj, Image, parameters);
+            if ~status
+                return
+            end
+
+            % Get the image for this frame
+            Image2Fit = Image(:,:,:, parameters.time, parameters.channelTrue);
+
+            % Estimate the features based on an estimation routine (defined in specialized sub-class )
+            disp('Estimating features...')
+            % Good estimation is key to good optimization in low SnR images
+            obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx);
+            mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
+            obj.syncFeatureMap( parameters.channelIdx, parameters.time);
+            
+            % Prepare fit params
+            params = obj.params.fit;
+            params.channel = parameters.channelTrue;
+            params.time = parameters.time;
+            params.saveDirectory = parameters.saveDirectory;
+            
+            % Do early fitting routines
+%             propsInit = mainFeature.props2Fit.fit{mainFeature.dim}.aster.curve;
+%             routines = Cell.SetFitRoutines();
+%             for i = 1 : length(routines)
+%                 route = routines{i};
+%                 paramsCpy = params;
+%                 if strcmp(route.type,'L')
+%                     paramsCpy.runLocalOptimization = 1;
+%                     paramsCpy.runGlobalOptimization = 0;
+%                     paramsCpy.runFeatureNumberOptimization = 0;
+%                     paramsCpy.display = 1;
+%                 elseif strcmp(route.type,'G')
+%                     paramsCpy.runLocalOptimization = 0;
+%                     paramsCpy.runGlobalOptimization = 1;
+%                     paramsCpy.runFeatureNumberOptimization = 0;
+%                     paramsCpy.display = 0;
+%                 elseif strcmp(route.type,'LG')
+%                     paramsCpy.runLocalOptimization = 1;
+%                     paramsCpy.runGlobalOptimization = 1;
+%                     paramsCpy.runFeatureNumberOptimization = 0;
+%                     paramsCpy.display = 1;
+%                 elseif strcmp(route.type,'GA')
+%                     paramsCpy.runLocalOptimization = 0;
+%                     paramsCpy.runGlobalOptimization = 1;
+%                     paramsCpy.runFeatureNumberOptimization = 1;
+%                     paramsCpy.display = 1;
+%                 elseif strcmp(route.type,'def')
+%                     paramsCpy=params;
+%                 end
+%                 mainFeature.props2Fit.fit{mainFeature.dim}.aster.curve = route.props;
+%                 fitEngine = FitEngine( Image2Fit, mainFeature, paramsCpy);
+%                 fitEngine = fitEngine.Optimize();
+%                 mainFeature = fitEngine.GetFeature();
+%             end
+%             mainFeature.props2Fit.fit{mainFeature.dim}.aster.curve = propsInit;
+
+            % Fit Features via Fit Engine.
+            fitEngine = FitEngine( Image2Fit, mainFeature, params);
+            fitEngine = fitEngine.Optimize();
+            obj.featureList{ parameters.channelIdx , parameters.time} = fitEngine.GetFeature();
+            obj.featureList{ parameters.channelIdx , parameters.time}.finalizeAddedFeatures();
+            
+            obj.syncFeatureMap( parameters.channelIdx, parameters.time);
+            close all
+
+        end
+        % }}}
+        
         % CheckUpdateImages {{{
         function [obj, imgNew] = CheckUpdateImages( obj, channel)
 
@@ -225,80 +299,6 @@ classdef Cell < handle & matlab.mixin.Copyable
             end
         end
         % }}}
-
-        % FindFeaturesFrame {{{
-        function FindFeaturesFrame( obj, Image, parameters)
-            % Find and fit features for a single CT frame
-            
-            % Decide if fit should be performed. Skip otherwise
-            [obj, status] = DecideToFit( obj, Image, parameters);
-            if ~status
-                return
-            end
-
-            % Get the image for this frame
-            Image2Fit = Image(:,:,:, parameters.time, parameters.channelTrue);
-
-            % Estimate the features based on an estimation routine (defined in specialized sub-class )
-            disp('Estimating features...')
-            % Good estimation is key to good optimization in low SnR images
-            obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx);
-            mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
-            obj.syncFeatureMap( parameters.channelIdx, parameters.time);
-            
-            % Prepare fit params
-            params = obj.params.fit;
-            params.channel = parameters.channelTrue;
-            params.time = parameters.time;
-            params.saveDirectory = parameters.saveDirectory;
-            
-            % Do early fitting routines
-%             propsInit = mainFeature.props2Fit.fit{mainFeature.dim}.aster.curve;
-%             routines = Cell.SetFitRoutines();
-%             for i = 1 : length(routines)
-%                 route = routines{i};
-%                 paramsCpy = params;
-%                 if strcmp(route.type,'L')
-%                     paramsCpy.runLocalOptimization = 1;
-%                     paramsCpy.runGlobalOptimization = 0;
-%                     paramsCpy.runFeatureNumberOptimization = 0;
-%                     paramsCpy.display = 1;
-%                 elseif strcmp(route.type,'G')
-%                     paramsCpy.runLocalOptimization = 0;
-%                     paramsCpy.runGlobalOptimization = 1;
-%                     paramsCpy.runFeatureNumberOptimization = 0;
-%                     paramsCpy.display = 0;
-%                 elseif strcmp(route.type,'LG')
-%                     paramsCpy.runLocalOptimization = 1;
-%                     paramsCpy.runGlobalOptimization = 1;
-%                     paramsCpy.runFeatureNumberOptimization = 0;
-%                     paramsCpy.display = 1;
-%                 elseif strcmp(route.type,'GA')
-%                     paramsCpy.runLocalOptimization = 0;
-%                     paramsCpy.runGlobalOptimization = 1;
-%                     paramsCpy.runFeatureNumberOptimization = 1;
-%                     paramsCpy.display = 1;
-%                 elseif strcmp(route.type,'def')
-%                     paramsCpy=params;
-%                 end
-%                 mainFeature.props2Fit.fit{mainFeature.dim}.aster.curve = route.props;
-%                 fitEngine = FitEngine( Image2Fit, mainFeature, paramsCpy);
-%                 fitEngine = fitEngine.Optimize();
-%                 mainFeature = fitEngine.GetFeature();
-%             end
-%             mainFeature.props2Fit.fit{mainFeature.dim}.aster.curve = propsInit;
-
-            % Fit Features via Fit Engine.
-            fitEngine = FitEngine( Image2Fit, mainFeature, params);
-            fitEngine = fitEngine.Optimize();
-            obj.featureList{ parameters.channelIdx , parameters.time} = fitEngine.GetFeature();
-            obj.featureList{ parameters.channelIdx , parameters.time}.finalizeAddedFeatures();
-            
-            obj.syncFeatureMap( parameters.channelIdx, parameters.time);
-            close all
-
-        end
-        % }}}
         
         % simulateCell {{{
         function imageOut = simulateCell( obj, cChannel, cTime)
@@ -359,22 +359,6 @@ classdef Cell < handle & matlab.mixin.Copyable
     
     methods ( Static = true , Access = public )
         
-        % FindGoodFrames {{{
-        function frames_good = FindGoodFrames( Image, lifetimes)
-
-            % find all good frames
-            frames_good = 0*lifetimes;
-
-            for j = 1: length(lifetimes)
-                
-                jt = lifetimes( j);
-                Img = Image(:,:,:, jt);
-                if max( Img(:)) ~= min( Img(:)) 
-                    frames_good( j) = 1;
-                end
-            end
-        end
-        % }}}
         
        % Common Functions {{{
        
@@ -471,7 +455,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             
         end
         % }}}
-        % }}}% findAmplitudeAlongCurveCoords {{{
+        % findAmplitudeAlongCurveCoords {{{
         function amplitude = findAmplitudeAlongCurveCoords( imageIn, coord)
             % used to measure intensity while using coordinates
             
@@ -640,458 +624,6 @@ classdef Cell < handle & matlab.mixin.Copyable
 
         end
         % }}}
-        % drawGaussianPoint3D {{{
-        function imagePoint = drawGaussianPoint3D( pos, sigma, imageIn, idx, x, y, z)
-            % Draws a gaussian point using an analytical framework
-
-            % Check that everything is in 3D
-            if numel( size(imageIn) ) ~= 3 || length(pos)~=3 || length(sigma)~=3
-                error('drawGaussianPoint3D: all data must be 3-dimensional')
-            end
-
-            if nargin < 4
-                idx = 1 : numel( imageIn);
-            end
-            if nargin < 7
-                [y, x, z] = ind2sub( size( imageIn), idx);
-            end
-
-            x0 = pos(1); y0 = pos(2); z0 = pos(3);
-            sx = sigma(1); sy = sigma(2); sz = sigma(3);
-
-            % Amplitudes:
-            ExpX = exp( -0.5*( (x-x0)./sx).^2 );
-            ExpY = exp( -0.5*( (y-y0)./sy).^2 );
-            ExpZ = exp( -0.5*( (z-z0)./sz).^2 );
-            IntValues = ExpX .* ExpY .* ExpZ;
-           
-            functionCheck = 0;
-            if functionCheck
-                disp( sprintf('Total Voxels = %d', numel( IntValues) ) )
-                disp( sprintf('Nan Voxels = %d', sum( isnan( IntValues(:) ) ) ) )
-                disp( sprintf('Inf Voxels = %d', sum( isinf( IntValues(:) ) ) ) )
-            end
-            IntValues( isnan( IntValues) ) = min( IntValues(:) );
-            IntValues( IntValues == Inf) = min( IntValues(:) );
-            
-            % Initiliaze the volume and set the appropriate indices to these values
-            imagePoint = 0*imageIn;
-            imagePoint( idx) = IntValues;
-
-            if functionCheck
-                dispImg( imagePoint);
-            end
-                    
-        end
-        % }}}
-        % drawGaussianPoint2D {{{
-        function imagePoint = drawGaussianPoint2D( pos, sigma, imageIn, idx, x, y)
-            % Draws a gaussian point using an analytical framework
-
-            % Check that everything is in 2D
-            if numel( size(imageIn) ) ~= 2 || length(pos)~=2 || length(sigma)~=2
-                error('drawGaussianPoint2D: all data must be 2-dimensional')
-            end
-
-            if nargin < 4
-                idx = 1 : numel( imageIn);
-            end
-            if nargin < 6
-                [y, x] = ind2sub( size( imageIn), idx);
-            end
-
-            x0 = pos(1); y0 = pos(2);
-            sx = sigma(1); sy = sigma(2);
-
-            % Amplitudes:
-            ExpX = exp( -0.5*( (x-x0)./sx).^2 );
-            ExpY = exp( -0.5*( (y-y0)./sy).^2 );
-            IntValues = ExpX .* ExpY;
-           
-            functionCheck = 0;
-            if functionCheck
-                disp( sprintf('Total Voxels = %d', numel( IntValues) ) )
-                disp( sprintf('Nan Voxels = %d', sum( isnan( IntValues(:) ) ) ) )
-                disp( sprintf('Inf Voxels = %d', sum( isinf( IntValues(:) ) ) ) )
-            end
-            IntValues( isnan( IntValues) ) = min( IntValues(:) );
-            IntValues( IntValues == Inf) = min( IntValues(:) );
-            
-            % Initiliaze the volume and set the appropriate indices to these values
-            imagePoint = 0*imageIn;
-            imagePoint( idx) = IntValues;
-
-            if functionCheck
-                dispImg( imagePoint);
-            end
-                    
-        end
-        % }}}
-        % drawGaussianLine3D {{{
-        function imageLine = drawGaussianLine3D( startPos, endPos, sigma, imageIn, idx, x, y, z)
-            % Draws a gaussian straight line using an analytical framework
-
-            % Check that everything is in 3D
-            if numel( size(imageIn) ) ~= 3 || length(startPos)~=3 || length(endPos)~=3 || length(sigma)~=3
-                startPos
-                endPos
-                sigma
-                size(imageIn)
-                error('drawGaussianLine3D: all data must be 3-dimensional')
-            end
-
-            if nargin < 5
-                idx = 1 : numel( imageIn);
-            end
-            if nargin < 8
-                [y, x, z] = ind2sub( size( imageIn), idx);
-            end
-
-            x0 = startPos(1); y0 = startPos(2); z0 = startPos(3);
-            x1 = endPos(1); y1 = endPos(2); z1 = endPos(3);
-            sx = sigma(1); sy = sigma(2); sz = sigma(3);
-
-            % First lets parameterize this line with a parameter t. We'll find the
-            % slopes of the line in each spatial dimension along with any offset
-            % At t = 0, x = x0, y = y0, z = z0
-            % At t = 1, x = x1, y = y1, z = z1
-            t0 = 0;
-            t1 = 1;
-            
-            % find slopes
-            mx = (x1 - x0) / ( t1 - t0);
-            my = (y1 - y0) / ( t1 - t0);
-            mz = (z1 - z0) / ( t1 - t0);
-            
-            % find offsets, these are just the start points at t = 0;
-            cx = x0;
-            cy = y0;
-            cz = z0;
-            
-            % We will integrate a 3D gaussian with respect to the parameter t going
-            % from 0 to 1.
-            
-            % We've done the analytical integration in mathematica and will use the
-            % result here:
-            
-            % Amplitudes:
-            AmpExp = - ( 1 / sqrt(mz^2 * sx^2 * sy^2 + (my^2 * sx^2 + mx^2 * sy^2) * sz^2 ) );
-            
-            AmpErf = sqrt( pi/2 ) * sx * sy * sz;
-            
-            % Exponential factors:
-            ExpDenom = 2 * ( mz^2 * sx^2 * sy^2 + (my^2 * sx^2 + mx^2 * sy^2) * sz^2);
-            
-            Exp1 = ( - ( cx^2 * mz^2 * sy^2 + cz^2 * (my^2 * sx^2 + mx^2 * sy^2) + ...
-                cx^2 * my^2 * sz^2 + cy^2 * (mz^2 * sx^2 + mx^2 * sz^2) ) / ExpDenom );
-            
-            Exp2 = ( - ( - 2 * cx * mz^2 *sy^2 * x - 2 * cx * my^2 * sz^2 * x + ...
-                mz^2 * sy^2 * x.^2 + my^2 * sz^2 * x.^2 + 2 * cx * mx * my * sz^2 * y - ...
-                2 * mx * my * sz^2 * x .* y + mz^2 * sx^2 * y.^2 + mx^2 * sz^2 * y.^2 ) / ExpDenom  );
-            
-            Exp3 = ( - ( 2 * cx * mx * mz * sy^2 * z - 2 * mx * mz * sy^2 * x .* z - ...
-                2 * my * mz * sx^2 * y .* z + my^2 * sx^2 * z.^2 + mx^2 * sy^2 * z.^2  ) / ExpDenom );
-            
-            Exp4 = ( - ( - 2 * cz * ( cy * my * mz * sx^2 + cx * mx * mz * sy^2 - ...
-                mx * mz * sy^2 * x - my * mz * sx^2 * y + my^2 * sx^2 * z + mx^2 * sy^2 * z )  ) / ExpDenom );
-            
-            Exp5 = ( - ( - 2 * cy * (cx *mx *my *sz^2 - mx * my * sz^2 * x + ...
-                mx^2 * sz^2 * y + mz * sx^2 * (mz * y - my * z)) ) / ExpDenom );
-           
-            SumExp = Exp1 + Exp2 + Exp3 + Exp4 + Exp5;
-            
-        %     Exp5( Exp5 == Inf) = realmax;
-            
-            % Erf factors;
-            ErfDenom = ( sqrt(2) * sx * sy * sz * sqrt( mz^2 * sx^2 * sy^2 + (my^2 * sx^2 + mx^2 * sy^2) * sz^2 ) );
-            
-            Erf1 = erf( ( cz * mz * sx^2 * sy^2 + cy * my * sx^2 * sz^2 + cx * mx * sy^2 * sz^2 - ...
-                mx * sy^2 * sz^2 * x - my * sx^2 * sz^2 * y - mz * sx^2 * sy^2 * z ) / ErfDenom );
-            
-            Erf2 = erf( ( cz * mz * sx^2 * sy^2 + mz^2 * sx^2 * sy^2 + ...
-                sz^2 * (cy * my * sx^2 + my^2 * sx^2 + mx * sy^2 * (cx + mx - x) - my * sx^2 * y) - ...
-                mz * sx^2 * sy^2 * z ) / ErfDenom );
-
-            % Find the intensity values for these provided query x,y,z coordinates
-            IntValues = AmpExp .*exp( SumExp) .* ...
-                AmpErf .* ( Erf1 - Erf2 );
-           
-            functionCheck = 0;
-            if functionCheck
-                disp( sprintf('Total Voxels = %d', numel( IntValues) ) )
-                disp( sprintf('Nan Voxels = %d', sum( isnan( IntValues(:) ) ) ) )
-                disp( sprintf('Inf Voxels = %d', sum( isinf( IntValues(:) ) ) ) )
-                figure; imagesc( max( imageLine, [], 3) );
-                figure; imagesc( max( imageLine, [], 3) );
-            end
-
-            IntValues( isnan( IntValues) ) = min( IntValues(:) );
-            IntValues( IntValues == Inf) = min( IntValues(:) );
-            
-            % Initiliaze the volume and set the appropriate indices to these values
-            imageLine = 0 * imageIn;
-            imageLine( idx) = IntValues;
-
-        end
-        % }}}
-        % drawGaussianLine2D {{{
-        function imageLine = drawGaussianLine2D( startPos, endPos, sigma, imageIn, idx, x, y)
-            % Draws a gaussian straight line using an analytical framework
-
-            % Check that everything is in 2D
-            if numel( size(imageIn) ) ~= 2 || length(startPos)~=2 || length(endPos)~=2 || length(sigma)~=2
-                startPos
-                endPos
-                sigma
-                size(imageIn)
-                error('drawGaussianLine2D: all data must be 2-dimensional')
-            end
-
-            if nargin < 5
-                idx = 1 : numel( imageIn);
-            end
-            if nargin < 7
-                [y, x] = ind2sub( size( imageIn), idx);
-            end
-
-            x0 = startPos(1); y0 = startPos(2);
-            x1 = endPos(1); y1 = endPos(2);
-            sx = sigma(1); sy = sigma(2);
-
-            % First lets parameterize this line with a parameter t. We'll find the
-            % slopes of the line in each spatial dimension along with any offset
-            % At t = 0, x = x0, y = y0, z = z0
-            % At t = 1, x = x1, y = y1, z = z1
-            t0 = 0;
-            t1 = 1;
-            
-            % find slopes
-            mx = (x1 - x0) / ( t1 - t0);
-            my = (y1 - y0) / ( t1 - t0);
-            
-            % find offsets, these are just the start points at t = 0;
-            cx = x0;
-            cy = y0;
-            
-            error('not set up')
-            
-            % We will integrate a 3D gaussian with respect to the parameter t going
-            % from 0 to 1.
-            
-            % We've done the analytical integration in mathematica and will use the
-            % result here:
-            
-            % Amplitudes:
-            AmpExp = - ( 1 / sqrt(mz^2 * sx^2 * sy^2 + (my^2 * sx^2 + mx^2 * sy^2) * sz^2 ) );
-            
-            AmpErf = sqrt( pi/2 ) * sx * sy * sz;
-            
-            % Exponential factors:
-            ExpDenom = 2 * ( mz^2 * sx^2 * sy^2 + (my^2 * sx^2 + mx^2 * sy^2) * sz^2);
-            
-            Exp1 = ( - ( cx^2 * mz^2 * sy^2 + cz^2 * (my^2 * sx^2 + mx^2 * sy^2) + ...
-                cx^2 * my^2 * sz^2 + cy^2 * (mz^2 * sx^2 + mx^2 * sz^2) ) / ExpDenom );
-            
-            Exp2 = ( - ( - 2 * cx * mz^2 *sy^2 * x - 2 * cx * my^2 * sz^2 * x + ...
-                mz^2 * sy^2 * x.^2 + my^2 * sz^2 * x.^2 + 2 * cx * mx * my * sz^2 * y - ...
-                2 * mx * my * sz^2 * x .* y + mz^2 * sx^2 * y.^2 + mx^2 * sz^2 * y.^2 ) / ExpDenom  );
-            
-            Exp3 = ( - ( 2 * cx * mx * mz * sy^2 * z - 2 * mx * mz * sy^2 * x .* z - ...
-                2 * my * mz * sx^2 * y .* z + my^2 * sx^2 * z.^2 + mx^2 * sy^2 * z.^2  ) / ExpDenom );
-            
-            Exp4 = ( - ( - 2 * cz * ( cy * my * mz * sx^2 + cx * mx * mz * sy^2 - ...
-                mx * mz * sy^2 * x - my * mz * sx^2 * y + my^2 * sx^2 * z + mx^2 * sy^2 * z )  ) / ExpDenom );
-            
-            Exp5 = ( - ( - 2 * cy * (cx *mx *my *sz^2 - mx * my * sz^2 * x + ...
-                mx^2 * sz^2 * y + mz * sx^2 * (mz * y - my * z)) ) / ExpDenom );
-           
-            SumExp = Exp1 + Exp2 + Exp3 + Exp4 + Exp5;
-            
-        %     Exp5( Exp5 == Inf) = realmax;
-            
-            % Erf factors;
-            ErfDenom = ( sqrt(2) * sx * sy * sz * sqrt( mz^2 * sx^2 * sy^2 + (my^2 * sx^2 + mx^2 * sy^2) * sz^2 ) );
-            
-            Erf1 = erf( ( cz * mz * sx^2 * sy^2 + cy * my * sx^2 * sz^2 + cx * mx * sy^2 * sz^2 - ...
-                mx * sy^2 * sz^2 * x - my * sx^2 * sz^2 * y - mz * sx^2 * sy^2 * z ) / ErfDenom );
-            
-            Erf2 = erf( ( cz * mz * sx^2 * sy^2 + mz^2 * sx^2 * sy^2 + ...
-                sz^2 * (cy * my * sx^2 + my^2 * sx^2 + mx * sy^2 * (cx + mx - x) - my * sx^2 * y) - ...
-                mz * sx^2 * sy^2 * z ) / ErfDenom );
-
-            % Find the intensity values for these provided query x,y,z coordinates
-            IntValues = AmpExp .*exp( SumExp) .* ...
-                AmpErf .* ( Erf1 - Erf2 );
-           
-            functionCheck = 0;
-            if functionCheck
-                disp( sprintf('Total Voxels = %d', numel( IntValues) ) )
-                disp( sprintf('Nan Voxels = %d', sum( isnan( IntValues(:) ) ) ) )
-                disp( sprintf('Inf Voxels = %d', sum( isinf( IntValues(:) ) ) ) )
-                figure; imagesc( max( imageLine, [], 3) );
-                figure; imagesc( max( imageLine, [], 3) );
-            end
-
-            IntValues( isnan( IntValues) ) = min( IntValues(:) );
-            IntValues( IntValues == Inf) = min( IntValues(:) );
-            
-            % Initiliaze the volume and set the appropriate indices to these values
-            imageLine = 0 * imageIn;
-            imageLine( idx) = IntValues;
-
-        end
-        % }}}
-        % drawGaussianCurve3D {{{
-        function [imageCurve,error_code] = drawGaussianCurve3D( coeffs, sigma, imageIn, varargin)
-            % Draw a gaussian curve in 3D using numerical integration
-
-            if numel( size(imageIn) ) ~= 3 || length( coeffs) ~= 3 || length(sigma)~= 3
-                error('drawGaussianLine3D: all data must be 3-dimensional')
-            end
-
-            dim = length( size(imageIn) );
-            error_code = 0;
-
-            % Parse options
-            opts = parseArgs( imageIn, varargin{:});
-
-            % Check if microtubule escapes the z-planes. Exit with error.
-            zends = polyval( coeffs{3}, opts.T);
-            if any(zends <1) || any( zends > size(imageIn, 3))
-                imageCurve = imageIn;
-                error_code = 1;
-                return
-            end
-
-            % Create coordinates for numerical integration
-            % create parametric coord
-            speedUp = 2.0;
-            Tvec = opts.T(1) : 0.01*speedUp : opts.T(2);
-            Tvec( end) = [];
-
-            % Now for each value of the parameter, we'll do a gauss
-            % quadrature numerical integration 
-            DeltaT = median( diff(Tvec) );
-
-            % get the offsets for gauss quadrature
-            poff1 = ( (1/2) - sqrt(3)/6 ) * DeltaT;
-            poff2 = ( (1/2) + sqrt(3)/6 ) * DeltaT;
-            Tsort = sort([  Tvec + poff1,  Tvec + poff2] );
-
-            % Coefficients
-            XCoef = coeffs{1};
-            YCoef = coeffs{2};
-            xLoc = polyval( XCoef, Tsort )';
-            yLoc = polyval( YCoef, Tsort )';
-            if dim==3
-                ZCoef = coeffs{3}; 
-                zLoc = polyval( ZCoef, Tsort)'; 
-            end
-            
-            % re-parametrize by length
-            dParam = 1;
-            for jk = 1 : length( xLoc) -1
-                dParam = [ dParam, dParam(end) + sqrt( diff( xLoc( jk:jk+1)).^2 + diff(yLoc(jk:jk+1)).^2 + diff(zLoc(jk:jk+1)).^2)]; 
-            end
-            dParamNew = linspace( dParam(1), dParam(end), length(dParam) );
-
-            % fit once again, and find now parametric coordinates
-            try
-            fitX = fit( dParam', xLoc, 'linearinterp');
-            catch
-                stoph = 1;
-            end
-            fitY = fit( dParam', yLoc, 'linearinterp');
-            xDat = fitX( dParamNew);
-            yDat = fitY( dParamNew);
-            fitZ = fit( dParam', zLoc, 'linearinterp'); 
-            zDat = fitZ( dParamNew); 
-            PtGaussLoc = [ xDat , yDat , zDat];
-
-            imageCurve = Cell.NumericalConv( sigma, PtGaussLoc, {opts.X,opts.Y,opts.Z}, imageIn, opts.Idx );
-            
-            % parseArgs {{{
-            function opts = parseArgs( imageIn, varargin)
-               
-                % default Index
-                defIdx = 1 : numel( imageIn);
-                [defy, defx, defz] = ind2sub( size( imageIn), defIdx);
-                defx=defx'; defy=defy';defz=defz';
-                defT = [0 1];
-
-                % Input Parser
-                p = inputParser;
-                addParameter( p, 'X', defx);
-                addParameter( p, 'Y', defy);
-                addParameter( p, 'Z', defz);
-                addParameter( p, 'Idx', defIdx);
-                addParameter( p, 'T', defT);
-
-                parse( p, varargin{:});
-                opts = p.Results;
-
-            end
-            % }}}
-        end
-        % }}}
-        % drawGaussianCurve2D {{{
-        function imageCurve = drawGaussianCurve2D( coeffs, sigma, imageIn, idx, x,y)
-            % Draw a gaussian curve in 3D using numerical integration
-
-            if numel( size(imageIn) ) ~= 2 || length( coeffs) ~= 2 || length(sigma)~= 2
-                sigma
-                size(imageIn)
-                error('drawGaussianLine2D: all data must be 2-dimensional')
-            end
-
-            if nargin < 4
-                idx = 1 : numel( imageIn);
-            end
-            if nargin < 6
-                [y, x] = ind2sub( size( imageIn), idx);
-                x=x'; y=y';
-            end
-
-            dim = length( size(imageIn) );
-            % Create coordinates for numerical integration
-            % create parametric coord
-            speedUp = 2.0;
-            Tvec = linspace(0,1, round(100/speedUp) );
-            Tvec( end) = [];
-
-            % Now for each value of the parameter, we'll do a gauss
-            % quadrature numerical integration 
-            DeltaT = median( diff(Tvec) );
-
-            % get the offsets for gauss quadrature
-            poff1 = ( (1/2) - sqrt(3)/6 ) * DeltaT;
-            poff2 = ( (1/2) + sqrt(3)/6 ) * DeltaT;
-            Tsort = sort([  Tvec + poff1,  Tvec + poff2] );
-
-            % Coefficients
-            XCoef = coeffs{1};
-            YCoef = coeffs{2};
-            xLoc = polyval( XCoef, Tsort )';
-            yLoc = polyval( YCoef, Tsort )';
-            
-            % re-parametrize by length
-            dParam = 1;
-            for jk = 1 : length( xLoc) -1
-                dParam = [ dParam, dParam(end) + sqrt( diff( xLoc( jk:jk+1)).^2 + diff(yLoc(jk:jk+1)).^2)];
-            end
-            dParamNew = linspace( dParam(1), dParam(end), length(dParam) );
-
-            % fit once again, and find now parametric coordinates
-            fitX = fit( dParam', xLoc, 'linearinterp');
-            fitY = fit( dParam', yLoc, 'linearinterp');
-            xDat = fitX( dParamNew);
-            yDat = fitY( dParamNew);
-
-            PtGaussLoc = [ xDat , yDat ];
-            imageCurve = Cell.NumericalConv( sigma, PtGaussLoc, {x , y}, imageIn, idx );
-            
-        end
-        % }}}
         % checkFrameViability {{{
         function status = checkFrameViability( Image2Fit, jTime)
 
@@ -1137,6 +669,36 @@ classdef Cell < handle & matlab.mixin.Copyable
                 Zvals = exp( -( zz' - CoordsZ ).^2 / (2 * s3^2) ) / ( 2 * s3^2 * pi)^(1/2);
                 imConv( idx') = sum( Xvals .* Yvals .* Zvals , 2);
             end
+
+        end
+        % }}}
+        % FindGoodFrames {{{
+        function frames_good = FindGoodFrames( Image, lifetimes)
+
+            % find all good frames
+            frames_good = 0*lifetimes;
+
+            for j = 1: length(lifetimes)
+                
+                jt = lifetimes( j);
+                Img = Image(:,:,:, jt);
+                if max( Img(:)) ~= min( Img(:)) 
+                    frames_good( j) = 1;
+                end
+            end
+        end
+        % }}}
+        % PrintInfo {{{
+        function PrintInfo( obj)
+            % Prints information about the cell
+
+            fprintf('-----------------------   C E L L    I N F O   ------------------------\n');
+            fprintf('-----------------------------------------------------------------------\n\n');
+            fprintf( 'Type : %s\n', obj.type)
+            fprintf( 'ImageData : \n')
+            ImageData.PrintInfo( obj.imageData);
+            disp( ['Features = ', strjoin( obj.featuresInChannels, ' - ') ] ) 
+            fprintf('----------------------------------------------------------------------\n');
 
         end
         % }}}
@@ -1367,7 +929,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                 fName = sprintf('C%d_T%d_globum%d-%d_iter%d', channel, time, fitInfo.Nold, fitInfo.Nnew, optim.iteration );
                 sName = sprintf('globum%d-%d_iter%d', fitInfo.Nold, fitInfo.Nnew, optim.iteration );
             end
-            figProps = {'NumberTitle', 'off', 'Name', fName, 'Position', [1 1 1280 720]};
+            figProps = {'NumberTitle', 'off', 'Name', fName, 'Position', [1 2000 1280 720]};
 
             graphicsVerbose = 1;
             if graphicsVerbose == 1
@@ -1376,276 +938,116 @@ classdef Cell < handle & matlab.mixin.Copyable
                     case 'init'
 
                         % Make Figure
-                        figTitle = [];
-                        figName = [];
-                        figPath = [];
+                        figTitle = []; figName = []; figPath = [];
                         f = figure( figProps{:} );
                         set( f, 'Tag', sprintf('fig %d_%d_%s', channel, time, fitScope) );
-                        ax = tight_subplot(2,3, 0.05);
-                        delete( ax(6) );
-                        drawnow
-                        pause(1)                        
+                        ax = tight_subplot(2,3, 0.05); drawnow; pause(0.2)
 
                         % Original Image
-                        axes( ax(1) ); %                     subplot(231)
-                        img = imagesc( image2D ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Original'); set( img, 'Tag', 'imgOrg');
+                        axes( ax(1) );
+                        img = imshow( image2D ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Original'); set( img, 'Tag', 'imgOrg');
                         set( ax(1), 'Tag', 'ax1');
 
                         % Simulated Image
-    %                     subplot(232)
                         axes( ax(2) ); 
                         imageSim = FitEngine.SimulateImage( vec, fitInfo);
                         img = imagesc( max(imageSim, [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Simulated'); set( img, 'Tag', 'imgSim');
                         set( ax(2), 'Tag', 'ax2');
 
                         % Residual Image
-    %                     subplot(233)
                         axes( ax(3) ); 
                         img = imagesc( max( abs( ImageOrg - imageSim), [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Residual'); set( img, 'Tag', 'imgRes');
                         set( ax(3), 'Tag', 'ax3');
 
                         % Graphical Features
-    %                     subplot(234)
-                        axes( ax(4) ); 
+                        axes( ax(4) );
                         imagesc( image2D); eval(imageSets); hold on;
                         fitInfo.featureCurrent.displayFeature(gca);
                         set( get(gca, 'title'), 'String', sprintf('N = %d',fitInfo.featureMain.getSubFeatureNumber()))
                         set( ax(4), 'Tag', 'ax4');
 
+                        % Vector features Z
+                        axes( ax(5) ); hold on; ax(5).Color = 'k';
+                        axis equal; axis ij; set( gca, 'xlim', [1 nX], 'ylim', [1 nY], 'XTick', [], 'YTick', [], 'FontSize', 14)
+                        colormap( ax(5), cool);
+                        % boundary
+                        [B,~] = bwboundaries(image2D > 0,'noholes');
+                        plot( B{1}(:,2), B{1}(:,1), 'color', 'w', 'linewidth',3)
+                        if strcmp( fitScope, 'local')
+                            fitInfo.featureCurrent.displayFeature(gca, nZ);
+                        else
+                            fitInfo.featureCurrent.displayFeature(gca, 1);
+                        end
+                        set( get(gca, 'title'), 'String', sprintf('N = %d',fitInfo.featureMain.getSubFeatureNumber()))
+                        set( ax(5), 'Tag', 'ax5'); 
+
                         % Residual vs Iteration
-    %                     subplot(235)
-                        axes( ax(5) ); 
+                        axes( ax(6) ); 
                         xtickformat( '%.2f'); ytickformat( '%d')
                         plotRes = plot( optim.iteration, optim.resnorm, '--b', 'Marker', '*', 'LineWidth', 3, 'MarkerSize', 10);
                         set( plotRes,'Tag','plotRes');
                         xlabel('Iteration','interp','none'); ylabel('Resnorm','interp','none');
                         title( sprintf('Best Resnorm : %g', optim.resnorm ),'interp','none');
                         set( gca, 'FontSize', 14); grid minor; grid on
-                        set( ax(5), 'Tag', 'ax5');
-
-                        % VarX vs Iteration
+                        set( ax(6), 'Tag', 'ax6');
 
                     case 'iter'
                         % Simulated Image
-
                         f = findobj( 'Tag', sprintf('fig %d_%d_%s', channel, time, fitScope));
                         set( f, figProps{:});
-    %                     subplot(232)
                         axes( findobj('Tag', 'ax2') );
                         imageSim = FitEngine.SimulateImage( vec, fitInfo);
                         img = findobj( get( gca,'Children'), 'Tag', 'imgSim');
                         set( img, 'CData', max( imageSim, [], 3) );
                         
                         % Residual Image
-    %                     subplot(233)
                         axes( findobj('Tag', 'ax3') );
                         imgRes = max( abs( ImageOrg - imageSim), [], 3); 
                         img = findobj( get( gca,'Children'), 'Tag', 'imgRes');
                         set( img, 'CData', max( imgRes, [], 3) );
 
                         % Graphical Features
-    %                     subplot(234)
                         axes( findobj('Tag', 'ax4') );
                         imagesc( image2D); eval(imageSets); hold on;
                         fitInfo.featureCurrent.displayFeature(gca);
                         set( get(gca, 'title'), 'String', sprintf('N = %d',fitInfo.featureMain.getSubFeatureNumber()))
 
                         % Update residual plot
-    %                     subplot(235)
-                        axes( findobj('Tag', 'ax5') );
+                        axes( findobj('Tag', 'ax6') );
                         plotRes = findobj( get( gca,'Children'), 'Tag', 'plotRes');
                         X = [ get( plotRes, 'Xdata') optim.iteration]; Y = [ get( plotRes, 'Ydata') optim.resnorm ];
                         set( plotRes, 'Xdata', X, 'Ydata', Y);
                         set( get( gca, 'Title'), 'String', sprintf('Best Resnorm : %g',optim.resnorm) );
 
-                        drawnow
-                        pause(0.5)
+                        % Vector features Z
+                        axes( findobj('Tag', 'ax5') );hold on;
+                        colormap( findobj('Tag', 'ax5'), cool);
+                        % boundary
+                        [B,~] = bwboundaries(image2D > 0,'noholes');
+                        plot( B{1}(:,2), B{1}(:,1), 'color', 'w', 'linewidth',3)
+                        if strcmp( fitScope, 'local')
+                            fitInfo.featureCurrent.displayFeature(gca, nZ);
+                        else
+                            fitInfo.featureCurrent.displayFeature(gca, 1);
+                        end
+                        set( get(gca, 'title'), 'String', sprintf('N = %d',fitInfo.featureMain.getSubFeatureNumber()))
+                        drawnow; pause(0.2)
 
                     case 'done'
-                        % No clean up tasks required for this plot function.        
                         stop = true;
-                end    
-
-                % Make a folder and save these figures
-                sName = [fitInfo.saveDirectory, filesep, sName];
-                export_fig( sName, '-png', '-nocrop', '-a1') 
-                %  }}}
-
-            elseif graphicsVerbose == 0
-
-                % do all this!
-                % what should i save?
-                % init:
-                %   time
-                %   channel
-                %   fitScope
-                %   featureNumber
-                %   featureObj
-                %
-                % vector labels (1st iteration)
-                % vector values (all iterations) (make an array)
-                % 
-
-            end
-
-
-        end
-        % }}}
-        % save_midfit {{{
-        function stop = save_midfit( vec, optim, state, fitInfo )
-            % Plots during Lsqnonlin fitting
-            % Inputs :  
-            %   OPTIMVALUES: properties are funccount, iteration
-            %   STATE: string representing current state of optimization engine. Values are init, iter, done 
-            %   STOP: A boolean to stop the algorithm.
-            %   All other inputs available to error function are also available. Currently: ImageOrg( original image), fitInfo and parameters
-
-            stop = false;
-
-            ImageOrg = fitInfo.image;
-            nX = fitInfo.numVoxels(2); nY = fitInfo.numVoxels(1); nZ = fitInfo.numVoxels(3); 
-            dim = length( size(ImageOrg) );
-            image2D = max( ImageOrg, [], 3); intMin = min( ImageOrg(:) ); intMax = max( ImageOrg(:) );
-            
-            imageSets = 'colormap gray; axis equal; axis ij; set( gca, ''xlim'', [1 nX], ''ylim'', [1 nY], ''XTick'', [], ''YTick'', [], ''CLim'', [intMin intMax], ''FontSize'', 14)';
-
-            time = fitInfo.time;
-            channel = fitInfo.channel;
-            fitScope = fitInfo.fitScope;
-            if strcmp( fitScope, 'local')
-                fName = sprintf('C%d_T%d_%s_feat%d_iter%d', channel, time, fitScope, fitInfo.featureIndex, optim.iteration );
-                sName = sprintf('%s_feat%d_iter%d',  fitScope, fitInfo.featureIndex, optim.iteration );
-            elseif strcmp( fitScope, 'global')
-                fName = sprintf('C%d_T%d_%s_iter%d', channel, time, fitScope, optim.iteration );
-                sName = sprintf('%s_iter%d', fitScope, optim.iteration );
-            elseif strcmp( fitScope, 'globum_add')
-                fName = sprintf('C%d_T%d_globum%d-%d_iter%d', channel, time, fitInfo.Nold, fitInfo.Nnew, optim.iteration );
-                sName = sprintf('globum%d-%d_iter%d', fitInfo.Nold, fitInfo.Nnew, optim.iteration );
-            elseif strcmp( fitScope, 'globum_remove')
-                fName = sprintf('C%d_T%d_globum%d-%d_iter%d', channel, time, fitInfo.Nold, fitInfo.Nnew, optim.iteration );
-                sName = sprintf('globum%d-%d_iter%d', fitInfo.Nold, fitInfo.Nnew, optim.iteration );
-            end
-            figProps = {'NumberTitle', 'off', 'Name', fName, 'Position', [1 1 1280 720]};
-
-            graphicsVerbose = 1;
-            if graphicsVerbose == 1
-                %  Interactive Plotting {{{
-                switch state
-                    case 'init'
-
-                        % Make Figure
-                        figTitle = [];
-                        figName = [];
-                        figPath = [];
-                        f = figure( figProps{:} );
-                        set( f, 'Tag', sprintf('fig %d_%d_%s', channel, time, fitScope) );
-                        ax = tight_subplot(2,3, 0.05);
-                        delete( ax(6) );
-                        drawnow
-                        pause(1)                        
-
-                        % Original Image
-                        axes( ax(1) ); %                     subplot(231)
-                        img = imagesc( image2D ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Original'); set( img, 'Tag', 'imgOrg');
-                        set( ax(1), 'Tag', 'ax1');
-
-                        % Simulated Image
-    %                     subplot(232)
-                        axes( ax(2) ); 
-                        imageSim = Cell.simulateCellWithVec( vec, fitInfo);
-                        img = imagesc( max(imageSim, [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Simulated'); set( img, 'Tag', 'imgSim');
-                        set( ax(2), 'Tag', 'ax2');
-
-                        % Residual Image
-    %                     subplot(233)
-                        axes( ax(3) ); 
-                        img = imagesc( max( abs( ImageOrg - imageSim), [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Residual'); set( img, 'Tag', 'imgRes');
-                        set( ax(3), 'Tag', 'ax3');
-
-                        % Graphical Features
-    %                     subplot(234)
-                        axes( ax(4) ); 
-                        imagesc( image2D); eval(imageSets); hold on;
-                        fitInfo.featureCurrent.displayFeature(gca);
-                        set( get(gca, 'title'), 'String', sprintf('N = %d',fitInfo.featureMain.getSubFeatureNumber()))
-                        set( ax(4), 'Tag', 'ax4');
-
-                        % Residual vs Iteration
-    %                     subplot(235)
-                        axes( ax(5) ); 
-                        xtickformat( '%.2f'); ytickformat( '%d')
-                        plotRes = plot( optim.iteration, optim.resnorm, '--b', 'Marker', '*', 'LineWidth', 3, 'MarkerSize', 10);
-                        set( plotRes,'Tag','plotRes');
-                        xlabel('Iteration','interp','none'); ylabel('Resnorm','interp','none');
-                        title( sprintf('Best Resnorm : %g', optim.resnorm ),'interp','none');
-                        set( gca, 'FontSize', 14); grid minor; grid on
-                        set( ax(5), 'Tag', 'ax5');
-
-                        % VarX vs Iteration
-
-                    case 'iter'
-                        % Simulated Image
-
                         f = findobj( 'Tag', sprintf('fig %d_%d_%s', channel, time, fitScope));
-                        set( f, figProps{:});
-    %                     subplot(232)
-                        axes( findobj('Tag', 'ax2') );
-                        imageSim = Cell.simulateCellWithVec( vec, fitInfo);
-                        img = findobj( get( gca,'Children'), 'Tag', 'imgSim');
-                        set( img, 'CData', max( imageSim, [], 3) );
-                        
-                        % Residual Image
-    %                     subplot(233)
-                        axes( findobj('Tag', 'ax3') );
-                        imgRes = max( abs( ImageOrg - imageSim), [], 3); 
-                        img = findobj( get( gca,'Children'), 'Tag', 'imgRes');
-                        set( img, 'CData', max( imgRes, [], 3) );
-
-                        % Graphical Features
-    %                     subplot(234)
-                        axes( findobj('Tag', 'ax4') );
-                        imagesc( image2D); eval(imageSets); hold on;
-                        fitInfo.featureCurrent.displayFeature(gca);
-                        set( get(gca, 'title'), 'String', sprintf('N = %d',fitInfo.featureMain.getSubFeatureNumber()))
-
-                        % Update residual plot
-    %                     subplot(235)
-                        axes( findobj('Tag', 'ax5') );
-                        plotRes = findobj( get( gca,'Children'), 'Tag', 'plotRes');
-                        X = [ get( plotRes, 'Xdata') optim.iteration]; Y = [ get( plotRes, 'Ydata') optim.resnorm ];
-                        set( plotRes, 'Xdata', X, 'Ydata', Y);
-                        set( get( gca, 'Title'), 'String', sprintf('Best Resnorm : %g',optim.resnorm) );
-
-                        drawnow
-                        pause(0.5)
-
-                    case 'done'
-                        % No clean up tasks required for this plot function.        
-                        stop = true;
+                        close(f)
                 end    
 
                 % Make a folder and save these figures
                 sName = [fitInfo.saveDirectory, filesep, sName];
-                export_fig( sName, '-png', '-nocrop', '-a1') 
+                try
+                    export_fig( sName, '-png', '-nocrop', '-a1') 
+                catch
+                    disp('fig not saved in Cell.plot_midfit')
+                end
                 %  }}}
-
-            elseif graphicsVerbose == 0
-
-                % do all this!
-                % what should i save?
-                % init:
-                %   time
-                %   channel
-                %   fitScope
-                %   featureNumber
-                %   featureObj
-                %
-                % vector labels (1st iteration)
-                % vector values (all iterations) (make an array)
-                % 
-
             end
-
 
         end
         % }}}
@@ -1711,6 +1113,47 @@ classdef Cell < handle & matlab.mixin.Copyable
 
         end
         % }}}
+        % saveFinalFit {{{
+        function h = saveFinalFit( Image2Fit, mainFeature, fitInfo)
+            % Save data for this particular fit
+
+            special_vals = 1;
+            
+            % Book-keeping
+            channel = uint8(fitInfo.channel);
+            time = uint16(fitInfo.time);
+            fitScope = fitInfo.fitScope;
+%             Image2Fit = uint16 (Image2Fit);
+
+            % Images Simulated
+            try
+                imageSimI = im2uint16( FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo) );
+                imageSimF = im2uint16( FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo) );
+            catch
+                imageSimI = [];
+                imageSimF = [];
+            end
+            if special_vals
+                maskk = (mainFeature.image > 0); vals = find(maskk);
+                % Sim image
+                imgg = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
+                mu = mean(mainFeature.image( find(maskk)) - imgg(find(maskk)));
+                stdev = std(mainFeature.image( find(maskk)) - imgg(find(maskk)));
+                % Sim background only
+                mu2 = mean(mainFeature.image( find(maskk)) - mainFeature.background);
+                stdev2 = std(mainFeature.image( find(maskk)) - mainFeature.background);
+
+                writematrix( [mu, stdev, mu2, stdev2], [ fitInfo.saveDirectory, filesep, 'test.csv']);
+            end
+            
+            % Main feature
+            featureMainStruct = fitInfo.featureMain.saveAsStruct();
+
+            f_data = [ fitInfo.saveDirectory, filesep,  sprintf('C%d_T%d_%s', fitInfo.channel, fitInfo.time, fitInfo.fitScope ), '.mat' ];
+            save( f_data, 'channel', 'time', 'fitScope', 'imageSimI', 'imageSimF', 'featureMainStruct', '-v7');
+
+        end
+        % }}}
         % dispImg {{{
         function dispImg( varargin)
                 
@@ -1760,63 +1203,6 @@ classdef Cell < handle & matlab.mixin.Copyable
         end
         % }}}
 
-        % }}}
-    
-        % saveFinalFit {{{
-        function h = saveFinalFit( Image2Fit, mainFeature, fitInfo)
-            % Save data for this particular fit
-
-            special_vals = 1;
-            
-            % Book-keeping
-            channel = uint8(fitInfo.channel);
-            time = uint16(fitInfo.time);
-            fitScope = fitInfo.fitScope;
-%             Image2Fit = uint16 (Image2Fit);
-
-            % Images Simulated
-            try
-                imageSimI = im2uint16( FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo) );
-                imageSimF = im2uint16( FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo) );
-            catch
-                imageSimI = [];
-                imageSimF = [];
-            end
-            if special_vals
-                maskk = (mainFeature.image > 0); vals = find(maskk);
-                % Sim image
-                imgg = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
-                mu = mean(mainFeature.image( find(maskk)) - imgg(find(maskk)));
-                stdev = std(mainFeature.image( find(maskk)) - imgg(find(maskk)));
-                % Sim background only
-                mu2 = mean(mainFeature.image( find(maskk)) - mainFeature.background);
-                stdev2 = std(mainFeature.image( find(maskk)) - mainFeature.background);
-
-                writematrix( [mu, stdev, mu2, stdev2], [ fitInfo.saveDirectory, filesep, 'test.csv']);
-            end
-            
-            % Main feature
-            featureMainStruct = fitInfo.featureMain.saveAsStruct();
-
-            f_data = [ fitInfo.saveDirectory, filesep,  sprintf('C%d_T%d_%s', fitInfo.channel, fitInfo.time, fitInfo.fitScope ), '.mat' ];
-            save( f_data, 'channel', 'time', 'fitScope', 'imageSimI', 'imageSimF', 'featureMainStruct', '-v7');
-
-        end
-        % }}}
-        
-        % PrintInfo {{{
-        function PrintInfo( obj)
-            % Prints information about the cell
-
-            fprintf('-----------------------   C E L L    I N F O   ------------------------\n');
-            fprintf('-----------------------------------------------------------------------\n\n');
-            fprintf( 'Type : %s\n', obj.type)
-            fprintf( 'ImageData : \n')
-            ImageData.PrintInfo( obj.imageData);
-            disp( ['Features = ', strjoin( obj.featuresInChannels, ' - ') ] ) 
-            fprintf('----------------------------------------------------------------------\n');
-
-        end
         % }}}
 
         % GetFeatureProps {{{

@@ -6,6 +6,7 @@ classdef BasicElement < Feature
         props2Fit
         display
         params = [];
+        bounds
     end
 
     methods ( Access = public )
