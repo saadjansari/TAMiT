@@ -353,7 +353,7 @@ classdef Methods
                 displayLinkInfo = 0;
 
                 % Link Restrictions
-                max_frame_dist = 1;
+                max_frame_dist = 2;
                 nolink_removal = 1;
 
                 % Link Parameters
@@ -403,6 +403,8 @@ classdef Methods
                     % Disable far-away Linking
                     if abs( mts(j1).z - mts(j2).z ) > max_frame_dist
                         blockLink = 1;
+                    else
+                        costZ = (abs( mts(j1).z - mts(j2).z )-1)*4;
                     end
                     % Disable Linking with itself
                     if j1 == j2
@@ -492,7 +494,7 @@ classdef Methods
                             disp( '----------------------------')
                         end
 
-                        costs(j1, j2) = costAxisDist + (abs(costAccept-costCoiDist)/costAccept) *costAxisPhi + costCoiDist;
+                        costs(j1, j2) = costZ + costAxisDist + (abs(costAccept-costCoiDist)/costAccept) *costAxisPhi + costCoiDist;
 
                         % Link Image Creation {{{
                         % find image of connection

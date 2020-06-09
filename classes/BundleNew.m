@@ -409,8 +409,18 @@ classdef BundleNew < BasicElement
             while outsideXY || outsideZ
 
                 % Shorten
-                obj.L = obj.L-1;
-                obj.T = max([2 obj.T-1]);
+                stop = 0;
+                for jj = 1 : length(obj.L)
+                    if obj.L(jj)-0.5 > obj.bounds.lb.L(jj)
+                        obj.L(jj) = obj.L(jj)-0.5;
+                    else
+                        stop = 1;
+                    end
+                end
+                if stop
+                    break
+                end
+                obj.T = max([obj.bounds.lb.T obj.T-0.5]);
 
                 % Check again
                 [imFeat,outsideZ] = obj.simulateFeature( size(mask) );
@@ -418,18 +428,6 @@ classdef BundleNew < BasicElement
                 obj.GetLength();
 
             end
-            
-%             % Also ensure that feature is within the z-planes if 3D
-%             if obj.dim == 3
-%                 if obj.cZ(end) >= 7
-%                     obj.cZ(end) = 7;
-%                     obj.cZ(end-1) = -0.3;
-%                 end
-%                 if obj.cZ(end) <= 1
-%                     obj.cZ(end) = 1;
-%                     obj.cZ(end-1) = +0.3;
-%                 end
-%             end
             
         end
         % }}}
@@ -567,7 +565,7 @@ classdef BundleNew < BasicElement
             % Add half circle near endpoints
             imt = zeros(sizeImage(1:2)); 
             imt(round(coords(2,1)),round(coords(1,1)))=1; imt(round(coords(2,end)),round(coords(1,end)))=1; 
-            imt = imdilate( imt, strel('disk',rad)); idxEnd = find(imt);
+            imt = imdilate( imt, strel('disk',2*rad)); idxEnd = find(imt);
             [ye, xe] = ind2sub( sizeImage(1:2), idxEnd);
             c2 = [c2 , [xe';ye']];
             pts = unique( c2', 'rows');

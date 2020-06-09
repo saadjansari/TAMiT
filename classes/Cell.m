@@ -1142,8 +1142,11 @@ classdef Cell < handle & matlab.mixin.Copyable
                 % Sim background only
                 mu2 = mean(mainFeature.image( find(maskk)) - mainFeature.background);
                 stdev2 = std(mainFeature.image( find(maskk)) - mainFeature.background);
-
-                writematrix( [mu, stdev, mu2, stdev2], [ fitInfo.saveDirectory, filesep, 'test.csv']);
+                try % >R2019a
+                    writematrix( [mu, stdev, mu2, stdev2], [ fitInfo.saveDirectory, filesep, 'test.csv']);
+                catch % <R2019a
+                    csvwrite([ fitInfo.saveDirectory, filesep, 'test.csv'], [mu, stdev, mu2, stdev2]);
+                end
             end
             
             % Main feature
