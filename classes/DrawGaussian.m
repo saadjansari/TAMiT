@@ -570,7 +570,7 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
             yDat = coords(2,:);
             zDat = coords(3,:);
         end
-
+        
         imageCurve = NumericalConv( sigma, [ xDat' , yDat' , zDat'], {X,Y,Z}, imageIn, Idx );
 
         % TrimAndGetErrorZ {{{
@@ -594,6 +594,65 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
     % NumericalConv {{{
     function imConv = NumericalConv( Sig, pts, coordsCell, imPlane, idx )
 
+%         p = gcp('nocreate');
+%         if ~isempty( p)
+%             nw = p.NumWorkers;
+%             ip = round(linspace(1, length(idx), nw+1));
+%             imConv = zeros([ size(imPlane), nw]);
+%             
+%             % Create copies of image volume
+% %             imConv = imPlane .* 0;
+%             fitdim = length(Sig); if length( coordsCell) ~= fitdim, error('Issue with passing grid indexes to NumericalConv2.m.'), end
+%             NumGauss = size( pts, 1);
+% 
+%             CoordsX = coordsCell{1} .* ones( 1, NumGauss); CoordsY = coordsCell{2} .* ones( 1, NumGauss);
+%             xx = pts( :, 1); yy = pts( :, 2);
+%             s1 = Sig(1); s2 = Sig(2);
+%             if fitdim==3,  
+%                 CoordsZ = coordsCell{3} .* ones( 1, NumGauss);
+%                 zz = pts( :, 3);s3 = Sig(3);
+%             end
+%             
+%             parfor jw = 1: nw
+%                 imT = 0*imPlane;
+%                 % Create copies of image volume
+%                 Xvals = exp( -( xx' - CoordsX(ip(jw):ip(jw+1),:) ).^2 / (2 * s1^2) ) / ( 2 * s1^2 * pi)^(1/2);
+%                 Yvals = exp( -( yy' - CoordsY(ip(jw):ip(jw+1),:) ).^2 / (2 * s2^2) ) / ( 2 * s2^2 * pi)^(1/2);
+%                 if fitdim == 2
+%                     imT( idx(ip(jw):ip(jw+1))') = sum( Xvals .* Yvals , 2);
+%                 elseif fitdim == 3
+%                     Zvals = exp( -( zz' - CoordsZ(ip(jw):ip(jw+1),:) ).^2 / (2 * s3^2) ) / ( 2 * s3^2 * pi)^(1/2);
+%                     imT( idx(ip(jw):ip(jw+1))') = sum( Xvals .* Yvals .* Zvals , 2);
+%                 end
+%                 imConv(:,:,:,jw) = imT;
+%             end
+%             imConv = sum( imConv, 4);
+%             
+%         else
+%                 
+%             % Create copies of image volume
+%             imConv = imPlane .* 0;
+%             fitdim = length(Sig); if length( coordsCell) ~= fitdim, error('Issue with passing grid indexes to NumericalConv2.m.'), end
+%             NumGauss = size( pts, 1);
+% 
+%             CoordsX = coordsCell{1} .* ones( 1, NumGauss); CoordsY = coordsCell{2} .* ones( 1, NumGauss);
+%             xx = pts( :, 1); yy = pts( :, 2);
+%             s1 = Sig(1); s2 = Sig(2);
+%             if fitdim==3,  
+%                 CoordsZ = coordsCell{3} .* ones( 1, NumGauss);
+%                 zz = pts( :, 3);s3 = Sig(3);
+%             end
+%             Xvals = exp( -( xx' - CoordsX ).^2 / (2 * s1^2) ) / ( 2 * s1^2 * pi)^(1/2);
+%             Yvals = exp( -( yy' - CoordsY ).^2 / (2 * s2^2) ) / ( 2 * s2^2 * pi)^(1/2);
+%             if fitdim == 2
+%                 imConv( idx') = sum( Xvals .* Yvals , 2);
+%             elseif fitdim == 3
+%                 Zvals = exp( -( zz' - CoordsZ ).^2 / (2 * s3^2) ) / ( 2 * s3^2 * pi)^(1/2);
+%                 imConv( idx') = sum( Xvals .* Yvals .* Zvals , 2);
+%             end
+%             
+%         end
+        
         % Create copies of image volume
         imConv = imPlane .* 0;
 
@@ -612,7 +671,7 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
             zz = pts( :, 3);
             s3 = Sig(3);
         end
-
+        
         Xvals = exp( -( xx' - CoordsX ).^2 / (2 * s1^2) ) / ( 2 * s1^2 * pi)^(1/2);
         Yvals = exp( -( yy' - CoordsY ).^2 / (2 * s2^2) ) / ( 2 * s2^2 * pi)^(1/2);
         if fitdim == 2

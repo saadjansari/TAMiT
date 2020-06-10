@@ -149,13 +149,13 @@ classdef BundleNew < BasicElement
                 errs = [errs, err1]; errcodes = [errcodes, ec1];
             end
             % Simulate overlap region 1
-            [imGraph2, ec2, err2] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(1,obj.T,0), graphVars{:});
+            [imGraph2, ec2, err2] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(1,min([obj.T obj.L(1)]),0), graphVars{:});
             imageOut = imageOut + obj.ef*obj.amplitude*mat2gray(imGraph2);
             errs = [errs, err2]; errcodes = [errcodes, ec2];
             
             if obj.two_sided
                 % Simulate overlap region 2 
-                [imGraph3, ec3, err3] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(2,obj.T,0), graphVars{:});
+                [imGraph3, ec3, err3] = DrawGaussian( obj.sigma, 0*imageOut, ftype, 'Coord', obj.GetCoords(2,min([obj.T obj.L(2)]),0), graphVars{:});
                 imageOut = imageOut + obj.ef*obj.amplitude*mat2gray(imGraph3);
                 errs = [errs, err3]; errcodes = [errcodes, ec3];
 
@@ -188,16 +188,16 @@ classdef BundleNew < BasicElement
                 error('displayFeature: must provide axes handle to display the feature in')
             end
 
-            cx = []; cy = []; cz=[]; cxfat=[]; cyfat=[]; czfat = []; lw = 4;
+            cx = []; cy = []; cz=[]; cxfat=[]; cyfat=[]; czfat = []; lw = mean(obj.sigma(1:2));
             if obj.L(1)>obj.T
                 c1 = obj.GetCoords(1,obj.L(1),obj.T);
                 cx = [cx, c1(1,end:-1:1)]; cy = [cy, c1(2,end:-1:1)]; try; cz = [cz, c1(3,end:-1:1)]; end
             end
-            c2 = obj.GetCoords(1,obj.T,0);
+            c2 = obj.GetCoords(1,min([obj.T obj.L(1)]),0);
             cx = [cx, c2(1,end:-1:1)]; cy = [cy, c2(2,end:-1:1)]; try; cz = [cz, c2(3,end:-1:1)]; end
             cxfat = [cxfat, c2(1,end:-1:1)]; cyfat = [cyfat, c2(2,end:-1:1)]; try; czfat = [czfat, c2(3,end:-1:1)]; end
             if obj.two_sided
-                c3 = obj.GetCoords(2,obj.T,0);
+                c3 = obj.GetCoords(2,min([obj.T obj.L(2)]),0);
                 cx = [cx, c3(1,:)]; cy = [cy, c3(2,:)]; try; cz = [cz, c3(3,:)]; end
                 cxfat = [cxfat, c3(1,:)]; cyfat = [cyfat, c3(2,:)]; try; czfat = [czfat, c3(3,:)]; end
                 if obj.L(2) > obj.T
@@ -246,7 +246,7 @@ classdef BundleNew < BasicElement
         % fillParams {{{
         function obj = fillParams( obj, sizeImage)
 
-            obj.params = BundleNew.findVoxelsNearCurve( obj.GetCoords(), sizeImage, 10);
+            obj.params = BundleNew.findVoxelsNearCurve( obj.GetCoords(), sizeImage, 6);
             
         end
         % }}}
@@ -338,6 +338,10 @@ classdef BundleNew < BasicElement
                         tmax = obj.L(1);
                     end
                     
+                    if tmax > obj.L(1)
+                        tmax = obj.L(1);
+                    end
+                    
                     tanVec = [cos(thInit(1,1)), sin(thInit(1,1)), cos( thInit(1,2))];
                     % construct time vector
                     t = 0:0.1:tmax(1);  [~,idxStart] = min( abs(t-tmin));
@@ -366,10 +370,13 @@ classdef BundleNew < BasicElement
                     if nargin < 3
                         tmax = obj.L(2);
                     end
+                    if tmax > obj.L(2)
+                        tmax = obj.L(2);
+                    end
                     
                     tanVec = [cos(thInit(2,1)), sin(thInit(2,1)), cos( thInit(2,2))];
                     % construct time vector
-                    t = tmin:0.1:tmax(1);  [~,idxStart] = min( abs(t-tmin));
+                    t = 0:0.1:tmax(1);  [~,idxStart] = min( abs(t-tmin));
 
                     % Acceleration function discretized in time
                     acc = nV(2,1) + nV(2,2)*t;

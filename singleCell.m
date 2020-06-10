@@ -5,19 +5,12 @@ function features = singleCell( paramsPath)
     clearvars -except paramsPath 
 
     % Make sure we have the correct paths
-%     warning('off', 'MATLAB:rmpath:DirNotFound');
-%     rmpath( genpath(pwd) );
-%     warning('on', 'MATLAB:rmpath:DirNotFound');
     addpath( pwd);
     addpath( genpath( [pwd, filesep, 'functions'] ) );
     addpath( [pwd, filesep, 'classes'] );
 
     % Load the params
     load( paramsPath); 
-
-    % Start diary
-    c1 = onCleanup( @() eval('diary off') );
-    diary( fullfile( params.saveDirectory, 'singleCell.log') );
 
     disp('--------------------------------------------------------------------------------------')
     disp( ['Configuration: ' params.CFG])
@@ -48,6 +41,16 @@ function features = singleCell( paramsPath)
     sizeVoxels = imageData.GetSizeVoxels;
     timeStep = imageData.GetTimeStep;
     save( paramsPath, 'sizeVoxels', 'timeStep', '-append')
+
+    % Start parallel pool
+    if params.fit.useParallel
+        NUM_WORKERS = str2num( getenv('NUM_WORKERS'));
+        if isempty( NUM_WORKERS)
+            parpool('local');
+        else
+            parpool('local', NUM_WORKERS);
+        end
+    end
 
     % Run the specific type of cell
     switch params.cellInfo.type

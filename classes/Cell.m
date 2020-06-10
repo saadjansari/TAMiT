@@ -203,10 +203,10 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             % Find good frames
             frames_good = Cell.FindGoodFrames( imgOld(:,:,:,:,channel), life_vec);
-
+    
             % Print good frames
-            disp( 'Printing good frames...')
-            disp( life_vec( find(frames_good) ) )
+%             disp( 'Printing good frames...')
+%             disp( life_vec( find(frames_good) ) )
 
             if sum( frames_good) == 0
                 error('no good frames over here. Something must be wrong...')
@@ -639,39 +639,6 @@ classdef Cell < handle & matlab.mixin.Copyable
 
         end
         % }}}
-        % NumericalConv {{{
-        function imConv = NumericalConv( Sig, pts, coordsCell, imPlane, idx )
-
-            % Create copies of image volume
-            imConv = imPlane .* 0;
-
-            fitdim = length(Sig); if length( coordsCell) ~= fitdim, error('Issue with passing grid indexes to NumericalConv2.m.'), end
-
-            NumGauss = size( pts, 1);
-            
-            CoordsX = coordsCell{1} .* ones( 1, NumGauss);
-            CoordsY = coordsCell{2} .* ones( 1, NumGauss);
-            xx = pts( :, 1);
-            yy = pts( :, 2);
-            s1 = Sig(1);
-            s2 = Sig(2);
-            if fitdim==3,  
-                CoordsZ = coordsCell{3} .* ones( 1, NumGauss);
-                zz = pts( :, 3);
-                s3 = Sig(3);
-            end
-
-            Xvals = exp( -( xx' - CoordsX ).^2 / (2 * s1^2) ) / ( 2 * s1^2 * pi)^(1/2);
-            Yvals = exp( -( yy' - CoordsY ).^2 / (2 * s2^2) ) / ( 2 * s2^2 * pi)^(1/2);
-            if fitdim == 2
-                imConv( idx') = sum( Xvals .* Yvals , 2);
-            elseif fitdim == 3
-                Zvals = exp( -( zz' - CoordsZ ).^2 / (2 * s3^2) ) / ( 2 * s3^2 * pi)^(1/2);
-                imConv( idx') = sum( Xvals .* Yvals .* Zvals , 2);
-            end
-
-        end
-        % }}}
         % FindGoodFrames {{{
         function frames_good = FindGoodFrames( Image, lifetimes)
 
@@ -1020,7 +987,8 @@ classdef Cell < handle & matlab.mixin.Copyable
                         set( get( gca, 'Title'), 'String', sprintf('Best Resnorm : %g',optim.resnorm) );
 
                         % Vector features Z
-                        axes( findobj('Tag', 'ax5') );hold on;
+                        axes( findobj('Tag', 'ax5') ); hold on;
+                        cla( findobj('Tag', 'ax5')); 
                         colormap( findobj('Tag', 'ax5'), cool);
                         % boundary
                         [B,~] = bwboundaries(image2D > 0,'noholes');

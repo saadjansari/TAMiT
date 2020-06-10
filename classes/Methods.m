@@ -132,7 +132,7 @@ classdef Methods
 
                 % Find 2D curves in all Z frames
                 vars = Methods.Opts2VarsExcept( opts, 'ImageSteer', 'ThreshInt', 'Mask', 'Verbose');
-                [coords, out] = Methods.FindCurves2D( imGaussZ, 'ImageSteer', imSteerZ, 'ThreshInt', stats.ThreshLow, 'Verbose', 1, vars{:} );
+                [coords, out] = Methods.FindCurves2D( imGaussZ, 'ImageSteer', imSteerZ, 'ThreshInt', stats.ThreshLow, 'Verbose', 0, vars{:} );
 
                 displayZplot( imGaussZ, imSteerZ, coords, cLine, opts.Plot>=2);
                 if opts.Plot>=2, set( gcf, 'NumberTitle', 'off', 'Name', sprintf('z=%d', jZ) ), end
@@ -643,7 +643,7 @@ classdef Methods
                 % }}}
 
 %                 disp( [mts.id])
-                stats = Methods.GetImageStats( imGauss);
+                stats = Methods.GetImageStats( imGauss,0);
 
                 % Finalize New Filaments {{{
                 % Find the unique objects
