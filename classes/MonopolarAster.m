@@ -31,8 +31,8 @@ classdef MonopolarAster < OrganizerMaster
 
             % get vectors from aster. 
             [vec, vecLabels, ub, lb] = getVec( obj.featureList{1}, props.spb, props.mt);
-            vec = [vecE, vec]; ub = [ubE, ub]; lb = [lbE, lb]; 
-            vecLabels = { vecLabelsE{:}, vecLabels{:} };
+%             vec = [vecE, vec]; ub = [ubE, ub]; lb = [lbE, lb]; 
+%             vecLabels = { vecLabelsE{:}, vecLabels{:} };
         end
         % }}}
 

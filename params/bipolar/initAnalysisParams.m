@@ -4,7 +4,7 @@ function params = initAnalysisParams();
     params.pathParent = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell/Results';
 
     % Cell type. Mitotic analysis differs from interphase analysis.
-    params.cellType = 'Interphase';
+    params.cellType = 'Mitosis';
 
     % channelsToAnalyze gives the channel index where channelFeatures are located
     params.channelsToAnalyze = [ 1];

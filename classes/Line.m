@@ -174,7 +174,9 @@ classdef Line < BasicElement
                     linspace(obj.startPosition(2), obj.endPosition(2),100); ...
                     linspace(obj.startPosition(3), obj.endPosition(3),100)];
                 cm = cool;
-                col = cm( round((coords(3,:)/sizeZ)*length(cm)), :);
+                cols = round((coords(3,:)/sizeZ)*length(cm));
+                cols( cols < 1) = 1; cols(cols>256) = 256;
+                col = cm( cols, :);
                 col = [ permute(col, [3 1 2]); permute(col, [3 1 2])];
                 z = zeros([ 1, size( coords,2)]);
                 surface([coords(1,:);coords(1,:)],[coords(2,:);coords(2,:)],[z;z],col,...
@@ -362,6 +364,8 @@ classdef Line < BasicElement
                 ub.sigma = [2.0 2.0 2.0];
                 lb.sigma = [1.2 1.2 1.0];
                 ub.startPosition = [150 150 7];
+                ub.endPosition = [150 150 7];
+                lb.startPosition = [1 1 1];
                 lb.endPosition = [1 1 1];
                 ub.theta = [pi pi];
                 lb.theta = [-pi 0];
@@ -369,6 +373,8 @@ classdef Line < BasicElement
                 ub.sigma = [2.0 2.0];
                 lb.sigma = [1.2 1.2];
                 ub.startPosition = [150 150];
+                ub.endPosition = [150 150];
+                lb.startPosition = [1 1];
                 lb.endPosition = [1 1];
                 ub.theta = [pi];
                 lb.theta = [-pi];

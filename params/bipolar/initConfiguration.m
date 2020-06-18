@@ -7,7 +7,7 @@ function params = initConfiguration( opts)
     
     switch opts.CFG
         case 'RELEASE'
-            runLocalFit = 1;
+            runLocalFit = 0;
             runGlobalFit = 1;
             runFeatureNumberFit = 1;
             display = 0;

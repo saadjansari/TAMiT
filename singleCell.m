@@ -44,11 +44,15 @@ function features = singleCell( paramsPath)
 
     % Start parallel pool
     if params.fit.useParallel
-        NUM_WORKERS = str2num( getenv('NUM_WORKERS'));
-        if isempty( NUM_WORKERS)
-            parpool('local');
+        pc = parcluster('local')
+        if strcmp(params.LOC, 'Summit')
+            % explicitly set the JobStorageLocation to a temp directory
+            pc.JobStorageLocation = strcat(getenv('SCRATCH'),'/', getenv('SLURM_JOB_ID'))
+            parpool(pc, str2num(getenv('SLURM_CPUS_ON_NODE')))
+        elseif strcmp(params.LOC, 'Local')
+            parpool(pc);
         else
-            parpool('local', NUM_WORKERS);
+            error('boop')
         end
     end
 

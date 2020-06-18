@@ -128,14 +128,31 @@ classdef OrganizerMaster < Organizer
         % simulateAll {{{
         function [imageOut, err] = simulateAll( obj, imageIn, featureID)
            
-            % Find the feature to simulate using ID
-            cFeature = obj.findObjectFromID( featureID);
+            if ~strcmp(featureID, 'env')
 
-            % Simulate feature 
-            try
-                [imageOut,error_code, err1] = cFeature.simulateFeature( size(imageIn) );
-            catch
-                imageOut = cFeature.simulateFeature( size(imageIn) ); err1 = 0; error_code =0;
+                % Find the feature to simulate using ID
+                cFeature = obj.findObjectFromID( featureID);
+
+                % Simulate feature 
+                try
+                    [imageOut,error_code, err1] = cFeature.simulateFeature( size(imageIn) );
+                catch
+                    imageOut = cFeature.simulateFeature( size(imageIn) ); err1 = 0; error_code =0;
+                end
+
+            else % Just get image
+                if isempty( obj.imageSim)
+                    % Simulate feature 
+                    try
+                        [imageOut,error_code, err1] = obj.simulateFeature( size(imageIn) );
+                        obj.imageSim = imageOut;
+                    catch
+                        imageOut = obj.simulateFeature( size(imageIn) ); err1 = 0; error_code =0;
+                    end
+                else
+                    imageOut = obj.imageSim; err1 = 0; error_code =0;
+                end
+
             end
             
             % Penalize if features exceed mask region

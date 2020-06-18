@@ -548,30 +548,41 @@ classdef AnalysisSingleCell < handle
 
                 % make figure
                 f = figure('visible', 'on'); 
-                h = tight_subplot(1,3);
+                h = tight_subplot(2,2, [.05 .01]);
                 
+                % Axes (1,1): Original
                 set(f, 'currentaxes', h(1) );
                 imagesc( h(1), max(img , [], 3) ), 
                 colormap( h(1), gray); axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
-                title(sprintf('ref: T = %d', obj.times(jTime) ) );
+                title('Original Image');
                 
+                % Axes (1,2): Original + 2D features
                 set(f, 'currentaxes', h(2) );
                 imagesc( h(2), max(img , [], 3) ), hold on
                 axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
-                colormap( h(2), cool);
+                feat.displayFeature( h(2));
+                title('2D Features');
+                
+                % Axes (2,1): Simulated Image
+                set(f, 'currentaxes', h(3) );
+                imagesc( h(3), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
+                colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(3), 'xtick', [], 'ytick', []);
+                title('Fitted Image');
+                
+                % Axes (2,2): 3D features
+                set(f, 'currentaxes', h(4) );hold on
+                h(4).Color = 'Black';
+                axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
+                colormap( h(4), cool);
                 % boundary
                 [B,~] = bwboundaries(max(img , [], 3) > 0,'noholes');
                 plot( B{1}(:,2), B{1}(:,1), 'color', 'w', 'linewidth',3)
-                feat.displayFeature( h(2),1);
-                title(sprintf('feature: T = %d', obj.times(jTime) ) );
-                
-                set(f, 'currentaxes', h(3) );
-                imagesc( h(3), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
-                colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
-                title(sprintf('sim: T = %d', obj.times(jTime) ) );
+                feat.displayFeature( h(4),1);
+                title('3D Features');
+                suptitle( sprintf('T=%d',obj.times(jTime)))
+
                 obj.data{jChannel}.mov( jTime) = getframe(f);
                 close(f)
-
             end
             
             obj.writeMovie(jChannel);

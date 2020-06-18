@@ -1085,7 +1085,7 @@ classdef Cell < handle & matlab.mixin.Copyable
         function h = saveFinalFit( Image2Fit, mainFeature, fitInfo)
             % Save data for this particular fit
 
-            special_vals = 1;
+            testsave = 1;
             
             % Book-keeping
             channel = uint8(fitInfo.channel);
@@ -1101,20 +1101,18 @@ classdef Cell < handle & matlab.mixin.Copyable
                 imageSimI = [];
                 imageSimF = [];
             end
-            if special_vals
+            if testsave == 1 
                 maskk = (mainFeature.image > 0); vals = find(maskk);
-                % Sim image
-                imgg = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
-                mu = mean(mainFeature.image( find(maskk)) - imgg(find(maskk)));
-                stdev = std(mainFeature.image( find(maskk)) - imgg(find(maskk)));
-                % Sim background only
-                mu2 = mean(mainFeature.image( find(maskk)) - mainFeature.background);
-                stdev2 = std(mainFeature.image( find(maskk)) - mainFeature.background);
-                try % >R2019a
-                    writematrix( [mu, stdev, mu2, stdev2], [ fitInfo.saveDirectory, filesep, 'test.csv']);
-                catch % <R2019a
-                    csvwrite([ fitInfo.saveDirectory, filesep, 'test.csv'], [mu, stdev, mu2, stdev2]);
-                end
+                % Sim image diff
+                imSim = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
+                simDiff = mainFeature.image( find(maskk)) - imSim(find(maskk));
+                mu1 = mean( simDiff(:));
+                stdev1 = std( simDiff(:));
+                % Sim background only diff
+                bkgDiff = mainFeature.image( find(maskk)) - mainFeature.background;
+                mu2 = mean( bkgDiff(:));
+                stdev2 = std( bkgDiff(:));
+                save([ fitInfo.saveDirectory, filesep, 'test.mat'], 'simDiff', 'bkgDiff');
             end
             
             % Main feature
