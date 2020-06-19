@@ -16,7 +16,7 @@ classdef MitoticCell < Cell
         % }}}
 
         % EstimateFeatures {{{
-        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel)
+        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel, timeReverse)
         % findFeatures : estimates and finds the features 
             
             % Get feature type
@@ -67,27 +67,6 @@ classdef MitoticCell < Cell
                 case 'Cut7'
                     feature = MitoticCell.findFeaturesDeNovo_Cut7( image, obj.params.estimate.cut7dist);
             end
-
-        end
-        % }}}
-
-        % PropagateOldFeature {{{
-        function obj = PropagateOldFeature(obj, idxChannel, cChannel, cTime)
-
-            disp('- Propagating old feature') 
-
-            % Find the most recent good frame
-            bestFrame = cTime-1;
-            while obj.featureList{ idxChannel, bestFrame} ~= obj.featureList{ idxChannel, bestFrame}
-                bestFrame = bestFrame - 1;
-            end
-
-            % Duplicate feature from best recent frame
-            obj.featureList{ idxChannel, cTime} = obj.featureList{ idxChannel, bestFrame}.copyDeep();
-
-            % Ensure the image is from the actual frame
-            Image = obj.imageData.GetImage();
-            obj.featureList{ idxChannel, cTime}.image = im2double( Image(:,:,:, cTime, cChannel) );
 
         end
         % }}}

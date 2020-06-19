@@ -128,6 +128,14 @@ classdef ImageData
             ImageData.playImageMovie( obj.image, varargin{:} );
         end
         % }}}
+        
+        % ReverseTime {{{
+        function ReserveTime( obj)
+        % reverse time by flipping in the time axis.
+        
+        
+        
+        end
 
         
     end

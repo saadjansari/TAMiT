@@ -91,20 +91,30 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             % Get lifetime for this cell
             lifetime = obj.imageData.GetLifetime;
+            lifetimes = lifetime(1):lifetime(2);
+            
+            % Reverse time order if parameter specified
+            if isfield(obj.params, 'timeReversal') && obj.params.timeReversal
+                lifetimes = flip( lifetimes);
+                fprintf('Time reversed!\n')
+            end
 
             % Check for existence of images in all the frames and duplicate images if necessary
             [obj, imgNew] = CheckUpdateImages( obj, cChannel);
 
-            for jTime = lifetime(1) : lifetime(2)
+            for jTime = 1: length(lifetimes)
+                
+                cTime = lifetimes(jTime);
 
-                disp( sprintf( 'C-%d Time = %d', jChannel, jTime) )
+                fprintf( 'C-%d Time = %d\n', jChannel, cTime) 
 
                 % Initialize for this CT step
                 params = obj.params;
                 params.channelTrue = cChannel;
                 params.channelIdx = jChannel;
-                params.time = jTime;
-                params.saveDirectory = [ obj.params.saveDirectory , filesep, sprintf( 'C%d_T%d', cChannel, jTime) ];
+                params.time = cTime;
+                params.timeIdx = jTime;
+                params.saveDirectory = [ obj.params.saveDirectory , filesep, sprintf( 'C%d_T%d', cChannel, cTime) ];
                 mkdir( params.saveDirectory);
 
                 % Find features for this CT frame
@@ -129,10 +139,16 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Get the image for this frame
             Image2Fit = Image(:,:,:, parameters.time, parameters.channelTrue);
 
+            % Check for time reversal
+            if isfield(obj.params, 'timeReversal') && obj.params.timeReversal
+                timeReverse = 1;
+            else
+                timeReverse = 0;
+            end
             % Estimate the features based on an estimation routine (defined in specialized sub-class )
             disp('Estimating features...')
             % Good estimation is key to good optimization in low SnR images
-            obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx);
+            obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx, timeReverse);
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
             
@@ -297,6 +313,35 @@ classdef Cell < handle & matlab.mixin.Copyable
                 Cell.saveFinalFit( Image, obj.featureList{ channelIdx, time}, p);
                     
             end
+        end
+        % }}}
+        
+        % PropagateOldFeature {{{
+        function obj = PropagateOldFeature(obj, idxChannel, cChannel, cTime, timeReverse)
+
+            disp('- Propagating old feature') 
+
+            % Find the most recent good frame
+            if timeReverse
+                bestFrame = cTime+1;
+            else
+                bestFrame = cTime-1;
+            end
+            while obj.featureList{ idxChannel, bestFrame} ~= obj.featureList{ idxChannel, bestFrame}
+                if timeReverse
+                    bestFrame = cTime+1;
+                else
+                    bestFrame = cTime-1;
+                end
+            end
+
+            % Duplicate feature from best recent frame
+            obj.featureList{ idxChannel, cTime} = obj.featureList{ idxChannel, bestFrame}.copyDeep();
+
+            % Ensure the image is from the actual frame
+            Image = obj.imageData.GetImage();
+            obj.featureList{ idxChannel, cTime}.image = im2double( Image(:,:,:, cTime, cChannel) );
+
         end
         % }}}
         

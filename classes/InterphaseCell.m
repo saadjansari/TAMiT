@@ -16,7 +16,7 @@ classdef InterphaseCell < Cell
         % }}}
 
         % EstimateFeatures {{{
-        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel)
+        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel, timeReverse)
         % findFeatures : estimates and finds the features 
             
             % Get feature type
@@ -52,33 +52,6 @@ classdef InterphaseCell < Cell
                 %case 'Cut7'
                     %feature = MonopolarCell.findFeaturesDeNovo_Cut7( image, obj.params.estimate.cut7dist);
             end
-
-        end
-        % }}}
-
-        % PropagateOldFeature {{{
-        function obj = PropagateOldFeature(obj, idxChannel, cChannel, cTime)
-
-            disp('- Propagating old feature') 
-
-            % Find the most recent good frame
-            bestFrame = cTime-1;
-            while obj.featureList{ idxChannel, bestFrame} ~= obj.featureList{ idxChannel, bestFrame}
-                bestFrame = bestFrame - 1;
-            end
-
-            % Get image
-            Image = obj.imageData.GetImage();
-            Im3 = im2double( Image(:,:,:, cTime, cChannel) );
-
-
-            % Duplicate feature from best recent frame
-            obj.featureList{ idxChannel, cTime} = obj.featureList{ idxChannel, bestFrame}.copyDeep();
-            % Get new feature for next frame
-%             obj.featureList{ idxChannel, cTime} = obj.featureList{ idxChannel, bestFrame}.estimateFeatureNextFrame(Im3);
-
-            % Update image for next frame
-            obj.featureList{ idxChannel, cTime}.image = Im3;
 
         end
         % }}}

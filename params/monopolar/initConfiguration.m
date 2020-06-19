@@ -1,6 +1,9 @@
 function params = initConfiguration( opts)
     % Configuration File: sets up the flags and the paths for running the software in different envoronments
 
+    % reverse time
+    params.timeReversal = 0;
+
     runFit = 1;
     runTracking = 1;
     runAnalysis = 1;
@@ -60,7 +63,7 @@ function params = initConfiguration( opts)
     fit.useParallel = true;
     fit.state = opts.CFG;
     fit.display = display;
-    fit.alpha = 0.1;
+    fit.alpha = 0.4;
     fit.fitExploreSpeed = 1;
     fit.fit2DFirst = 0;
     % }}}

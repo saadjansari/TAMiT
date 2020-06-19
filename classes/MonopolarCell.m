@@ -16,7 +16,7 @@ classdef MonopolarCell < Cell
         % }}}
 
         % EstimateFeatures {{{
-        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel)
+        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel, timeReverse)
         % findFeatures : estimates and finds the features 
             
             % Get feature type
@@ -28,14 +28,18 @@ classdef MonopolarCell < Cell
 
             % Get Start time 
             lifetime = obj.imageData.GetLifetime;
-            startTime = lifetime(1);
-
+            if timeReverse
+                startTime = lifetime(2);
+            else
+                startTime = lifetime(1);
+            end
+            
             % Novel Estimation for first frame
             if cTime == startTime
                 obj.featureList{ idxChannel, cTime} = obj.EstimateFeaturesNovel( currentFeature, estimationImage);
             % Propagate old feature for later frames
             else 
-                obj = obj.PropagateOldFeature( idxChannel, cChannel, cTime);
+                obj = obj.PropagateOldFeature( idxChannel, cChannel, cTime, timeReverse);
             end
 
             % Special Tasks 
@@ -65,27 +69,6 @@ classdef MonopolarCell < Cell
                 case 'Cut7'
                     feature = MonopolarCell.findFeaturesDeNovo_Cut7( image, obj.params.estimate.cut7dist);
             end
-
-        end
-        % }}}
-
-        % PropagateOldFeature {{{
-        function obj = PropagateOldFeature(obj, idxChannel, cChannel, cTime)
-
-            disp('- Propagating old feature') 
-
-            % Find the most recent good frame
-            bestFrame = cTime-1;
-            while obj.featureList{ idxChannel, bestFrame} ~= obj.featureList{ idxChannel, bestFrame}
-                bestFrame = bestFrame - 1;
-            end
-
-            % Duplicate feature from best recent frame
-            obj.featureList{ idxChannel, cTime} = obj.featureList{ idxChannel, bestFrame}.copyDeep();
-
-            % Ensure the image is from the actual frame
-            Image = obj.imageData.GetImage();
-            obj.featureList{ idxChannel, cTime}.image = im2double( Image(:,:,:, cTime, cChannel) );
 
         end
         % }}}
