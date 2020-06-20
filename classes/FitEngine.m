@@ -506,6 +506,7 @@ classdef FitEngine
             fitInfo.featureCurrent = fitObj{jFeature};
             fitInfo.fitScope = 'local';
             fitInfo.featureCurrent.fillParams( size( fitInfo.image));
+            fitInfo.timeReversal = obj.parameters.timeReversal;
 
             % Make the error function for optimization 
             f = obj.MakeOptimizationFcn( obj.image, fitInfo );
@@ -601,6 +602,7 @@ classdef FitEngine
             fitInfo.featureCurrent = fitObj;
             fitInfo.fitScope = 'global';
             fitInfo.featureCurrent.fillParams( size( fitInfo.image));
+            fitInfo.timeReversal = obj.parameters.timeReversal;
 
             % Make the error function for optimization 
             f = obj.MakeOptimizationFcn( obj.image, fitInfo );
@@ -668,6 +670,7 @@ classdef FitEngine
             fitInfo.featureCurrent = fitObj;
             fitInfo.fitScope = 'global';
             fitInfo.featureCurrent.fillParams( size( fitInfo.image));
+            fitInfo.timeReversal = obj.parameters.timeReversal;
 
             % Make the error function for optimization 
             f = obj.MakeOptimizationFcn( obj.image, fitInfo );

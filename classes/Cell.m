@@ -38,9 +38,6 @@ classdef Cell < handle & matlab.mixin.Copyable
             if exist( obj.params.saveDirectory) ~= 7
                 mkdir( obj.params.saveDirectory)
             end
-            
-            % Define a global counter for objects
-            global counter; counter = -1;
 
             Cell.PrintInfo( obj);
 
@@ -76,7 +73,19 @@ classdef Cell < handle & matlab.mixin.Copyable
                 disp( upper( sprintf( ['Channel %d = ' obj.featuresInChannels{jChannel}], cChannel ) ) )
                 disp('-----------------------------------------------------------------------')
 
+                obj.params.timeReversal = 0;
                 obj.FindFeaturesChannel( jChannel);
+
+                % Reverse time
+                if isfield(obj.params, 'timeReversal') && obj.params.timeReversal
+                    fprintf('Time reversed!\n')
+                    % Basic cleanup
+                    obj.params.timeReversal = 1;
+                    obj.featureList = cell( length( obj.channelsToFit), size( obj.imageData.GetImage, 4) );
+                    obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
+                    % fit again
+                    obj.FindFeaturesChannel( jChannel);
+                end
 
             end
 
@@ -94,9 +103,8 @@ classdef Cell < handle & matlab.mixin.Copyable
             lifetimes = lifetime(1):lifetime(2);
             
             % Reverse time order if parameter specified
-            if isfield(obj.params, 'timeReversal') && obj.params.timeReversal
+            if obj.params.timeReversal 
                 lifetimes = flip( lifetimes);
-                fprintf('Time reversed!\n')
             end
 
             % Check for existence of images in all the frames and duplicate images if necessary
@@ -139,16 +147,10 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Get the image for this frame
             Image2Fit = Image(:,:,:, parameters.time, parameters.channelTrue);
 
-            % Check for time reversal
-            if isfield(obj.params, 'timeReversal') && obj.params.timeReversal
-                timeReverse = 1;
-            else
-                timeReverse = 0;
-            end
             % Estimate the features based on an estimation routine (defined in specialized sub-class )
             disp('Estimating features...')
             % Good estimation is key to good optimization in low SnR images
-            obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx, timeReverse);
+            obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx,obj.params.timeReversal);
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
             
@@ -157,43 +159,8 @@ classdef Cell < handle & matlab.mixin.Copyable
             params.channel = parameters.channelTrue;
             params.time = parameters.time;
             params.saveDirectory = parameters.saveDirectory;
+            params.timeReversal = obj.params.timeReversal;
             
-            % Do early fitting routines
-%             propsInit = mainFeature.props2Fit.fit{mainFeature.dim}.aster.curve;
-%             routines = Cell.SetFitRoutines();
-%             for i = 1 : length(routines)
-%                 route = routines{i};
-%                 paramsCpy = params;
-%                 if strcmp(route.type,'L')
-%                     paramsCpy.runLocalOptimization = 1;
-%                     paramsCpy.runGlobalOptimization = 0;
-%                     paramsCpy.runFeatureNumberOptimization = 0;
-%                     paramsCpy.display = 1;
-%                 elseif strcmp(route.type,'G')
-%                     paramsCpy.runLocalOptimization = 0;
-%                     paramsCpy.runGlobalOptimization = 1;
-%                     paramsCpy.runFeatureNumberOptimization = 0;
-%                     paramsCpy.display = 0;
-%                 elseif strcmp(route.type,'LG')
-%                     paramsCpy.runLocalOptimization = 1;
-%                     paramsCpy.runGlobalOptimization = 1;
-%                     paramsCpy.runFeatureNumberOptimization = 0;
-%                     paramsCpy.display = 1;
-%                 elseif strcmp(route.type,'GA')
-%                     paramsCpy.runLocalOptimization = 0;
-%                     paramsCpy.runGlobalOptimization = 1;
-%                     paramsCpy.runFeatureNumberOptimization = 1;
-%                     paramsCpy.display = 1;
-%                 elseif strcmp(route.type,'def')
-%                     paramsCpy=params;
-%                 end
-%                 mainFeature.props2Fit.fit{mainFeature.dim}.aster.curve = route.props;
-%                 fitEngine = FitEngine( Image2Fit, mainFeature, paramsCpy);
-%                 fitEngine = fitEngine.Optimize();
-%                 mainFeature = fitEngine.GetFeature();
-%             end
-%             mainFeature.props2Fit.fit{mainFeature.dim}.aster.curve = propsInit;
-
             % Fit Features via Fit Engine.
             fitEngine = FitEngine( Image2Fit, mainFeature, params);
             fitEngine = fitEngine.Optimize();
@@ -941,6 +908,11 @@ classdef Cell < handle & matlab.mixin.Copyable
                 fName = sprintf('C%d_T%d_globum%d-%d_iter%d', channel, time, fitInfo.Nold, fitInfo.Nnew, optim.iteration );
                 sName = sprintf('globum%d-%d_iter%d', fitInfo.Nold, fitInfo.Nnew, optim.iteration );
             end
+            if fitInfo.timeReversal
+                sName = [fitInfo.saveDirectory, filesep, sName, '_reverse'];
+            else
+                sName = [fitInfo.saveDirectory, filesep, sName];
+            end
             figProps = {'NumberTitle', 'off', 'Name', fName, 'Position', [1 2000 1280 720]};
 
             graphicsVerbose = 1;
@@ -1053,7 +1025,6 @@ classdef Cell < handle & matlab.mixin.Copyable
                 end    
 
                 % Make a folder and save these figures
-                sName = [fitInfo.saveDirectory, filesep, sName];
                 try
                     export_fig( sName, '-png', '-nocrop', '-a1') 
                 catch
@@ -1163,7 +1134,11 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Main feature
             featureMainStruct = fitInfo.featureMain.saveAsStruct();
 
-            f_data = [ fitInfo.saveDirectory, filesep,  sprintf('C%d_T%d_%s', fitInfo.channel, fitInfo.time, fitInfo.fitScope ), '.mat' ];
+            if fitInfo.timeReversal
+                f_data = [ fitInfo.saveDirectory, filesep,  sprintf('C%d_T%d_%s', fitInfo.channel, fitInfo.time, fitInfo.fitScope ), '_reverse.mat' ];
+            else
+                f_data = [ fitInfo.saveDirectory, filesep,  sprintf('C%d_T%d_%s', fitInfo.channel, fitInfo.time, fitInfo.fitScope ), '.mat' ];
+            end
             save( f_data, 'channel', 'time', 'fitScope', 'imageSimI', 'imageSimF', 'featureMainStruct', '-v7');
 
         end
