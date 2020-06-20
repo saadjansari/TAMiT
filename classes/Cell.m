@@ -73,14 +73,18 @@ classdef Cell < handle & matlab.mixin.Copyable
                 disp( upper( sprintf( ['Channel %d = ' obj.featuresInChannels{jChannel}], cChannel ) ) )
                 disp('-----------------------------------------------------------------------')
 
-                obj.params.timeReversal = 0;
-                obj.FindFeaturesChannel( jChannel);
-
+                if obj.params.timeReversal
+                    obj.params.timeReversal = 0;
+                    obj.FindFeaturesChannel( jChannel);
+                    obj.params.timeReversal = 1;
+                else
+                    obj.FindFeaturesChannel( jChannel);
+                end
+                
                 % Reverse time
-                if isfield(obj.params, 'timeReversal') && obj.params.timeReversal
+                if obj.params.timeReversal
                     fprintf('Time reversed!\n')
                     % Basic cleanup
-                    obj.params.timeReversal = 1;
                     obj.featureList = cell( length( obj.channelsToFit), size( obj.imageData.GetImage, 4) );
                     obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
                     % fit again
@@ -103,7 +107,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             lifetimes = lifetime(1):lifetime(2);
             
             % Reverse time order if parameter specified
-            if obj.params.timeReversal 
+            if obj.params.timeReversal
                 lifetimes = flip( lifetimes);
             end
 

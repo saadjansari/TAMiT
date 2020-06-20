@@ -179,7 +179,7 @@ classdef FitEngine
 
             % Solve Optimization Problem
             fitInfo.fitResults = obj.SolveOptimizationProblem( fitProblem );
-            obj.feature.absorbVecEnvironment( fitInfo.fitResults.vfit, fitInfo.fitVecs.labels);
+            obj.feature.absorbVecEnvironment( fitInfo.fitResults.vfit.*fitInfo.speedVec, fitInfo.fitVecs.labels);
             fitInfo.fitInfoOld = fitInfo;
             fitInfo.fitVecOld = fitInfo.fitVecs.vec;
 
