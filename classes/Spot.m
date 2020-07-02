@@ -248,12 +248,20 @@ classdef Spot < BasicElement
             
             % sigma % positions
             if obj.dim == 3
-                ub.sigma = [2.0 2.0 2.0];
+                if strcmpi(obj.label, 'spb')
+                	ub.sigma = [3.0 3.0 3.0];
+                else
+                    ub.sigma = [2.0 2.0 2.0];
+                end
                 lb.sigma = [1.2 1.2 1.0];
                 ub.position = [150 150 7];
                 lb.position = [1 1 1];
             elseif obj.dim == 2
-                ub.sigma = [2.0 2.0];
+                if strcmpi(obj.label, 'spb')
+                	ub.sigma = [3.0 3.0];
+                else
+                    ub.sigma = [2.0 2.0];
+                end
                 lb.sigma = [1.2 1.2];
                 ub.position = [150 150];
                 lb.position = [1 1];

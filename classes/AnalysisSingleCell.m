@@ -15,6 +15,7 @@ classdef AnalysisSingleCell < handle
         flagMovie
         flagGraph
         simImageMT
+        fwdreverse = 0
     end
 
     methods (Access = public )
@@ -88,7 +89,10 @@ classdef AnalysisSingleCell < handle
                 % Make movie
                 if obj.flagMovie 
                     fprintf('   Directing movies...\n')
-                    obj.makeMovie( jChannel);
+%                     obj.makeMovie( jChannel);
+                    if obj.fwdreverse
+                        obj.makeMovieFwdReverse( jChannel);
+                    end
                 end
 
             end
@@ -99,6 +103,10 @@ classdef AnalysisSingleCell < handle
         % analyzeChannel{{{
         function data = analyzeChannel( obj, jChannel)
             % Analyze this frame
+            
+            global COUNTER
+            COUNTER =1;
+            
             for jFrame = 1 : length( obj.times)
                 fprintf('      Analyzing time %d...\n', obj.times( jFrame)); 
                 obj.analyzeFrame( jChannel, jFrame);
@@ -113,6 +121,8 @@ classdef AnalysisSingleCell < handle
         function analyzeFrame( obj, jChannel, jTime)
             % Analyze the time given in cTime
 
+            global COUNTER
+            
             % Current channel 
             channel = obj.channels( jChannel);
             time = obj.times( jTime);
@@ -123,8 +133,35 @@ classdef AnalysisSingleCell < handle
             obj.goodFrame = jTime;
 
             % Initialize main feature from loaded data
-            eval( ['mainFeature = ' timeData.featureMainStruct.type '.loadFromStruct( timeData.featureMainStruct);'] );
+            eval( ['mainFeatureFwd = ' timeData.featureMainStruct.type '.loadFromStruct( timeData.featureMainStruct);'] );
+            
+            % Try loading reverse time data
+            try
+%                 disp('loading reverse file')
+                % Load the data file if available
+                timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_final_reverse.mat']; 
+                timeData = load( timeDataFile);
+                obj.fwdreverse = 1;
+                eval( ['mainFeatureRev = ' timeData.featureMainStruct.type '.loadFromStruct( timeData.featureMainStruct);'] );
 
+                mainFeatureRev.ID = COUNTER;
+                mainFeatureRev.updateFeatureIDs();
+                mainFeatureRev.updateFeatureMap();
+                obj.data{jChannel}.featuresRev{jTime} = mainFeatureRev;
+                mainFeatureFwd.ID = COUNTER;
+                mainFeatureFwd.updateFeatureIDs();
+                mainFeatureFwd.updateFeatureMap();
+                obj.data{jChannel}.featuresFwd{jTime} = mainFeatureFwd;
+                
+                % Forward-Reverse linking
+                mainFeature = obj.linkForwardReverse( mainFeatureFwd, mainFeatureRev);
+            catch
+                mainFeature = mainFeatureFwd;
+            end
+            mainFeature.ID = COUNTER;
+            mainFeature.updateFeatureIDs();
+            mainFeature.updateFeatureMap();
+            
             % Run Feature Specific analysis
             obj.analyzeFeature( mainFeature, jChannel, jTime);
 
@@ -544,6 +581,7 @@ classdef AnalysisSingleCell < handle
                 feat.ID = COUNTER;
                 feat.updateFeatureIDs();
                 feat.updateFeatureMap();
+
                 img = im2double(feat.image);
 
                 % make figure
@@ -560,6 +598,7 @@ classdef AnalysisSingleCell < handle
                 set(f, 'currentaxes', h(2) );
                 imagesc( h(2), max(img , [], 3) ), hold on
                 axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
+                    
                 feat.displayFeature( h(2));
                 title('2D Features');
                 
@@ -615,6 +654,264 @@ classdef AnalysisSingleCell < handle
             for frame = 1 : length( obj.data{jChannel}.mov)
                 % convert the image to a frame
                 writeVideo( writerObj, obj.data{jChannel}.mov(frame) );
+            end
+
+            % close the writer object
+            close(writerObj);
+
+        end
+        % }}}
+        
+        function feat = linkForwardReverse( obj, feat1, feat2)
+           
+            % Accept the feature with the least residual
+            sim1 = feat1.simulateAll( feat1.image, feat1.ID);
+            sim2 = feat2.simulateAll( feat2.image, feat2.ID);
+            r1 = sum( (feat1.image(:) - sim1(:) ).^2);
+            r2 = sum( (feat2.image(:) - sim2(:) ).^2);
+            if abs(r1-r2)<0.01
+                % pick the one with most tubulin
+                switch feat1.type
+                    case 'MonopolarAster'
+                        L1 = 0; L2 = 0;
+                        for j1 = 2 : feat1.featureList{1}.numFeatures
+                            L1 = L1 + feat1.featureList{1}.featureList{j1}.length;
+                        end
+                        for j2 = 2 : feat2.featureList{1}.numFeatures
+                            L2 = L2 + feat2.featureList{1}.featureList{j2}.length;
+                        end
+                        if L1 >= L2
+                            feat = feat1.copyDeep();
+                        else
+                            feat = feat2.copyDeep();
+                        end
+                    case 'Spindle'
+                        error('nada')
+                    case 'IMTBank'
+                        error('nada')
+                end
+            elseif r1 > r2
+                feat = feat2.copyDeep();
+            elseif r1 <= r2
+                feat = feat1.copyDeep();
+            end
+            
+%             feat = feat1.copyDeep();
+%             switch feat1.type
+%                 case 'MonopolarAster'
+%                     n1 = feat1.featureList{1}.numFeatures; n2 = feat2.featureList{1}.numFeatures;
+%                     
+%                     f1 = @(j,x) feat1.featureList{1}.featureList{j}.(x);
+%                     f2 = @(j,x) feat2.featureList{1}.featureList{j}.(x);
+%                     % SPB averages
+%                     feat.featureList{1}.featureList{1}.position = mean( ...
+%                         [f1(1,'position'); f2(1,'position')],1);
+%                     feat.featureList{1}.featureList{1}.amplitude = mean( ...
+%                         [f1(1,'amplitude'), f2(1,'amplitude')]);
+%                     feat.featureList{1}.featureList{1}.sigma = mean( ...
+%                         [f1(1,'sigma'); f2(1,'sigma')],1);
+%                     
+%                     % Get params: length, theta, amplitude
+%                     for jFeat = 1 : feat1.featureList{1}.numFeatures -1
+%                         par1{jFeat}.amplitude = feat1.featureList{1}.featureList{1+jFeat}.amplitude;
+%                         par1{jFeat}.length = feat1.featureList{1}.featureList{1+jFeat}.length;
+%                         par1{jFeat}.theta = feat1.featureList{1}.featureList{1+jFeat}.theta;
+%                         par1{jFeat}.theta(par1{jFeat}.theta < 0) = par1{jFeat}.theta(par1{jFeat}.theta < 0) + 2*pi;
+%                     end
+%                     for jFeat = 1 : feat2.featureList{1}.numFeatures -1
+%                         par2{jFeat}.amplitude = feat2.featureList{1}.featureList{1+jFeat}.amplitude;
+%                         par2{jFeat}.length = feat2.featureList{1}.featureList{1+jFeat}.length;
+%                         par2{jFeat}.theta = feat2.featureList{1}.featureList{1+jFeat}.theta;
+%                         par2{jFeat}.theta(par2{jFeat}.theta < 0) = par2{jFeat}.theta(par2{jFeat}.theta < 0) + 2*pi;
+%                     end
+%                     
+%                     % find costs
+%                     costs = zeros([n1-1 n2-1]);
+%                     for j1 = 1:length(par1)
+%                         for j2 = 1:length(par2)
+%                             ad = par1{j1}.amplitude - par2{j2}.amplitude;
+%                             ld = par1{j1}.length - par2{j2}.length;
+%                             td = mod( abs(par1{j1}.theta - par2{j2}.theta),pi);
+%                             costs(j1,j2) = (10*abs(ad))^2 + abs(ld)^2 + sum((5*abs(td)).^2);
+%                         end
+%                     end
+%                     [pairs, s1, s2] = findLinks(costs);
+%                     feat.featureList{1}.featureList = {feat.featureList{1}.featureList{1}};
+%                     feat.featureList{1}.numFeatures = 1;
+%                     for p = 1:size(pairs,1)
+%                         ff1 = feat1.featureList{1}.featureList{1+pairs(p,1)};
+%                         ff2 = feat2.featureList{1}.featureList{1+pairs(p,2)};
+%                         ff = ff1.copy();
+%                         ff.SetStartPosition( feat.featureList{1}.featureList{1}.position);
+%                         ff.SetEndPosition( mean( [f1(1+pairs(p,1),'endPosition'); f2(1+pairs(p,2),'endPosition')],1) );
+%                         ff.SetLength( mean( [f1(1+pairs(p,1),'length'); f2(1+pairs(p,2),'length')],1) );
+%                         ff.SetTheta( mean( [f1(1+pairs(p,1),'theta'); f2(1+pairs(p,2),'theta')],1) );
+%                         ff.amplitude = mean( [f1(1+pairs(p,1),'amplitude'); f2(1+pairs(p,2),'amplitude')],1);
+%                         ff.sigma = mean( [f1(1+pairs(p,1),'sigma'); f2(1+pairs(p,2),'sigma')],1);
+%                         feat.featureList{1}.addFeatureToList( ff);
+%                     end
+%                     for p = 1:length(s1)
+%                         ff1 = feat1.featureList{1}.featureList{1+s1(p)};
+%                         ff = ff1.copy();
+%                         ff.SetStartPosition( feat.featureList{1}.featureList{1}.position);
+%                         feat.featureList{1}.addFeatureToList( ff);
+%                     end
+%                     for p = 1:length(s2)
+%                         ff1 = feat2.featureList{1}.featureList{1+s2(p)};
+%                         ff = ff1.copy();
+%                         ff.SetStartPosition( feat.featureList{1}.featureList{1}.position);
+%                         feat.featureList{1}.addFeatureToList( ff);
+%                     end
+%                     
+%                     % force inside z if any feature extends past z stack.
+%                     if feat.dim == 3
+%                         for jj = 2: feat.featureList{1}.numFeatures
+%                             jf = feat.featureList{1}.featureList{jj};
+% 
+%                             outsideZ = ( jf.endPosition(3)<1 || jf.endPosition(3)>size(feat.image,3));
+%                             while outsideZ
+%                                 jf.SetLength( jf.length*0.99 );
+%                                 outsideZ = ( jf.endPosition(3)<1 || jf.endPosition(3)>size(feat.image,3));
+%                             end
+%                         end         
+%                     end
+%                     
+%                 case 'Spindle'
+%                     error('not setup')
+%                 case 'IMTBank'
+%                     error('not setup')
+%             end
+            
+            function [pairs, singles1, singles2] = findLinks(costs)
+                % find links
+                costAccept = 10;
+                pairs = []; singles1 = []; singles2 = [];
+                for j1 = 1 : size(costs,1)
+                    [cmin, midx] = min( costs( j1,:) );
+                    if cmin < costAccept && costs(midx, j1)
+                        pairs = [ pairs; [j1,midx]];
+                    else
+                        singles1 = [ singles1(:), j1];
+                    end
+                end
+                for j2 = 1 : size(costs,2)
+                    %check if this has been matched
+                    if ~any(pairs(:,2) == j2)
+                        singles2 = [singles2 , j2];
+                    end
+                end
+            end
+
+        end
+        
+        % makeMovieFwdReverse {{{
+        function makeMovieFwdReverse( obj, jChannel)
+            % Create fwd reverse linking frames for movie
+            
+            if ~obj.fwdreverse
+                return
+            end
+            
+            global COUNTER
+            COUNTER =1;
+            
+            for jTime = 1 : length( obj.times)
+                
+                % get forward feature
+                featF = obj.data{jChannel}.featuresFwd{jTime};
+                featF.ID = COUNTER;
+                featF.updateFeatureIDs();
+                featF.updateFeatureMap();
+                
+                % get reverse feature
+                featR = obj.data{jChannel}.featuresRev{jTime};
+                featR.ID = COUNTER;
+                featR.updateFeatureIDs();
+                featR.updateFeatureMap();
+                % set colors correctly
+                AnalysisSingleCell.SetFeatureColor( featF, [0 1 0 0.5]); % Green
+                AnalysisSingleCell.SetFeatureColor( featR, [0 0 1 0.5]); % Blue
+                
+                %get linked feature
+                feat = obj.linkForwardReverse( featF, featR);
+                feat.ID = COUNTER;
+                feat.updateFeatureIDs();
+                feat.updateFeatureMap();
+                
+                % Image
+                img = im2double(featF.image);
+
+                % make figure
+                f = figure('visible', 'on'); 
+                h = tight_subplot(2,2, [.05 .01]);
+                
+                % Axes (1,1): Original
+                set(f, 'currentaxes', h(1) );
+                imagesc( h(1), max(img , [], 3) ), 
+                colormap( h(1), gray); axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
+                title('Original Image');
+                
+                % Axes (1,2): Original + 2D features
+                set(f, 'currentaxes', h(2) );
+                imagesc( h(2), max(img , [], 3) ), hold on
+                colormap( h(2), gray); axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
+                    
+                featF.displayFeature( h(2));
+                featR.displayFeature( h(2));
+                title('2D Features');
+                
+                % Axes (2,1): Residual Comparison
+                set(f, 'currentaxes', h(3) );
+                simF = featF.simulateAll( img, featF.ID); simR = featR.simulateAll( img, featR.ID); simLinked = feat.simulateAll( img, feat.ID);
+                resF = sum( (featF.image(:) - simF(:)).^2 ); resR = sum( (featR.image(:) - simR(:)).^2 ); resLinked = sum( (feat.image(:) - simLinked(:)).^2 );
+                X = categorical({'Forward','Reverse','Linked'});
+                Y = [ resF, resR, resLinked] - min([ resF, resR, resLinked]);
+                bar(X,Y)
+                title('Residual Comparison');
+                
+                % Axes (2,2): Linked 2D features
+                set(f, 'currentaxes', h(4) );
+                imagesc( h(4), max(img , [], 3) ), hold on
+                colormap( h(4), gray); axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(4), 'xtick', [], 'ytick', []);
+                    
+                feat.displayFeature( h(4));
+                title('2D Linked Features');
+                
+                suptitle( sprintf('T=%d',obj.times(jTime)))
+                obj.data{jChannel}.movFwdRev( jTime) = getframe(f);
+                close(f)
+            end
+            
+            obj.writeMovieFwdReverse(jChannel);
+
+        end
+        % }}}
+        
+        % writeMovieFwdReverse {{{
+        function writeMovieFwdReverse( obj, jChannel)
+            % Write the frame to a movie file
+            
+            switch obj.features{jChannel}
+                case 'Microtubule'
+                    mname = 'mt_video_fwd_reverse.avi';
+                case 'Kinetochore'
+                    mname = 'kc_video_fwd_reverse.avi';
+                case 'Cut7'
+                    mname = 'cut7_video_fwd_reverse.avi';
+                otherwise
+                    error('analyzeFrame: unknown feature')
+            end
+
+            writerObj = VideoWriter([obj.path, filesep, mname]);
+            writerObj.FrameRate = 10;
+
+            % open the video writer
+            open(writerObj);
+
+            % write the frames to the video
+            for frame = 1 : length( obj.data{jChannel}.movFwdRev)
+                % convert the image to a frame
+                writeVideo( writerObj, obj.data{jChannel}.movFwdRev(frame) );
             end
 
             % close the writer object
@@ -1017,6 +1314,36 @@ classdef AnalysisSingleCell < handle
 
         end
         % }}}
+        
+        function SetFeatureColor( feat, col)
+           % Change color of basic features in feat to col
+           
+            switch feat.type
+                case 'Spindle'
+                    setNewColor( feat.featureList{1}, col);
+                    for m = 1 : length(feat.featureList)-1
+                        for j = 1 : feat.featureList{m+1}.numFeatures
+                            setNewColor( feat.featureList{m+1}.featureList{j}, col);
+                        end
+                    end
+                case 'MonopolarAster'
+                    for j = 1 : feat.featureList{1}.numFeatures
+                        setNewColor( feat.featureList{1}.featureList{j}, col);
+                    end                    
+                case 'IMTBank'
+                    for j = 1 : length(feat.featureList)
+                        setNewColor( feat.featureList{j}, col);
+                    end 
+                   
+            end
+           
+            function feet = setNewColor(feet, cool)
+                idx = find( strcmpi(feet.display, 'Color'));
+                feet.display{idx+1} = cool;
+            end
+            
+            
+        end
 
     end
 

@@ -28,14 +28,18 @@ classdef MitoticCell < Cell
 
             % Get Start time 
             lifetime = obj.imageData.GetLifetime;
-            startTime = lifetime(1);
+            if timeReverse
+                startTime = lifetime(2);
+            else
+                startTime = lifetime(1);
+            end
 
             % Novel Estimation for first frame
             if cTime == startTime
                 obj.featureList{ idxChannel, cTime} = obj.EstimateFeaturesNovel( currentFeature, estimationImage);
             % Propagate old feature for later frames
             else 
-                obj = obj.PropagateOldFeature( idxChannel, cChannel, cTime);
+                obj = obj.PropagateOldFeature( idxChannel, cChannel, cTime, timeReverse);
             end
 
             % Special Tasks 
@@ -47,9 +51,7 @@ classdef MitoticCell < Cell
                 if ~isempty( mtChannel)
                     obj.featureList{ idxChannel, cTime}.harvestSpindleInfo( obj.featureList{mtChannel, cTime} );
                 end
-
             end
-
         end
         % }}}
 
@@ -109,6 +111,7 @@ classdef MitoticCell < Cell
 %                 spindleAmp = lineAmpList( round( length(lineAmpList)/2) ) - bkg;
                 spindleAmp = median(lineAmpList) - bkg;
                 spindleMT = Line( spindle.MT.startPosition, spindle.MT.endPosition, spindleAmp, sigma, dim, props.fit{dim}.line, props.graphics.line);
+                spindleMT.label = 'spindle';
                 %spindleMT.findVoxelsInsideMask( logical(imageIn) );
             else
                 fprintf('Not estimating spindle MT\n')
@@ -126,8 +129,8 @@ classdef MitoticCell < Cell
                     spbAmp( spbAmp < 0) = bkg;
                     warning( 'findFeaturesMT_deNovo : forcing SPBAmp to be > 0')
                 end
-                SPB{1} = Spot( spindleMT.startPosition, spbAmp(1), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot);
-                SPB{2} = Spot( spindleMT.endPosition, spbAmp(2), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot);
+                SPB{1} = Spot( spindleMT.startPosition, spbAmp(1), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot); SPB{1}.label = 'spb';
+                SPB{2} = Spot( spindleMT.endPosition, spbAmp(2), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot); SPB{2}.label = 'spb';
                 AsterObjects{1} = SPB{1};
                 AsterObjects{2} = SPB{2};
             end

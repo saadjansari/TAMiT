@@ -4,7 +4,8 @@ classdef Feature < handle & matlab.mixin.Copyable
         dim
         imageSim
         type % feature specialization (if any)
-        ID 
+        ID
+        label
     end
 
     methods

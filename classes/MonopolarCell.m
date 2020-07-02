@@ -104,7 +104,7 @@ classdef MonopolarCell < Cell
                     poleAmp = bkg;
                     warning( 'findFeaturesMT_deNovo : forcing PoleAmp to be > 0')
                 end
-                Pole = Spot( pole.position, poleAmp, sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot);
+                Pole = Spot( pole.position, poleAmp, sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot); Pole.label = 'spb';
             else
                 error('Monopolar Cell must have a microtubule pole')
             end

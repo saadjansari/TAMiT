@@ -361,7 +361,11 @@ classdef Line < BasicElement
             
             % sigma % positions % theta
             if obj.dim == 3
-                ub.sigma = [2.0 2.0 2.0];
+                if strcmpi(obj.label, 'spindle')
+                	ub.sigma = [4.0 4.0 3.0];
+                else
+                    ub.sigma = [2.0 2.0 2.0];
+                end
                 lb.sigma = [1.2 1.2 1.0];
                 ub.startPosition = [150 150 7];
                 ub.endPosition = [150 150 7];
@@ -370,7 +374,11 @@ classdef Line < BasicElement
                 ub.theta = [pi pi];
                 lb.theta = [-pi 0];
             elseif obj.dim == 2
-                ub.sigma = [2.0 2.0];
+                if strcmpi(obj.label, 'spb')
+                	ub.sigma = [4.0 4.0];
+                else
+                    ub.sigma = [2.0 2.0];
+                end
                 lb.sigma = [1.2 1.2];
                 ub.startPosition = [150 150];
                 ub.endPosition = [150 150];
@@ -389,6 +397,66 @@ classdef Line < BasicElement
             
         end
         % }}}
+        
+        function SetTheta(obj, theta)
+            
+            if length(theta) ~= length(obj.theta)
+                error('incorrect length of theta')
+            end
+            
+            obj.theta = theta;
+            if obj.dim == 3
+                obj.endPosition = obj.startPosition + obj.length* [sin(obj.theta(2))*cos(obj.theta(1)), sin(obj.theta(2))*sin(obj.theta(1)), cos(obj.theta(2))];
+            elseif obj.dim == 2
+                obj.endPosition = obj.startPosition + obj.length* [cos(obj.theta(1)), sin(obj.theta(1))];
+            end
+                
+        end
+        function SetLength(obj, len)
+            
+            if length(len) ~= length(obj.length)
+                error('incorrect length of len')
+            end
+            
+            obj.length = len;
+            if obj.dim == 3
+                obj.endPosition = obj.startPosition + obj.length* [sin(obj.theta(2))*cos(obj.theta(1)), sin(obj.theta(2))*sin(obj.theta(1)), cos(obj.theta(2))];
+            elseif obj.dim == 2
+                obj.endPosition = obj.startPosition + obj.length* [cos(obj.theta(1)), sin(obj.theta(1))];
+            end
+                
+        end
+        function SetEndPosition(obj, endP)
+            
+            if length(endP) ~= length(obj.endPosition)
+                error('incorrect length of endPosition')
+            end
+            
+            obj.endPosition = endP;
+            obj.theta = atan2( obj.endPosition(2)-obj.startPosition(2),obj.endPosition(1)-obj.startPosition(1) );
+            if obj.dim == 3
+                phi = acos( (obj.endPosition(3)-obj.startPosition(3))/obj.length );
+                obj.theta = [obj.theta, phi];
+            end
+            obj.length = norm( obj.startPosition - obj.endPosition);
+            
+        end
+        function SetStartPosition(obj, startP)
+            
+            if length(startP) ~= length(obj.startPosition)
+                error('incorrect length of endPosition')
+            end
+            
+            obj.startPosition = startP;
+            obj.theta = atan2( obj.endPosition(2)-obj.startPosition(2),obj.endPosition(1)-obj.startPosition(1) );
+            if obj.dim == 3
+                phi = acos( (obj.endPosition(3)-obj.startPosition(3))/obj.length );
+                obj.theta = [obj.theta, phi];
+            end
+            obj.length = norm( obj.startPosition - obj.endPosition);
+            
+        end
+        
     end
 
     methods ( Static = true )
