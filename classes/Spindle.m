@@ -244,11 +244,14 @@ classdef Spindle < OrganizerMaster
             if succ1 == 0 && succ2 == 0
                 successRemove = 0;
                 return
+            % Make higher level decision on the worst-est feature, find least prominent feature
+            elseif succ1 == 0
+                idxAster=2;
+            elseif succ2==0
+                idxAster=1
+            else
+                [~, idxAster ] = min( [ feat{1}.p, feat{2}.p] );
             end
-
-            % Make higher level decision on the worst-est feature, find
-            % least prominent feature
-            [~, idxAster ] = min( [ feat{1}.p, feat{2}.p] );
 
             % Remove the worst microtubule
             obj.featureList{ 1+idxAster }.removeFeatureFromList( feat{idxAster}.idx);
