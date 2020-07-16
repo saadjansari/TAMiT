@@ -88,10 +88,10 @@ function dat = simAndFit(noise,type)
                     jList = [jList midx];
                     diff = finalFit.featureList{1}.featureList{1+j1}.endPosition - mainObj.featureList{1}.featureList{1+midx}.endPosition;
                     dxyz = [ dxyz ; abs(diff)];
-                    dat.lenTP = [ dat.lenTP, finalFit.featureList{1}.featureList{1+j1}.length];
+                    dat.lenTP = [ dat.lenTP, norm( [0.1 0.1 0.5].*(finalFit.featureList{1}.featureList{1+j1}.endPosition - finalFit.featureList{1}.featureList{1+j1}.startPosition))];
                 else
                     dat.FP = dat.FP + 1;
-                    dat.lenFP = [ dat.lenFP, finalFit.featureList{1}.featureList{1+j1}.length];
+                    dat.lenFP = [ dat.lenFP, norm( [0.1 0.1 0.5].*(finalFit.featureList{1}.featureList{1+j1}.endPosition - finalFit.featureList{1}.featureList{1+j1}.startPosition))];
                 end
             end
             dat.TN = size(costs,2) - size(dxyz,1);
@@ -102,7 +102,7 @@ function dat = simAndFit(noise,type)
             for j2 = 1 : size( costs, 2)
                 if ~any(jList == j2)
                     dat.negAmp = [dat.negAmp, mainObj.featureList{1}.featureList{1+j2}.amplitude];
-                    dat.lenTN = [dat.lenTN, mainObj.featureList{1}.featureList{1+j2}.length];
+                    dat.lenTN = [ dat.lenTN, norm( [0.1 0.1 0.5].*(mainObj.featureList{1}.featureList{1+j1}.endPosition - mainObj.featureList{1}.featureList{1+j1}.startPosition))];
                 end
             end
             
