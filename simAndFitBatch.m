@@ -21,6 +21,8 @@ function simAndFitBatch()
     FP = cell( length(noiseVals), nTrials);
     TN = cell( length(noiseVals), nTrials);
     lenTN = cell( length(noiseVals), nTrials);
+    lenTP = cell( length(noiseVals), nTrials);
+    lenFP = cell( length(noiseVals), nTrials);
     
     for nidx = 1 : length( noiseVals)
         parfor jT = 1 : nTrials
