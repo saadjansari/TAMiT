@@ -24,7 +24,7 @@ classdef Line < BasicElement
             obj.endPosition = endPosition;
             obj.length = norm( endPosition-startPosition);
             if obj.length < 4
-                warning('line length is less than 4, increased to 5')
+                warning('line length is less than 4')
             end
             
             % find orientations
@@ -389,7 +389,7 @@ classdef Line < BasicElement
             end
             
             % length
-            ub.length = 40;
+            ub.length = 300;
             lb.length = 4;
             
             obj.bounds.lb = lb;

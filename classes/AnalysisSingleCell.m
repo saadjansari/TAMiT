@@ -128,7 +128,8 @@ classdef AnalysisSingleCell < handle
             time = obj.times( jTime);
 
             % Load the data file if available
-            timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_final.mat']; 
+            subfold = ['C' num2str( channel) '_T' num2str( time)]; 
+            timeDataFile = [obj.path, filesep, subfold, filesep, subfold, '_final.mat']; 
             timeData = load( timeDataFile);
             obj.goodFrame = jTime;
 
@@ -139,7 +140,7 @@ classdef AnalysisSingleCell < handle
             try
 %                 disp('loading reverse file')
                 % Load the data file if available
-                timeDataFile = ['C' num2str( channel) '_T' num2str( time) '_final_reverse.mat']; 
+                timeDataFile = [obj.path, filesep, subfold, filesep, subfold, '_final_reverse.mat']; 
                 timeData = load( timeDataFile);
                 obj.fwdreverse = 1;
                 eval( ['mainFeatureRev = ' timeData.featureMainStruct.type '.loadFromStruct( timeData.featureMainStruct);'] );
@@ -156,7 +157,16 @@ classdef AnalysisSingleCell < handle
                 % Forward-Reverse linking
                 mainFeature = obj.linkForwardReverse( mainFeatureFwd, mainFeatureRev);
             catch
-                mainFeature = mainFeatureFwd;
+                mainFeatureRev = mainFeatureFwd.copyDeep();
+                mainFeatureRev.ID = COUNTER;
+                mainFeatureRev.updateFeatureIDs();
+                mainFeatureRev.updateFeatureMap();
+                obj.data{jChannel}.featuresRev{jTime} = mainFeatureRev;
+                mainFeatureFwd.ID = COUNTER;
+                mainFeatureFwd.updateFeatureIDs();
+                mainFeatureFwd.updateFeatureMap();
+                obj.data{jChannel}.featuresFwd{jTime} = mainFeatureFwd;
+                mainFeature = mainFeatureFwd.copyDeep();
             end
             mainFeature.ID = COUNTER;
             mainFeature.updateFeatureIDs();
@@ -669,7 +679,10 @@ classdef AnalysisSingleCell < handle
             sim2 = feat2.simulateAll( feat2.image, feat2.ID);
             r1 = sum( (feat1.image(:) - sim1(:) ).^2);
             r2 = sum( (feat2.image(:) - sim2(:) ).^2);
-            if abs(r1-r2)<0.01
+            if any(feat1.image(:) ~= feat2.image(:) )
+                stophere = 1;
+            end
+            if abs(r1-r2)<0.02
                 % pick the one with most tubulin
                 switch feat1.type
                     case 'MonopolarAster'
@@ -686,7 +699,12 @@ classdef AnalysisSingleCell < handle
                             feat = feat2.copyDeep();
                         end
                     case 'Spindle'
-                        error('nada')
+                        % get the one with the longest spindle
+                        if feat1.featureList{1}.GetLength() >= feat2.featureList{1}.GetLength()
+                            feat = feat1.copyDeep();
+                        else
+                            feat = feat2.copyDeep();
+                        end
                     case 'IMTBank'
                         error('nada')
                 end
@@ -820,7 +838,11 @@ classdef AnalysisSingleCell < handle
                 % get forward feature
                 featF = obj.data{jChannel}.featuresFwd{jTime};
                 featF.ID = COUNTER;
+                try
                 featF.updateFeatureIDs();
+                catch
+                    stoph=1;
+                end
                 featF.updateFeatureMap();
                 
                 % get reverse feature

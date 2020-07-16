@@ -141,7 +141,7 @@ classdef Organizer < Feature
             obj.featureList = { obj.featureList{:}, featNew};
             obj.numFeatures = obj.numFeatures + 1;
             idx = obj.numFeatures;
-            obj.syncFeatures();
+            obj.syncFeaturesWithMap();
 
         end
         % }}}
@@ -255,6 +255,64 @@ classdef Organizer < Feature
             
         end
         % }}}
+        
+        % syncFeaturesWithMap {{{
+        function obj = syncFeaturesWithMap( obj)
+            % update the feature ids to reflect any initiliazation/additions/removals
+            % update the map with the features ids and their locations
+            
+            map = obj.featureMap;
+            counter = uint32(max( cell2mat( keys( map) ) ) + 1);
+            if isempty( counter)
+                % initialize it
+                counter = uint32(1);
+            end
+            
+            % assign unique ID to features
+            
+            % Depth 0 (self)
+            loc = [];
+            obj.ID = counter; 
+            map( counter) = loc; counter = counter+1;
+            
+            % Depth 1 (features)
+            for jFeat = 1 : obj.numFeatures
+                obj.featureList{jFeat}.ID = counter; 
+                map( counter) = [ loc jFeat]; counter=counter+1;
+            end
+            
+            % Depth 2 (subfeatures)
+            % assign unique ID to subfeatures
+            for j1 = 1 : obj.numFeatures
+                % if features are organizers
+                if isprop( obj.featureList{j1}, 'numFeatures')
+                    %assign unique ID to subfeatures
+                    for j2 = 1 : obj.featureList{j1}.numFeatures
+                        obj.featureList{j1}.featureList{j2}.ID = counter;
+                        map( counter) = [ loc j1 j2]; counter=counter+1;
+                    end
+                end
+            end
+            
+            % Depth 3 (subsubfeatures - overkill)
+            % assign unique ID to subsubfeatures
+            for j1 = 1 : obj.numFeatures
+                % if features are organizers
+                if isprop( obj.featureList{j1}, 'numFeatures')
+                    for j2 = 1 : obj.featureList{j1}.numFeatures
+                        % if subfeatures are organizers
+                        if isprop( obj.featureList{j1}.featureList{j2}, 'numFeatures')
+                            %assign unique ID to subsubfeatures
+                            for j3 = 1 : obj.featureList{j1}.numFeatures
+                                obj.featureList{j1}.featureList{j2}.featureList{j3}.ID = counter;
+                                map( counter) = [ loc j1 j2 j3]; counter=counter+1;
+                            end
+                        end                        
+                    end
+                end
+            end
+        end
+        % }}} 
         
         % updateFeatureMap {{{
         function obj = updateFeatureMap( obj)

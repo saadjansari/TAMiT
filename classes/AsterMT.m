@@ -166,7 +166,9 @@ classdef AsterMT < Organizer
                     
                     [~,indMax] = max( imgBleached(:) );
                     [ endY, endX] = ind2sub( size(imgBleached), indMax);
-                    if abs( mod( atan2( endY-obj.featureList{1}.position(2), endX-obj.featureList{1}.position(1) ), 2*pi) - xAngle ) > xRange
+                    if isempty(xRange) && isempty(xAngle)
+                        conBleach = 0;
+                    elseif abs( mod( atan2( endY-obj.featureList{1}.position(2), endX-obj.featureList{1}.position(1) ), 2*pi) - xAngle ) > xRange
                         conBleach = 0;
                     else
                         imgBleached( endY-1:endY+1, endX-1:endX+1) = 0;

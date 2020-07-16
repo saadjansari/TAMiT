@@ -262,7 +262,7 @@ classdef FitEngine
                         [~, successAdd ] = featureNew.addOrganizers( refImage);
                 end
                 
-                featureNew.syncFeatures();
+                featureNew.syncFeaturesWithMap();
                 
                 % An addition could fail if there are no features that
                 % could be added
@@ -339,7 +339,7 @@ classdef FitEngine
                     case 'Organizer'
                         [~, successRemove ] = featureNew.removeOrganizers( refImage);
                 end
-                featureNew.updateFeatureMap();
+                featureNew.syncFeaturesWithMap();
                 
                 if featureNew.getSubFeatureNumber() == 0
                     successRemove = 0;
@@ -787,7 +787,7 @@ classdef FitEngine
                 case 'RELEASE'
                     opts = optimoptions( opts, ...
                                         'display', 'iter',...
-                                        'MaxIter', 10);
+                                        'MaxIter', 20);
 
                 case 'DEBUG'
                     opts = optimoptions( opts, ...

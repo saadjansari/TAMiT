@@ -141,15 +141,15 @@ classdef MonopolarCell < Cell
             % Monopolar Aster Feature 
             MonopolarObj = MonopolarAster( dim, imageIn, {AsterObj}, props);
 
-            if displayFlag
-                fName = 'estimate_monopolar';
-                f = figure( 'NumberTitle', 'off', 'Name', fName); 
-                ax = axes;
-                imagesc( ax, max(imageIn, [], 3) ); colormap gray; axis equal; hold on;
-                MonopolarObj.displayFeature(ax)
-                %sName = [fitInfo.saveDirectory, filesep, sName];
-                %export_fig( sName, '-png', '-nocrop', '-a1') 
-            end
+%             if displayFlag
+%                 fName = 'estimate_monopolar';
+%                 f = figure( 'NumberTitle', 'off', 'Name', fName); 
+%                 ax = axes;
+%                 imagesc( ax, max(imageIn, [], 3) ); colormap gray; axis equal; hold on;
+%                 MonopolarObj.displayFeature(ax)
+%                 %sName = [fitInfo.saveDirectory, filesep, sName];
+%                 %export_fig( sName, '-png', '-nocrop', '-a1') 
+%             end
             MonopolarObj.findEnvironmentalConditions();
             %MonopolarObj.syncFeaturesWithMap();
             

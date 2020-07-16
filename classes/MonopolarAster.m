@@ -118,6 +118,10 @@ classdef MonopolarAster < OrganizerMaster
             amp = featureKeep.amplitude;
             feature = Line( featureKeep.startPosition, featureKeep.endPosition, amp, sigma, obj.dim, props2Fit, display);
             feature.repr = 'spherical';
+            if feature.length < 7
+                successAdd = 0;
+                return
+            end
             
             % Add feature to the correct subfeature 
             idxAdd = obj.featureList{1}.addFeatureToList( feature);
