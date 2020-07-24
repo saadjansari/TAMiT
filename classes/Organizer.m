@@ -273,7 +273,8 @@ classdef Organizer < Feature
             % Depth 0 (self)
             loc = [];
             obj.ID = counter; 
-            map( counter) = loc; counter = counter+1;
+%             map( counter) = loc; 
+            counter = counter+1;
             
             % Depth 1 (features)
             for jFeat = 1 : obj.numFeatures

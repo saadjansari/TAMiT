@@ -16,7 +16,7 @@ classdef MitoticCell < Cell
         % }}}
 
         % EstimateFeatures {{{
-        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel, timeReverse)
+        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel, timeReverse, newEstimate)
         % findFeatures : estimates and finds the features 
             
             % Get feature type
@@ -35,7 +35,7 @@ classdef MitoticCell < Cell
             end
 
             % Novel Estimation for first frame
-            if cTime == startTime
+            if cTime == startTime || newEstimate
                 obj.featureList{ idxChannel, cTime} = obj.EstimateFeaturesNovel( currentFeature, estimationImage);
             % Propagate old feature for later frames
             else 

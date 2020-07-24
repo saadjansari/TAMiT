@@ -81,28 +81,28 @@ function dat = simAndFit(noise,type)
             end
             
             % for features found, how good are they
-            dxyz = []; dat.FP = 0; jList = []; dat.lenTP = [];
+            dxyz = []; dat.FP = 0; jList = []; dat.lenTP = []; dat.lenFP = [];
             for j1 = 1 : size( costs, 1)
                 [minn, midx] = min( costs(j1,:) );
                 if minn < costAccept
                     jList = [jList midx];
                     diff = finalFit.featureList{1}.featureList{1+j1}.endPosition - mainObj.featureList{1}.featureList{1+midx}.endPosition;
                     dxyz = [ dxyz ; abs(diff)];
-                    dat.lenTP = [ dat.lenTP, norm( [0.1 0.1 0.5].*(finalFit.featureList{1}.featureList{1+j1}.endPosition - finalFit.featureList{1}.featureList{1+j1}.startPosition))];
+                    dat.lenTP = [ dat.lenTP; finalFit.featureList{1}.featureList{1+j1}.endPosition - finalFit.featureList{1}.featureList{1+j1}.startPosition];
                 else
                     dat.FP = dat.FP + 1;
-                    dat.lenFP = [ dat.lenFP, norm( [0.1 0.1 0.5].*(finalFit.featureList{1}.featureList{1+j1}.endPosition - finalFit.featureList{1}.featureList{1+j1}.startPosition))];
+                    dat.lenFP = [ dat.lenFP; finalFit.featureList{1}.featureList{1+j1}.endPosition - finalFit.featureList{1}.featureList{1+j1}.startPosition];
                 end
             end
             dat.TN = size(costs,2) - size(dxyz,1);
             dat.dxyz = dxyz;
             
             % Line data
-            dat.negAmp = []; dat.lenTN = [];
+            dat.lenTN = [];
             for j2 = 1 : size( costs, 2)
                 if ~any(jList == j2)
                     dat.negAmp = [dat.negAmp, mainObj.featureList{1}.featureList{1+j2}.amplitude];
-                    dat.lenTN = [ dat.lenTN, norm( [0.1 0.1 0.5].*(mainObj.featureList{1}.featureList{1+j1}.endPosition - mainObj.featureList{1}.featureList{1+j1}.startPosition))];
+                    dat.lenTN = [ dat.lenTN; mainObj.featureList{1}.featureList{1+j1}.endPosition - mainObj.featureList{1}.featureList{1+j1}.startPosition];
                 end
             end
             

@@ -72,7 +72,10 @@ classdef Cell < handle & matlab.mixin.Copyable
                 cChannel = obj.channelsToFit( jChannel);
                 disp( upper( sprintf( ['Channel %d = ' obj.featuresInChannels{jChannel}], cChannel ) ) )
                 disp('-----------------------------------------------------------------------')
-
+                
+                if obj.params.timeReversal && obj.params.newEstimateEveryT
+                    obj.params.timeReversal = 0;
+                end
                 if obj.params.timeReversal
                     obj.params.timeReversal = 0;
                     obj.FindFeaturesChannel( jChannel);
@@ -154,7 +157,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Estimate the features based on an estimation routine (defined in specialized sub-class )
             disp('Estimating features...')
             % Good estimation is key to good optimization in low SnR images
-            obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx,obj.params.timeReversal);
+            obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx,obj.params.timeReversal, obj.params.newEstimateEveryT);
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
             
@@ -1238,8 +1241,8 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Bundle 
 %             bundle.fit{2} = {'cX','cY', 'amplitude', 'sigma', 'T', 'ef'};
 %             bundle.fit{3} = {'cX','cY','cZ', 'amplitude', 'sigma', 'T', 'ef'};
-            bundle.fit{2} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'T', 'L','ef'};
-            bundle.fit{3} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'T', 'L','ef'};
+            bundle.fit{2} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'T', 'L','ef', 'sigma'};
+            bundle.fit{3} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'T', 'L','ef', 'sigma'};
             bundle.graphics.magenta = {'Color', [0.7 0 0.7] , 'LineWidth', 2};
             bundle.graphics.green = {'Color', [0 1 0] , 'LineWidth', 2};
             bundle.graphics.blue = {'Color', [0 0 1] , 'LineWidth', 2};

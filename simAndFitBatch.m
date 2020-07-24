@@ -3,7 +3,7 @@ function simAndFitBatch()
     addpath('classes');
     addpath(genpath('functions'))
     
-    launch_summit = 1;
+    launch_summit = 0;
     pc = parcluster('local');
     if launch_summit
         % explicitly set the JobStorageLocation to a temp directory
@@ -13,8 +13,8 @@ function simAndFitBatch()
         parpool(pc);
     end
         
-    nTrials = 1000;
-    noiseVals = [0 0.2 0.4 0.6 0.8];
+    nTrials = 2;
+    noiseVals = [0 0.2];
     
     dxyz = cell( length(noiseVals), nTrials);
     spb_xyz = cell( length(noiseVals), nTrials);

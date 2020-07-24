@@ -16,22 +16,26 @@ classdef InterphaseCell < Cell
         % }}}
 
         % EstimateFeatures {{{
-        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel, timeReverse)
+        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel, timeReverse, newEstimate)
         % findFeatures : estimates and finds the features 
             
             % Get feature type
             currentFeature  = obj.featuresInChannels{ idxChannel};
 
-            % Get Start time 
+             % Get Start time 
             lifetime = obj.imageData.GetLifetime;
-            startTime = lifetime(1);
+            if timeReverse
+                startTime = lifetime(2);
+            else
+                startTime = lifetime(1);
+            end
 
             % Novel Estimation for first frame
-            if cTime == startTime
+            if cTime == startTime || newEstimate
                 obj.featureList{ idxChannel, cTime} = obj.EstimateFeaturesNovel( currentFeature, estimationImage);
             % Propagate old feature for later frames
             else 
-                obj = obj.PropagateOldFeature( idxChannel, cChannel, cTime);
+                obj = obj.PropagateOldFeature( idxChannel, cChannel, cTime, timeReverse);
             end
 
         end
