@@ -129,15 +129,6 @@ classdef ImageData
         end
         % }}}
         
-        % ReverseTime {{{
-        function ReserveTime( obj)
-        % reverse time by flipping in the time axis.
-        
-        
-        
-        end
-
-        
     end
 
     methods (Static = true)
@@ -202,7 +193,7 @@ classdef ImageData
             % CellData.metaData (metaData)
 
             % Acceptable formats
-            validFormats = {'.mat'};
+            validFormats = {'.mat', '.tif'};
             [ rpath, fname, ext] = fileparts( moviepath);
             if ~any( strcmp( ext, validFormats) )
                 error('importSingleCell : file extension is invalid'); 
@@ -212,6 +203,74 @@ classdef ImageData
             switch ext
                 case '.mat'
                     load( moviepath);
+                case '.tif'
+
+                    reader = bfGetReader(moviepath);
+                    metaData = reader.getMetadataStore();
+                    Meta.numVoxelsX = metaData.getPixelsSizeX(0).getValue();
+                    Meta.numVoxelsY = metaData.getPixelsSizeY(0).getValue();
+                    Meta.numVoxelsZ = metaData.getPixelsSizeZ(0).getValue();
+                    Meta.numTimes = metaData.getPixelsSizeT(0).getValue();
+                    Meta.numChannels = metaData.getPixelsSizeC(0).getValue();
+
+                    % get physical sizes of voxels
+                    Meta.sizeVoxelsX = double( metaData.getPixelsPhysicalSizeX(0).value() );
+                    Meta.sizeVoxelsY = double( metaData.getPixelsPhysicalSizeY(0).value() );
+                    Meta.sizeVoxelsZ = double( metaData.getPixelsPhysicalSizeZ(0).value() );
+
+                    % Get max/min value for scaling
+                    for jChannel = 1 : Meta.numChannels
+                        maxVal(jChannel) = uint16(0); minVal( jChannel) = uint16(2^16);
+                        for jTime = 1 :5:  Meta.numTimes
+                            for jZ = 1 : 3: Meta.numVoxelsZ
+                                % get index of plane with specific z, t, and c
+                                jPlane = reader.getIndex( jZ - 1, jChannel - 1, jTime - 1) + 1;
+                                % get image plane corresponding to the index above
+                                im2 = bfGetPlane( reader, jPlane);
+                        if max( im2(:) ) > maxVal( jChannel) && ~all( im2(:) == max(im2(:) ) )
+                        maxVal(jChannel) = max( im2(:) ); ind = [jZ, jTime];
+                        end
+                        if min( im2(:) ) < minVal( jChannel) && ~all( im2(:) == min(im2(:) ) )
+                        minVal(jChannel) = min( im2(:) );
+                        end
+                            end
+                        end
+                    end
+
+                    % Pre-allocate 5D array for storing the image planes:
+                    % array dimensions are arranged as ( x, y, z, t, c)
+                    planeTimes = zeros( Meta.numVoxelsZ, Meta.numTimes, Meta.numChannels);
+                    imData = zeros( Meta.numVoxelsY, Meta.numVoxelsX, Meta.numVoxelsZ, Meta.numTimes, Meta.numChannels, 'uint8');
+
+                    % Read plane from series iSeries at Z, C, T coordinates (iZ, iC, iT)
+                    % All indices are expected to be 1-based
+                    reader.setSeries(0);
+                    for jC = 1 : Meta.numChannels
+                        for jZ = 1 : Meta.numVoxelsZ
+                            for jT = 1 : Meta.numTimes
+                                iPlane = reader.getIndex(jZ-1, jC-1, jT-1) + 1;
+                                img = bfGetPlane(reader, iPlane);
+
+                                % get old scaling
+                                oldMax = double( maxVal(jC) ); oldMin = double( minVal(jC) );
+
+                                % new scaling
+                                imData(:,:,jZ,jT, jC) = uint8( ( ( ( double(img) - oldMin)./ (oldMax-oldMin) ) .* (2^8 -1)) );
+
+                                try
+                                    planeTimes( jZ, jT, jC) = metaData.getPlaneDeltaT( 0, iPlane).value;
+                                catch
+                                    planeTimes(jZ,jT,jC) = jT;
+                                end
+
+                            end
+                        end
+                    end
+
+                    cellData.metaData = Meta;
+                    cellData.cell3D = imData;
+                    cellData.planeTimes = planeTimes;
+
             end
 
         end

@@ -1152,9 +1152,9 @@ classdef Methods
             
             % We will create a finer image to allow us to use smaller step
             % sizes.
-            [x, y] = meshgrid( 1 : size( helperImage, 1) );
-            xVecNew = 1 : 0.25: size( helperImage, 1);
-            [xi, yi] = meshgrid( xVecNew );
+            [x, y] = meshgrid( 1 : size( helperImage, 2), 1:size(helperImage,1) );
+            xVecNew = 1 : 0.25: size( helperImage, 2); yVecNew = 1 : 0.25: size( helperImage, 1);
+            [xi, yi] = meshgrid( xVecNew, yVecNew );
             try
                 imSub = interp2(x,y,helperImage,xi,yi,'linear');
             catch

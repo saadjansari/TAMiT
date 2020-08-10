@@ -3,6 +3,7 @@ function params = initConfiguration( opts)
 
     % reverse time
     params.timeReversal = 0;
+    params.newEstimateEveryT = 0;
 
     runFit = 1;
     runTracking = 1;

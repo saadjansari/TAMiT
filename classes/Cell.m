@@ -73,6 +73,10 @@ classdef Cell < handle & matlab.mixin.Copyable
                 disp( upper( sprintf( ['Channel %d = ' obj.featuresInChannels{jChannel}], cChannel ) ) )
                 disp('-----------------------------------------------------------------------')
                 
+                if ~isfield( obj.params, 'newEstimateEveryT')
+                    obj.params.newEstimateEveryT = 0;
+                end
+                
                 if obj.params.timeReversal && obj.params.newEstimateEveryT
                     obj.params.timeReversal = 0;
                 end
@@ -160,6 +164,23 @@ classdef Cell < handle & matlab.mixin.Copyable
             obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx,obj.params.timeReversal, obj.params.newEstimateEveryT);
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
+            
+%             stop=1;
+%             nX = size( Image2Fit, 2); nY = size( Image2Fit, 1); nZ = size( Image2Fit, 3); dim = length( size(Image2Fit) );
+%             image2D = max( Image2Fit, [], 3); intMin = min( Image2Fit(:) ); intMax = max( Image2Fit(:) );
+%             imageSets = 'colormap gray; axis equal; axis ij; set( gca, ''xlim'', [1 nX], ''ylim'', [1 nY], ''XTick'', [], ''YTick'', [], ''CLim'', [intMin intMax], ''FontSize'', 14)';
+%             
+%             figure;
+%             ax = tight_subplot(1, 2, 0.05);
+%             axes( ax(1) );
+%             img = imagesc( image2D ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Original');
+%             axes( ax(2) );
+%             img = imagesc( image2D ); eval( imageSets); hold on;
+%             mainFeature.displayFeature(gca); set( get(gca, 'title'), 'String', 'Features');
+%             drawnow; pause(1);
+            
+            % Pre-fit adjustments
+            mainFeature.preOptimize();
             
             % Prepare fit params
             params = obj.params.fit;
@@ -490,16 +511,21 @@ classdef Cell < handle & matlab.mixin.Copyable
         end
         % }}}
         % radIntegrate2D {{{
-        function [phiIntensity, phiValues] = radIntegrate2D( imageIn, startPoint)
+        function [phiIntensity, phiValues] = radIntegrate2D( imageIn, startPoint, rmin, rmax)
 
             if length( size(imageIn) ) ~= 2
                 error( 'radIntegrate2D : input image must be 2-dimensional')
             end
+            
+            if nargin < 4
+                rmax = 15;
+            end
+            if nargin < 3
+                rmin = 1;
+            end
 
             % Radially integrate around startPoint 
             PhiStep = deg2rad(2);
-            rmin = 1;
-            rmax = 10;
             numVoxelsX = size( imageIn, 2);
             numVoxelsY = size( imageIn, 1);
             x0 = startPoint(1);
@@ -507,8 +533,8 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             % Define the step sizes to use for the angular sweep in phi. 
             PhiStep = deg2rad(2);
-            rmin = 1;
-            rmax = 15;
+%             rmin = 5; % 1
+%             rmax = 15; % 15
             phiValues = 0 : PhiStep : 2*pi - PhiStep;
 
             % Pre-allocate array for storing intensity data with varying phi.
@@ -1233,6 +1259,8 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Curve
             curve.fit{2} = {'startPosition','cX','cY','amplitude','sigma'};
             curve.fit{3} = {'startPosition', 'cX','cY','cZ', 'amplitude', 'sigma'};
+            curveMT.fit{2} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L','sigma'};
+            curveMT.fit{3} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L','sigma'};
             curve.graphics.magenta = {'Color', [0.7 0 0.7] , 'LineWidth', 2};
             curve.graphics.green = {'Color', [0 1 0] , 'LineWidth', 2};
             curve.graphics.blue = {'Color', [0 0 1] , 'LineWidth', 2};
@@ -1265,8 +1293,8 @@ classdef Cell < handle & matlab.mixin.Copyable
             props.asterLine = asterLine;
 
             % Curve Aster
-            asterCurve.fit{2}.curve = bundle.fit{2};
-            asterCurve.fit{3}.curve = bundle.fit{3};
+            asterCurve.fit{2}.curve = curveMT.fit{2};
+            asterCurve.fit{3}.curve = curveMT.fit{3};
             asterCurve.graphics.spot = spot.graphics.blue;
             asterCurve.graphics.curve = bundle.graphics.red;
             props.asterCurve = asterCurve;
@@ -1275,14 +1303,17 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Master Organizers {{{
             % Spindle
             spindle.fit{2}.line = line.fit{2};
+            spindle.fit{2}.curve = curveMT.fit{2};
             spindle.fit{2}.aster = asterLine.fit{2};
             spindle.fit{2}.aster.spot(1) = [];
             spindle.fit{2}.Environment = env1;
             spindle.fit{3}.line = line.fit{3};
+            spindle.fit{3}.curve = curveMT.fit{3};
             spindle.fit{3}.aster = asterLine.fit{3};
             spindle.fit{3}.aster.spot(1) = [];
             spindle.fit{3}.Environment = env1;
             spindle.graphics.line = line.graphics.redWide;
+            spindle.graphics.curve = curve.graphics.red;
             spindle.graphics.aster.spot = spot.graphics.blue;
             spindle.graphics.aster.line = line.graphics.green;
             spindle.fit{2}.spot = spot.fit{2};

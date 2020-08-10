@@ -108,20 +108,21 @@ classdef FitEngine
             for jFeature = 1 : nFeatures
 
                 fprintf('Current Feature = %d / %d\n', jFeature, nFeatures);
-
-                % Prepare for optimization
-                obj.feature.forceInsideMask();
-                [ fitProblem{jFeature}, fitInfo{jFeature}] = obj.PrepareOptimizeLocal( jFeature);
-
-                % Solve Optimization Problem
-%                 if jFeature == 4
-%                     stoph = 1;
-%                 end
-                fitInfo{ jFeature}.fitResults = obj.SolveOptimizationProblem( fitProblem{ jFeature} );
-                obj.updateFinalFeature( fitInfo{jFeature} );
                 
-                % Update feature heirarchy to ensure all dependencies are acknowledged
-                obj.feature.updateSubFeatures();
+                try
+                    % Prepare for optimization
+                    obj.feature.forceInsideMask();
+                    [ fitProblem{jFeature}, fitInfo{jFeature}] = obj.PrepareOptimizeLocal( jFeature);
+
+                    % Solve Optimization Problem
+                    fitInfo{ jFeature}.fitResults = obj.SolveOptimizationProblem( fitProblem{ jFeature} );
+                    obj.updateFinalFeature( fitInfo{jFeature} );
+
+                    % Update feature heirarchy to ensure all dependencies are acknowledged
+                    obj.feature.updateSubFeatures();
+                catch
+                    disp('Could not locally fit feature')
+                end
 
             end
 
@@ -792,7 +793,7 @@ classdef FitEngine
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
                                         'display', 'iter' ,...
-                                        'MaxIter', 20);
+                                        'MaxIter', 10);
             end
             
             % Set Parallel Optimization
@@ -945,6 +946,7 @@ classdef FitEngine
             idxP1 = find( ~cellfun( @isempty, strfind( vecLabels, 'endPosition') ) );
             idxP = find( ~cellfun( @isempty, strfind( vecLabels, 'position') ) );
             idxBkg = find( ~cellfun( @isempty, strfind( vecLabels, 'background') ) );
+            idxOrigin = find( ~cellfun( @isempty, strfind( vecLabels, 'origin') ) );
             
             % Store upper and lower bounds correctly
             if ~isempty( idxAmp), 
@@ -970,7 +972,11 @@ classdef FitEngine
             if ~isempty( idxBkg), 
                 ub( idxBkg ) = maxBkg;
                 lb( idxBkg ) = minBkg; end
-
+            if ~isempty( idxOrigin), 
+                nF = length( idxOrigin)/dim;
+                ub( idxOrigin ) = repmat( VoxSize, 1, nF);
+                lb( idxOrigin ) = minVox; end
+            
             % Bounds for Special Objects
             % Interphase curves
             if bs && strcmp(obj.feature.type, 'IMTBank')
@@ -1008,14 +1014,14 @@ classdef FitEngine
 %             speedBkg = 10;
 %             speedSigma = 1;
 %             speedPos = 10;
-            speedAmp = 1;
-            speedBkg = 1000;
-            speedSigma = 10;
+            speedAmp = 10;
+            speedBkg = 10;
+            speedSigma = 1;
             speedPos = 10;
             speedCXYZ = 10;
             speedT = 10;
             speedL = 100;
-            speedNormal = 0.01;
+            speedNormal = 10;
             speedEF = 100;
             speedVec = ones( size(vecLabels) );
 

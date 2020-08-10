@@ -11,7 +11,7 @@ function params = initConfiguration( opts)
     
     switch opts.CFG
         case 'RELEASE'
-            runLocalFit = 1;
+            runLocalFit = 0;
             runGlobalFit = 1;
             runFeatureNumberFit = 1;
             display = 0;
@@ -61,7 +61,7 @@ function params = initConfiguration( opts)
     fit.runLocalOptimization = runLocalFit;
     fit.runGlobalOptimization = runGlobalFit;
     fit.runFeatureNumberOptimization = runFeatureNumberFit;
-    fit.useParallel = true;
+    fit.useParallel = true; 
     fit.state = opts.CFG;
     fit.display = display;
     fit.alpha = 0.4;

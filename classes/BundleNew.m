@@ -94,7 +94,7 @@ classdef BundleNew < BasicElement
         % absorbVec {{{
         function obj = absorbVec( obj, vec, vecLabels)
 
-            props2find = {'origin','tanInit', 'normalVec', 'T', 'L', 'ef', 'amplitude', 'sigma'};
+            props2find = {'origin','thetaInit', 'normalVec', 'T', 'L', 'ef', 'amplitude', 'sigma'};
             
             % find the index of start positions
             for jProp = 1 : length( props2find)
@@ -491,10 +491,10 @@ classdef BundleNew < BasicElement
             
             % sigma % positions % theta
             if obj.dim == 3
-                ub.sigma = [2.0 2.0 2.0];
+                ub.sigma = [5.0 5.0 3.0];
                 lb.sigma = [1.2 1.2 1.0];
             elseif obj.dim == 2
-                ub.sigma = [2.0 2.0];
+                ub.sigma = [5.0 5.0];
                 lb.sigma = [1.2 1.2];
             end
             
@@ -538,6 +538,75 @@ classdef BundleNew < BasicElement
             
         end
         % }}}
+        
+        function obj = preOptimize(obj, imOrg, imBkg)
+           
+            % optimize sigma
+            % sx
+            res = []; sx = linspace(1.2,5.0,40); sx0 = obj.sigma(1); sy0 = obj.sigma(2);
+            for ix = sx
+                obj.sigma(1) = ix; obj.sigma(2) = ix;
+                imSim = imBkg + obj.simulateFeature( size(imBkg));
+                res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+            end
+            [~, idx] = min( res); 
+            obj.sigma(1) = sx(idx);
+            obj.sigma(2) = sx(idx);
+            % sy
+%             res = []; sy = linspace(1.2,5.0,40); sy0 = obj.sigma(2);
+%             for ix = sy
+%                 obj.sigma(2) = ix;
+%                 imSim = imBkg + obj.simulateFeature( size(imBkg));
+%                 res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+%             end
+%             [~, idx] = min( res); obj.sigma(2) = sy(idx);
+            % sz
+            if obj.dim == 3
+                res = []; sz = linspace(1.0,2.0,40); sz0 = obj.sigma(3);
+                for ix = sz
+                    obj.sigma(3) = ix;
+                    imSim = imBkg + obj.simulateFeature( size(imBkg));
+                    res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+                end
+                [~, idx] = min( res); obj.sigma(3) = sz(idx);
+            end
+            
+            % optimize lengths
+            % end 1
+            res = []; l1 = linspace(obj.L(1),3*obj.L(1),10); l10 = obj.L(1);
+            for ix = l1
+                obj.L(1) = ix;
+                imSim = imBkg + obj.simulateFeature( size(imBkg));
+                res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+            end
+            [~, idx] = min( res); obj.L(1) = l1(idx);
+            if length( obj.L) == 2
+                % end 2
+                res = []; l2 = linspace(obj.L(2),3*obj.L(2),10); l20 = obj.L(2);
+                for ix = l2
+                    obj.L(2) = ix;
+                    imSim = imBkg + obj.simulateFeature( size(imBkg));
+                    res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+                end
+                [~, idx] = min( res); obj.L(2) = l2(idx);
+            end
+            % optimize amp and ef
+%             res = []; amps = linspace( 0, max( imOrg(:))-imBkg(1), 20); efs = linspace( 1.0, 4.0, 5);
+%             A0 = obj.amplitude; ef0 = obj.ef;
+%             for ia = amps
+%                 res1 = [];
+%                 for ie = efs
+%                     obj.amplitude = ia; obj.ef = ie;
+%                     imSim = imBkg + obj.simulateFeature( size(imBkg));
+%                     res1 = [ res1, sum( (imSim(:) - imOrg(:) ).^2 )];
+%                 end
+%                 res = [res; res1];
+%             end
+%             [~,idA] = min( min(res,[],2) ); [~, idef] = min( min(res,[],1) ); obj.amplitude = amps(idA); obj.ef = efs( idef);
+            
+            % optimize lengths
+            
+        end
     end
 
     methods ( Static = true )

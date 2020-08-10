@@ -64,6 +64,8 @@ function features = singleCell( paramsPath)
             fname = 'MonopolarCell';
         case 'Interphase'
             fname = 'InterphaseCell';
+        case 'MitosisBud'
+            fname = 'MitoticCellBud';
     end
     
     myCell = feval( fname, imageData, ...

@@ -362,7 +362,7 @@ classdef Line < BasicElement
             % sigma % positions % theta
             if obj.dim == 3
                 if strcmpi(obj.label, 'spindle')
-                	ub.sigma = [4.0 4.0 3.0];
+                	ub.sigma = [3.0 3.0 2.0];
                 else
                     ub.sigma = [2.0 2.0 2.0];
                 end
@@ -374,8 +374,8 @@ classdef Line < BasicElement
                 ub.theta = [pi pi];
                 lb.theta = [-pi 0];
             elseif obj.dim == 2
-                if strcmpi(obj.label, 'spb')
-                	ub.sigma = [4.0 4.0];
+                if strcmpi(obj.label, 'spindle')
+                	ub.sigma = [3.0 3.0];
                 else
                     ub.sigma = [2.0 2.0];
                 end
@@ -398,6 +398,46 @@ classdef Line < BasicElement
         end
         % }}}
         
+        % preOptimize {{{
+        function obj = preOptimize(obj, imOrg, imBkg)
+           
+            % optimize sigma
+            % sx
+            res = []; sx = linspace(1.2,2.5,15); sx0 = obj.sigma(1); sy0 = obj.sigma(2);
+            for ix = sx
+                obj.sigma(1) = ix; obj.sigma(2) = ix;
+                imSim = imBkg + obj.simulateFeature( size(imBkg));
+                res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+            end
+            [~, idx] = min( res); 
+            obj.sigma(1) = sx(idx);
+            obj.sigma(2) = sx(idx);
+
+            % sz
+            if obj.dim == 3
+                res = []; sz = linspace(1.0,2.0,10); sz0 = obj.sigma(3);
+                for ix = sz
+                    obj.sigma(3) = ix;
+                    imSim = imBkg + obj.simulateFeature( size(imBkg));
+                    res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+                end
+                [~, idx] = min( res); obj.sigma(3) = sz(idx);
+            end
+            %{
+             {% optimize amp 
+             {res = []; amps = linspace( 0, max( imOrg(:))-imBkg(1), 20); 
+             {A0 = obj.amplitude; 
+             {for ia = amps
+             {    obj.amplitude = ia; 
+             {    imSim = imBkg + obj.simulateFeature( size(imBkg));
+             {    res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+             {end
+             {[~,idA] = min( min(res,[],2) ); obj.amplitude = amps(idA); 
+             %}
+            
+        end
+        % }}}
+
         function SetTheta(obj, theta)
             
             if length(theta) ~= length(obj.theta)

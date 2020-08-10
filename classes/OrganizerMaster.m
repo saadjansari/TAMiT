@@ -323,7 +323,17 @@ classdef OrganizerMaster < Organizer
         function obj = finalizeAddedFeatures(obj)
         end
 
-        
+        function obj = preOptimize(obj)
+           
+            % optimize basic objects
+            imbkg = 0*obj.image; imbkg(:) = obj.background;
+            for jFeat = 1 : length( obj.featureList)
+                try
+                    obj.featureList{jFeat}.preOptimize( obj.image, imbkg);
+                end
+            end
+            
+        end
         
     end
 end

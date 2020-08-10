@@ -487,7 +487,30 @@ classdef Organizer < Feature
 
         end
         % }}}
+        
+        function obj = preOptimize(obj, imOrg, imBkg)
+           
+            % optimize basic objects
+            for jFeat = 1 : length( obj.featureList)
+                try
+                    obj.featureList{jFeat}.preOptimize(imOrg, imBkg);
+                end
+            end
+            
+        end
 
+        function imfMask = getMaskWithoutFeatures(obj, img)
+           % Obtain a mask with the features removed
+                           
+            imfMask = ones( size(img));
+
+            % Simulate features one at a time
+            for jb = 1 : obj.numFeatures
+                imf = obj.featureList{jb}.simulateFeature( size(img) );
+                imfMask = imfMask .* (imf < 0.2*max(imf(:) ));
+            end
+                   
+        end
     end
 
 end
