@@ -280,7 +280,7 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         x1 = endPos(1); y1 = endPos(2); z1 = endPos(3);
         sx = sigma(1); sy = sigma(2); sz = sigma(3);
         
-        if z0 < 1 || z0 > 7
+        if z0 < 1 || z0 > size(imageIn,3)
             error('3D line start point should not be outside of z region')
         end
         errorCode = 0;

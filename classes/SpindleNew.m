@@ -267,14 +267,14 @@ classdef SpindleNew < OrganizerMaster
         % loadFromStruct {{{
         function obj = loadFromStruct( S)
             
-            if ~isfield( S, 'type') || ~strcmp( S.type, 'Spindle')
+            if ~isfield( S, 'type') || ~strcmp( S.type, 'SpindleNew')
                 error('incorrect type')
             end
 
             % Load all the features from their structures recursively
             featureList{ 1} = Line.loadFromStruct( S.featureList{ 1} ); 
             for jFeat = 2 : length( S.featureList)
-                featureList{ jFeat} = AsterMT.loadFromStruct( S.featureList{ jFeat} ); 
+                featureList{ jFeat} = Aster.loadFromStruct( S.featureList{ jFeat} ); 
             end
 
             obj = Spindle( S.dim, S.image, featureList, S.props2Fit);

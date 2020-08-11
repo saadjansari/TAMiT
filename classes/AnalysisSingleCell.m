@@ -25,7 +25,7 @@ classdef AnalysisSingleCell < handle
             % Contruct the Analysis Object
             
             obj.path = pathResCell;
-            if ~strcmp(cellType, 'Mitosis') && ~strcmp( cellType, 'Interphase') && ~strcmp( cellType, 'Monopolar')
+            if ~strcmp(cellType, 'Mitosis') && ~strcmp( cellType, 'Interphase') && ~strcmp( cellType, 'Monopolar') && ~strcmp( cellType, 'MitosisBud')
                 error('AnalysisBank: unknown cellType, allowed values are Mitosis and Interphase and Monopolar.')
             end
 
@@ -89,7 +89,7 @@ classdef AnalysisSingleCell < handle
                 % Make movie
                 if obj.flagMovie 
                     fprintf('   Directing movies...\n')
-%                     obj.makeMovie( jChannel);
+                    obj.makeMovie( jChannel);
                     if obj.fwdreverse
                         obj.makeMovieFwdReverse( jChannel);
                     end
@@ -698,7 +698,7 @@ classdef AnalysisSingleCell < handle
                         else
                             feat = feat2.copyDeep();
                         end
-                    case 'Spindle'
+                    case 'Spindle' || 'SpindleNew'
                         % get the one with the longest spindle
                         if feat1.featureList{1}.GetLength() >= feat2.featureList{1}.GetLength()
                             feat = feat1.copyDeep();
@@ -1030,7 +1030,7 @@ classdef AnalysisSingleCell < handle
             end
 
             % Graph comparisons
-            AnalysisSingleCell.GraphMultiCell( anaCells)
+            % AnalysisSingleCell.GraphMultiCell( anaCells)
 
         end
         % }}}
