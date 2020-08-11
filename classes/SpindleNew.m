@@ -189,8 +189,8 @@ classdef SpindleNew < OrganizerMaster
             spindleExclusionRange = deg2rad( 60);
 
             % ask subfeatures to find missing features
-            [feature{1}, suc1, res1] = obj.featureList{2}.findMissingFeature( Image2Find, spindleAngle(1), spindleExclusionRange );
-            [feature{2}, suc2, res2] = obj.featureList{3}.findMissingFeature( Image2Find, spindleAngle(2), spindleExclusionRange );
+            [feature{1}, suc1, res1] = obj.featureList{2}.findMissingFeature( obj.image, Image2Find, spindleAngle(1), spindleExclusionRange );
+            [feature{2}, suc2, res2] = obj.featureList{3}.findMissingFeature( obj.image, Image2Find, spindleAngle(2), spindleExclusionRange );
 
             % Make higher level decision on the best missing feature
             if suc1 && ~suc2

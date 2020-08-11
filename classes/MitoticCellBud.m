@@ -443,6 +443,13 @@ classdef MitoticCellBud < Cell
                 [~, ~, nms3(:,:,jZ), ~] = steerableDetector(imageIn(:,:,jZ), 4, 3);
             end
             
+            % create a mask to apply to steerable image
+            mask = imgaussfilt3(imageIn, 1);
+            st = Methods.GetImageStats(mask,0);
+            mask( mask < st.Median+2*st.Sigma) = 0; mask(mask ~=0) = 1;
+            % figure; imshow3D( imc);
+            % figure; imagesc( sum(nms3,3).*max(mask,[],3));
+            
             % Do a sweep radial sweep and look for peaks corresponding to
             % rods.
             im2 = max(imageIn,[],3); [~,~,nms,~] = steerableDetector(im2, 4, 2);
@@ -451,7 +458,8 @@ classdef MitoticCellBud < Cell
             % find peaks in Phi Intensity
             imVals = im2( im2 ~= 0);
             mtBkg = median( imVals );
-            minPkHeight = mtBkg + std( imVals );
+            minPkHeight = 2*mtBkg + 0*std( imVals );
+%             minPkHeight = mtBkg + 1*std( imVals );
             warning('off', 'signal:findpeaks:largeMinPeakHeight' )
             [ peakIntensity, peakPhi ] = findpeaks( phiIntensity, phiValues, 'MinPeakHeight', minPkHeight );
             peakPhi = mod( peakPhi, 2*pi);
@@ -470,13 +478,7 @@ classdef MitoticCellBud < Cell
             
             AstralMicrotubules = {};
             
-            % create a mask to apply to steerable image
-            mask = imgaussfilt3(imageIn, 1);
-            st = Methods.GetImageStats(mask,0);
-            mask( mask < st.Median+2*st.Sigma) = 0; mask(mask ~=0) = 1;
-            % figure; imshow3D( imc);
-            % figure; imagesc( sum(nms3,3).*max(mask,[],3));
-
+            
             for pp = 1 : length(peakPhi)
                                
                 % Set the two opposite angles for search
@@ -503,6 +505,29 @@ classdef MitoticCellBud < Cell
                 end
                 
             end
+            
+            % Remove any duplicates
+            phiz = zeros(1, length(AstralMicrotubules));
+            for j1 = 1 : length( AstralMicrotubules)
+                phiz(j1) = atan( AstralMicrotubules{j1}(2,2)-AstralMicrotubules{j1}(2,1) ./ AstralMicrotubules{j1}(1,2)-AstralMicrotubules{j1}(1,1) );
+            end
+            destroy = [];
+            for p1 = 1:length(phiz)
+                for p2 = 1:length(phiz)
+                    if p1 ~=p2
+                        if abs( phiz(p1) - phiz(p2)) < 0.1 || abs( phiz(p1) - phiz(p2) -2*pi) < 0.1 || abs( phiz(p1) - phiz(p2) + 2*pi) < 0.1
+                            % figure out which one to destroy
+                            if norm( AstralMicrotubules{p1}(:,end)-AstralMicrotubules{p1}(:,1)) > norm( AstralMicrotubules{p2}(:,end)-AstralMicrotubules{p2}(:,1))
+                                destroy = [destroy, p2];
+                            else
+                                destroy = [destroy, p1];
+                            end
+                        end
+                    end
+                end
+            end
+            destroy = unique(destroy);
+            AstralMicrotubules( destroy) = [];
 
         end
         % }}}

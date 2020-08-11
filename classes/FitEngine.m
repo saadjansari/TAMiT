@@ -250,7 +250,7 @@ classdef FitEngine
             while continueAdd 
 
                 % Find a residual image to use as a reference to find more features
-                refImage = abs( obj.image - FitEngine.SimulateImage( fitInfoOld.fitResults.vfit, fitInfoOld) );
+                refImage = obj.image - FitEngine.SimulateImage( fitInfoOld.fitResults.vfit, fitInfoOld);
                
                 % Create a deep copy main feature
                 featureNew = feature.copyDeep();
@@ -793,7 +793,7 @@ classdef FitEngine
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
                                         'display', 'iter' ,...
-                                        'MaxIter', 10);
+                                        'MaxIter', 20);
             end
             
             % Set Parallel Optimization

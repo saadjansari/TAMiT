@@ -178,7 +178,7 @@ classdef Cell < handle & matlab.mixin.Copyable
 %             img = imagesc( image2D ); eval( imageSets); hold on;
 %             mainFeature.displayFeature(gca); set( get(gca, 'title'), 'String', 'Features');
 %             drawnow; pause(1);
-            
+%             
             % Pre-fit adjustments
             mainFeature.preOptimize();
             
@@ -1244,6 +1244,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             spot.graphics.green = {'Color', [0 1 0] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 2};
             spot.graphics.blue = {'Color', [0 0 1] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 2};
             spot.graphics.red = {'Color', [1 0 0] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 2};
+            spot.graphics.purple = {'Color', [0.5 0.4 0.8] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 3};
 
             % Line
 %             line.fit{2} = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
@@ -1255,6 +1256,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             line.graphics.blue = {'Color', [0 0 1] , 'LineWidth', 2};
             line.graphics.red = {'Color', [1 0 0] , 'LineWidth', 2};
             line.graphics.redWide = {'Color', [1 0 0] , 'LineWidth', 4};
+            line.graphics.greenWide = {'Color', [0 1 0] , 'LineWidth', 4};
             
             % Curve
             curve.fit{2} = {'startPosition','cX','cY','amplitude','sigma'};
@@ -1312,13 +1314,13 @@ classdef Cell < handle & matlab.mixin.Copyable
             spindle.fit{3}.aster = asterLine.fit{3};
             spindle.fit{3}.aster.spot(1) = [];
             spindle.fit{3}.Environment = env1;
-            spindle.graphics.line = line.graphics.redWide;
+            spindle.graphics.line = line.graphics.greenWide;
             spindle.graphics.curve = curve.graphics.red;
-            spindle.graphics.aster.spot = spot.graphics.blue;
+            spindle.graphics.aster.spot = spot.graphics.purple;
             spindle.graphics.aster.line = line.graphics.green;
             spindle.fit{2}.spot = spot.fit{2};
             spindle.fit{3}.spot = spot.fit{3};
-            spindle.graphics.spot = line.graphics.blue;
+            spindle.graphics.spot = spot.graphics.purple;
             props.spindle = spindle;
 
             % Monopolar Aster
@@ -1326,7 +1328,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             monopolarAster.fit{3}.aster = asterLine.fit{3};
             monopolarAster.fit{2}.Environment = env1;
             monopolarAster.fit{3}.Environment = env1;
-            monopolarAster.graphics.aster.spot = spot.graphics.blue;
+            monopolarAster.graphics.aster.spot = spot.graphics.purple;
             monopolarAster.graphics.aster.line = line.graphics.green;
             monopolarAster.fit{2}.spot = spot.fit{2};
             monopolarAster.fit{3}.spot = spot.fit{3};

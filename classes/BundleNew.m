@@ -644,6 +644,13 @@ classdef BundleNew < BasicElement
             imt = imdilate( imt, strel('disk',2*rad)); idxEnd = find(imt);
             [ye, xe] = ind2sub( sizeImage(1:2), idxEnd);
             c2 = [c2 , [xe';ye']];
+            idxRm = [];
+            for jc = 1: size(c2,2)
+                if c2( 1,jc) > sizeImage(2) || c2(2,jc) > sizeImage(1) || c2(1,jc) < 1 || c2(2,jc) < 1
+                    idxRm = [idxRm, jc];
+                end
+            end
+            c2( :,idxRm) = []; 
             pts = unique( c2', 'rows');
             
             % store voxel info
