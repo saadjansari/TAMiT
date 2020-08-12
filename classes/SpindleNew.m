@@ -201,11 +201,12 @@ classdef SpindleNew < OrganizerMaster
             elseif ~suc1 && ~suc2
                 successAdd = 0; return
             else
-                [~,idxKeep] = min( [res1, res2]); 
+                [~,idxKeep] = min( [res1, res2]);
             end
 
             % Add feature to the correct subfeature 
             idxAdd = obj.featureList{1+idxKeep}.addFeatureToList( feature{idxKeep} );
+            feature{idxKeep}.preOptimize();
 
             % Add feature ID and update the featureMap
             feature{idxKeep}.ID = max( cell2mat( keys( obj.featureMap) ) )+1;
