@@ -1292,6 +1292,12 @@ classdef Methods
                 x1 = NaN; y1 = NaN;
             end
             
+            % If point is outside the image bounds, exit
+            if any( [round(y1), round(x1)] > size(helperImage) )
+                coordNew = [NaN, NaN];
+                success = 0; return
+            end
+            
             % ensure this point is connected via intensity (disallow jumps)
             if ~isnan(x1) && ~isnan(y1)
                 imJumps = 0*helperImage;

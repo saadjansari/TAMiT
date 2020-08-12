@@ -406,11 +406,11 @@ classdef CurvedMT < BasicElement
             
             % sigma 
             if obj.dim == 3
-                ub.sigma = [3.0 3.0 2.0];
-                lb.sigma = [1.2 1.2 1.0];
+                ub.sigma = [3.0 3.0 2.5];
+                lb.sigma = [2.0 2.0 1.0];
             elseif obj.dim == 2
                 ub.sigma = [3.0 3.0];
-                lb.sigma = [1.2 1.2];
+                lb.sigma = [2.0 2.0];
             end
             
             % L 
@@ -474,7 +474,7 @@ classdef CurvedMT < BasicElement
 
             % optimize sigma
             % sx
-            res = []; sx = linspace(1.2,2.5,10); sx0 = obj.sigma(1); sy0 = obj.sigma(2);
+            res = []; sx = linspace(2,3,10); sx0 = obj.sigma(1); sy0 = obj.sigma(2);
             for ix = sx
                 obj.sigma(1) = ix; obj.sigma(2) = ix;
                 imSim = imBkg + obj.simulateFeature( size(imBkg));
@@ -485,7 +485,7 @@ classdef CurvedMT < BasicElement
             obj.sigma(2) = sx(idx);
             % sz
             if obj.dim == 3
-                res = []; sz = linspace(1.0,2.0,10); sz0 = obj.sigma(3);
+                res = []; sz = linspace(1.0,2.5,10); sz0 = obj.sigma(3);
                 for ix = sz
                     obj.sigma(3) = ix;
                     imSim = imBkg + obj.simulateFeature( size(imBkg));

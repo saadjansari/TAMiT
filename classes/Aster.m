@@ -152,8 +152,10 @@ classdef Aster < Organizer
                     rng = 1; alist = []; idlist = [];
                     for j1 = -rng : rng
                         for j2 = -rng : rng
-                            alist = [ alist, a2D( round(cc(2,jj))+j1, round(cc(1,jj))+j2)];
-                            idlist = [ idlist, i2d( round(cc(2,jj))+j1, round(cc(1,jj))+j2)];
+                            try
+                                alist = [ alist, a2D( round(cc(2,jj))+j1, round(cc(1,jj))+j2)];
+                                idlist = [ idlist, i2d( round(cc(2,jj))+j1, round(cc(1,jj))+j2)];
+                            end
                         end
                     end
                     [~, idd] = max( alist); c3( jj) = idlist(idd);

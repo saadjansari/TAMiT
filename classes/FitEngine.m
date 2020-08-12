@@ -823,7 +823,7 @@ classdef FitEngine
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
                                         'display', 'iter' ,...
-                                        'MaxIter', 10);
+                                        'MaxIter', 20);
             end
             
             % Set Parallel Optimization
