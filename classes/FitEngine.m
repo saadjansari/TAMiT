@@ -195,6 +195,21 @@ classdef FitEngine
         function [fitInfo] = OptimizeHyperParameters( obj, fitInfoOld)
             % Optimize the hyperparameters of this fit
 
+            obj.feature.fit = 'all';
+            for j1 = 1 : obj.feature.numFeatures
+                obj.feature.featureList{j1}.fit = 'all';
+                if isprop( obj.feature.featureList{j1}, 'featureList')
+                    for j2 = 1 : obj.feature.featureList{j1}.numFeatures
+                        obj.feature.featureList{j1}.featureList{j2}.fit = 'all';
+                        if isprop( obj.feature.featureList{j1}.featureList{j2}, 'featureList')
+                            for j3 = 1 : obj.feature.featureList{j1}.featureList{j2}.numFeatures
+                                obj.feature.featureList{j1}.featureList{j2}.featureList{j3}.fit = 'all';
+                            end
+                        end
+                    end
+                end
+            end
+            
             % Optimize Feature Number
             [obj,fitInfo] = obj.OptimizeFeatureNumber( fitInfoOld);
             fitInfo.fitInfoOld = fitInfoOld;
@@ -460,6 +475,21 @@ classdef FitEngine
             % Update 3D features using fitted 2D information
             obj.feature.Update3DFrom2D(fitInfo.featureCurrent);
             obj.feature.syncFeatures();
+            
+            obj.feature.fit = 'zonly';
+            for j1 = 1 : obj.feature.numFeatures
+                obj.feature.featureList{j1}.fit = 'zonly';
+                if isprop( obj.feature.featureList{j1}, 'featureList')
+                    for j2 = 1 : obj.feature.featureList{j1}.numFeatures
+                        obj.feature.featureList{j1}.featureList{j2}.fit = 'zonly';
+                        if isprop( obj.feature.featureList{j1}.featureList{j2}, 'featureList')
+                            for j3 = 1 : obj.feature.featureList{j1}.featureList{j2}.numFeatures
+                                obj.feature.featureList{j1}.featureList{j2}.featureList{j3}.fit = 'zonly';
+                            end
+                        end
+                    end
+                end
+            end
             
         end
         % }}}
@@ -779,7 +809,7 @@ classdef FitEngine
                                 'OptimalityTolerance', 1e-12, ...
                                 'MaxIter', 10, ...
                                 'TolFun', 1e-9, ...
-                                'FiniteDifferenceStepSize', 1e-3, ...
+                                'FiniteDifferenceStepSize', 1e-4, ...
                                 'FiniteDifferenceType', 'central', ...
                                 'StepTolerance', 1e-5);
 
@@ -793,7 +823,7 @@ classdef FitEngine
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
                                         'display', 'iter' ,...
-                                        'MaxIter', 20);
+                                        'MaxIter', 10);
             end
             
             % Set Parallel Optimization
@@ -926,65 +956,44 @@ classdef FitEngine
             maxBkg = max( image(:) );
             minBkg = min( image(:) );
 
-            % Amplitude
-            maxAmp = max( image(:) );
-            minAmp = (maxBkg-estBkg )/5; 
-
-            % Sigma
-            minSig = [1.2, 1.2, 1.0];
-            maxSig = [1.6, 1.6, 1.5];
-            if dim == 2
-                minSig(end) = []; maxSig(end) = [];
-            end
-
             % Find the correct label in vecLabels, and place the correct bounds in the correct places
 
             % Find index of parameters 
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'amplitude') ) );
-            idxSig = find( ~cellfun( @isempty, strfind( vecLabels, 'sigma') ) );
             idxP0 = find( ~cellfun( @isempty, strfind( vecLabels, 'startPosition') ) );
             idxP1 = find( ~cellfun( @isempty, strfind( vecLabels, 'endPosition') ) );
             idxP = find( ~cellfun( @isempty, strfind( vecLabels, 'position') ) );
-            idxBkg = find( ~cellfun( @isempty, strfind( vecLabels, 'background') ) );
             idxOrigin = find( ~cellfun( @isempty, strfind( vecLabels, 'origin') ) );
+            idxBkg = find( ~cellfun( @isempty, strfind( vecLabels, 'background') ) );
             
             % Store upper and lower bounds correctly
-            if ~isempty( idxAmp), 
-                ub( idxAmp) = maxAmp;
-                lb( idxAmp) = minAmp; 
-                vec( idxAmp( vec(idxAmp) < minAmp) ) = minAmp; end
-%             if ~isempty( idxSig), 
-%                 nF = length( idxSig)/dim;
-%                 ub( idxSig) = repmat( maxSig, 1, nF);
-%                 lb( idxSig) = repmat( minSig, 1, nF); end
-            if ~isempty( idxP0), 
-                nF = length( idxP0)/dim;
-                ub( idxP0 ) = repmat( VoxSize, 1, nF);
-                lb( idxP0 ) = minVox; end
-            if ~isempty( idxP1), 
-                nF = length( idxP1)/dim;
-                ub( idxP1 ) = repmat( VoxSize, 1, nF);
-                lb( idxP1 ) = minVox; end
-            if ~isempty( idxP), 
-                nF = length( idxP)/dim;
-                ub( idxP ) = repmat( VoxSize, 1, nF);
-                lb( idxP ) = minVox; end
-            if ~isempty( idxBkg), 
-                ub( idxBkg ) = maxBkg;
-                lb( idxBkg ) = minBkg; end
-            if ~isempty( idxOrigin), 
-                nF = length( idxOrigin)/dim;
-                ub( idxOrigin ) = repmat( VoxSize, 1, nF);
-                lb( idxOrigin ) = minVox; end
-            
-            % Bounds for Special Objects
-            % Interphase curves
-            if bs && strcmp(obj.feature.type, 'IMTBank')
-                %[ub, lb] = FitEngine.GetVectorBoundsCurves( obj, vec, ub,lb, vecLabels);
-                [ub, lb] = FitEngine.GetVectorBoundsBundlesNew( obj, vec, ub,lb, vecLabels);
+            if strcmp( obj.feature.fit, 'zonly')
+                VoxSize = VoxSize(end); dim=1;
             end
-            if bs && strcmp(obj.feature.type, 'MonopolarAster')
-                [ub, lb] = FitEngine.GetVectorBoundsMonopolar( obj, vec, ub,lb, vecLabels);
+            
+            %positions
+            if ~isempty(idxP0)
+                nF = length(idxP0)/dim;
+                ub(idxP0) = repmat( VoxSize, 1, nF);
+                lb(idxP0) = minVox;
+            end
+            if ~isempty(idxP1)
+                nF = length(idxP1)/dim;
+                ub(idxP1) = repmat( VoxSize, 1, nF);
+                lb(idxP1) = minVox;
+            end
+            if ~isempty(idxP)
+                nF = length(idxP)/dim;
+                ub(idxP) = repmat( VoxSize, 1, nF);
+                lb(idxP) = minVox;
+            end
+            if ~isempty(idxOrigin)
+                nF = length(idxOrigin)/dim;
+                ub(idxOrigin) = repmat( VoxSize, 1, nF);
+                lb(idxOrigin) = minVox;
+            end
+            if ~isempty(idxBkg)
+                ub(idxBkg) = maxBkg;
+                lb(idxBkg) = minBkg;
             end
             
             if any( lb > ub) || any(ub < lb) || any( vec < lb) || any(vec > ub)
@@ -1017,11 +1026,11 @@ classdef FitEngine
             speedAmp = 10;
             speedBkg = 10;
             speedSigma = 1;
-            speedPos = 10;
+            speedPos = 1;
             speedCXYZ = 10;
             speedT = 10;
             speedL = 100;
-            speedNormal = 10;
+            speedNormal = 0.1;
             speedEF = 100;
             speedVec = ones( size(vecLabels) );
 

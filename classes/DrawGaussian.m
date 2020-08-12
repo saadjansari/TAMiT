@@ -10,7 +10,6 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         case 'Spot3'
             [imageFeat, error_code, error_amount] = drawGaussianPoint3D( opts.Pos, sigma, imageIn, opts.Idx, opts.X, opts.Y, opts.Z);
         case 'Line2'
-            error('2d line not set up')
             [imageFeat, error_code, error_amount] = drawGaussianLine2D( opts.PosStart, opts.PosEnd, sigma, imageIn, opts.Idx, opts.X, opts.Y);
         case 'Line3'
             [imageFeat, error_code, error_amount] = drawGaussianLine3D( opts.PosStart, opts.PosEnd, sigma, imageIn, opts.Idx, opts.X, opts.Y, opts.Z);
@@ -20,6 +19,8 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
             [imageFeat, error_code, error_amount] = drawGaussianCurve3D( opts.Coeff, sigma, imageIn, opts.T, opts.Idx, opts.X, opts.Y, opts.Z);
         case 'Curve3Coords'
             [imageFeat, error_code, error_amount] = drawGaussianCurve3DCoords( opts.Coord, sigma, imageIn, opts.Idx, opts.X, opts.Y, opts.Z);
+        case 'Curve2Coords'
+            [imageFeat, error_code, error_amount] = drawGaussianCurve2DCoords( opts.Coord, sigma, imageIn, opts.Idx, opts.X, opts.Y);
         otherwise
             error('DrawGaussian: unknown feature type')
     end
@@ -165,7 +166,7 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
     % }}}
 
     % drawGaussianLine2D {{{
-    function imageLine = drawGaussianLine2D( startPos, endPos, sigma, imageIn, idx, x, y)
+    function [imageLine, errorCode, error_amount] = drawGaussianLine2D( startPos, endPos, sigma, imageIn, idx, x, y)
         % Draws a gaussian straight line using an analytical framework
 
         if isempty( startPos) || isempty(endPos)
@@ -175,7 +176,8 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         if numel( size(imageIn) ) ~= 2 || length(startPos)~=2 || length(endPos)~=2 || length(sigma)~=2
             error('drawGaussianLine2D: all data must be 2-dimensional')
         end
-
+        errorCode = 0; error_amount = 0;
+        
         x0 = startPos(1); y0 = startPos(2);
         x1 = endPos(1); y1 = endPos(2);
         sx = sigma(1); sy = sigma(2);
@@ -195,55 +197,22 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         cx = x0;
         cy = y0;
 
-        error('not set up')
-
-        % We will integrate a 3D gaussian with respect to the parameter t going
+        % We will integrate a 2D gaussian with respect to the parameter t going
         % from 0 to 1.
 
         % We've done the analytical integration in mathematica and will use the
         % result here:
 
-        % Amplitudes:
-        AmpExp = - ( 1 / sqrt(mz^2 * sx^2 * sy^2 + (my^2 * sx^2 + mx^2 * sy^2) * sz^2 ) );
-
-        AmpErf = sqrt( pi/2 ) * sx * sy * sz;
-
-        % Exponential factors:
-        ExpDenom = 2 * ( mz^2 * sx^2 * sy^2 + (my^2 * sx^2 + mx^2 * sy^2) * sz^2);
-
-        Exp1 = ( - ( cx^2 * mz^2 * sy^2 + cz^2 * (my^2 * sx^2 + mx^2 * sy^2) + ...
-            cx^2 * my^2 * sz^2 + cy^2 * (mz^2 * sx^2 + mx^2 * sz^2) ) / ExpDenom );
-
-        Exp2 = ( - ( - 2 * cx * mz^2 *sy^2 * x - 2 * cx * my^2 * sz^2 * x + ...
-            mz^2 * sy^2 * x.^2 + my^2 * sz^2 * x.^2 + 2 * cx * mx * my * sz^2 * y - ...
-            2 * mx * my * sz^2 * x .* y + mz^2 * sx^2 * y.^2 + mx^2 * sz^2 * y.^2 ) / ExpDenom  );
-
-        Exp3 = ( - ( 2 * cx * mx * mz * sy^2 * z - 2 * mx * mz * sy^2 * x .* z - ...
-            2 * my * mz * sx^2 * y .* z + my^2 * sx^2 * z.^2 + mx^2 * sy^2 * z.^2  ) / ExpDenom );
-
-        Exp4 = ( - ( - 2 * cz * ( cy * my * mz * sx^2 + cx * mx * mz * sy^2 - ...
-            mx * mz * sy^2 * x - my * mz * sx^2 * y + my^2 * sx^2 * z + mx^2 * sy^2 * z )  ) / ExpDenom );
-
-        Exp5 = ( - ( - 2 * cy * (cx *mx *my *sz^2 - mx * my * sz^2 * x + ...
-            mx^2 * sz^2 * y + mz * sx^2 * (mz * y - my * z)) ) / ExpDenom );
-
-        SumExp = Exp1 + Exp2 + Exp3 + Exp4 + Exp5;
-
-    %     Exp5( Exp5 == Inf) = realmax;
-
-        % Erf factors;
-        ErfDenom = ( sqrt(2) * sx * sy * sz * sqrt( mz^2 * sx^2 * sy^2 + (my^2 * sx^2 + mx^2 * sy^2) * sz^2 ) );
-
-        Erf1 = erf( ( cz * mz * sx^2 * sy^2 + cy * my * sx^2 * sz^2 + cx * mx * sy^2 * sz^2 - ...
-            mx * sy^2 * sz^2 * x - my * sx^2 * sz^2 * y - mz * sx^2 * sy^2 * z ) / ErfDenom );
-
-        Erf2 = erf( ( cz * mz * sx^2 * sy^2 + mz^2 * sx^2 * sy^2 + ...
-            sz^2 * (cy * my * sx^2 + my^2 * sx^2 + mx * sy^2 * (cx + mx - x) - my * sx^2 * y) - ...
-            mz * sx^2 * sy^2 * z ) / ErfDenom );
-
-        % Find the intensity values for these provided query x,y,z coordinates
-        IntValues = AmpExp .*exp( SumExp) .* ...
-            AmpErf .* ( Erf1 - Erf2 );
+        
+        ExpVal = - ( (y-cy)*mx + (-x+cx)*my ).^2 ./ (my^2 * sx^2 + mx^2 *sy^2);
+        
+        Amp = sqrt(pi) * sx * sy ./ (2*sqrt(my^2 *sx^2 + mx^2 * sy^2) );
+        
+        Erf1 = - erf( (sx^2 *my * (-y + cy) + sy^2 *mx * (-x+cx) ) ./ (sx*sy*sqrt(my^2 *sx^2 + mx^2 * sy^2) ) );
+        
+        Erf2 = + erf( (sx^2 *my * (-y + cy + my) + sy^2 *mx * (-x+cx + mx) ) ./ (sx*sy*sqrt(my^2 *sx^2 + mx^2 * sy^2) ) );
+        
+        IntValues = Amp .* exp( ExpVal) .* ( Erf1 + Erf2 );
 
         functionCheck = 0;
         if functionCheck
@@ -536,6 +505,26 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
             Z( rmIdx) = [];
         end
         % }}}
+
+    end
+    % }}}
+    
+    % drawGaussianCurve3D {{{
+    function [imageCurve, error_code, error_amount] = drawGaussianCurve2DCoords( coords, sigma, imageIn, Idx, X, Y)
+        % Draw a gaussian curve in 3D using numerical integration
+
+        if isempty( coords)
+            error('drawGaussianCurve2DCoords: coords not provided')
+        end
+        if numel( size(imageIn) ) ~= 2 || size( coords,1) ~= 2 || length(sigma)~= 2
+            error('drawGaussianCurve2DCoords: all data must be 2-dimensional')
+        end
+
+        dim = length( size(imageIn) );
+        error_code = 0;
+        error_amount = 0;
+        
+        imageCurve = NumericalConv( sigma, [ coords(1,:)' , coords(2,:)'], {X,Y}, imageIn, Idx );
 
     end
     % }}}

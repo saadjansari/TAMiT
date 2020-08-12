@@ -143,7 +143,7 @@ classdef BasicElement < Feature
         
         % Update3DFrom2D {{{
         function obj = Update3DFrom2D(obj, obj2D)
-            
+            obj.fit = 'zonly';
         end
         % }}}
 

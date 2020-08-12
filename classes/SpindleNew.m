@@ -14,6 +14,7 @@ classdef SpindleNew < OrganizerMaster
 
             obj = obj@OrganizerMaster( dim, image, featureList, props2Fit, 'SpindleNew');
             obj.numFeatures = length(featureList);
+            obj.mask = ones( size(obj.image));
 
         end
         % }}}

@@ -33,10 +33,25 @@ classdef Spot < BasicElement
             end
 
             % Get vector of Properties
+            if obj.dim == 3 && strcmp(obj.fit, 'zonly')
+                temps.position = obj.position(3);
+                temps.sigma = obj.sigma(3);
+                temps.amplitude = obj.amplitude;
+                temps.bounds.ub.position = obj.bounds.ub.position(3);
+                temps.bounds.ub.sigma = obj.bounds.ub.sigma(3);
+                temps.bounds.ub.amplitude = obj.bounds.ub.amplitude;
+                temps.bounds.lb.position = obj.bounds.lb.position(3);
+                temps.bounds.lb.sigma = obj.bounds.lb.sigma(3);
+                temps.bounds.lb.amplitude = obj.bounds.lb.amplitude;
+            end
             vec = []; ub = []; lb = [];
             for jProp = 1 : length( props2get)
-                vec = [ vec, obj.( props2get{jProp} ) ];
-                try
+                if obj.dim == 3 && strcmp(obj.fit, 'zonly')
+                    vec = [ vec, temps.( props2get{jProp} ) ];
+                    ub = [ ub, temps.bounds.ub.( props2get{jProp} ) ];
+                    lb = [ lb, temps.bounds.lb.( props2get{jProp} ) ];
+                else
+                    vec = [ vec, obj.( props2get{jProp} ) ];
                     ub = [ ub, obj.bounds.ub.( props2get{jProp} ) ];
                     lb = [ lb, obj.bounds.lb.( props2get{jProp} ) ];
                 end
@@ -48,7 +63,11 @@ classdef Spot < BasicElement
                 if numel( obj.( props2get{jProp} ) ) ~= length( obj.( props2get{jProp} ) )
                     error('getVec : property selected is a non-singleton matrix')
                 end
-                numRep = length( obj.( props2get{jProp} ) );
+                if obj.dim == 3 && strcmp(obj.fit, 'zonly')
+                    numRep = length( temps.( props2get{jProp} ) );                 
+                else
+                    numRep = length( obj.( props2get{jProp} ) );
+                end
                 labelRep = cell( 1, numRep);
                 labelRep(:) = props2get(jProp);
                 vecLabels = { vecLabels{:}, labelRep{:} };
@@ -60,6 +79,37 @@ classdef Spot < BasicElement
         end
         % }}}
 
+        % absorbVec {{{
+        function obj = absorbVec( obj, vec, vecLabels)
+
+            props2find = {'position', 'amplitude', 'sigma'};
+
+            % find the index of start positions
+            for jProp = 1 : length( props2find)
+                idxProp = find( strcmp( props2find{ jProp} , vecLabels) );
+                
+                % Checking
+                if isempty( idxProp)
+                    continue
+                end
+                
+                if obj.dim == 3 && strcmp(obj.fit, 'zonly')
+                    obj.( props2find{ jProp} )(1+end-length(idxProp):end) = vec( idxProp);
+                    
+                else
+                    if length( obj.( props2find{ jProp} ) ) ~= length( vec(idxProp) )
+                        error( 'absorbVec: length of vector props to absorb does not match the old property size')
+                    end
+
+                    % Set final property
+                    obj.( props2find{ jProp} ) = vec( idxProp);
+                end
+
+            end
+
+        end
+        % }}}
+        
         % simulateFeature {{{
         function imageOut = simulateFeature( obj, sizeImage)
 
@@ -201,7 +251,7 @@ classdef Spot < BasicElement
             end
             
             obj.position = obj.position(1:2);
-            
+            obj.SetBounds();
         end
         % }}}
         
@@ -215,7 +265,7 @@ classdef Spot < BasicElement
             end
             
             obj.position(3) = 1;
-            
+            obj.SetBounds();
         end
         % }}}
         

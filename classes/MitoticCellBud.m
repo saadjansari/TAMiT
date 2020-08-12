@@ -485,7 +485,7 @@ classdef MitoticCellBud < Cell
                 cc = Methods.estimateCurveCoords( startPoint(1:2)', peakPhi(pp), sum(nms3,3).*max(mask,[],3), defaultStepSize, defaultVisibility, defaultFieldOfView, 1);
                 
                 % figure out z-coordinates
-                [a2D, i2d] = max( imgaussfilt(imageIn, 1), [], 3);
+                [a2D, i2d] = max( imageIn, [], 3);
                 c3 = zeros( 1, size(cc,2));
                 for jj = 1 : length(c3)
                     rng = 1; alist = []; idlist = [];
@@ -497,7 +497,10 @@ classdef MitoticCellBud < Cell
                     end
                     [~, idd] = max( alist); c3( jj) = idlist(idd);
                 end
-                cc = [cc; c3];
+                pz = polyfit( linspace(0,1, length(c3)), c3, 1);
+                zz = polyval( pz, linspace(0,1, length(c3)));
+                zz(zz < 1) = 1.2; zz(zz > size(imageIn,3) ) = size(imageIn,3)-0.2;
+                cc = [cc; zz];
                 
                 % Length of end-end curve
                 if norm( cc(:,end)-cc(:,1)) > minLength

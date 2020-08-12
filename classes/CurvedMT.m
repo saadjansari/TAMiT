@@ -56,11 +56,37 @@ classdef CurvedMT < BasicElement
             end
 
             % Get vector of Properties
+            if obj.dim == 3 && strcmp(obj.fit, 'zonly')
+                temps.origin = obj.origin(3);
+                temps.thetaInit = obj.thetaInit(2);
+                temps.sigma = obj.sigma(3);
+                temps.amplitude = obj.amplitude;
+                temps.L = obj.L;
+                temps.normalVec = obj.normalVec;
+                temps.bounds.ub.origin = obj.bounds.ub.origin(3);
+                temps.bounds.ub.thetaInit = obj.bounds.ub.thetaInit(2);
+                temps.bounds.ub.sigma = obj.bounds.ub.sigma(3);
+                temps.bounds.ub.amplitude = obj.bounds.ub.amplitude;
+                temps.bounds.ub.L = obj.bounds.ub.L;
+                temps.bounds.ub.normalVec = obj.bounds.ub.normalVec;
+                temps.bounds.lb.origin = obj.bounds.lb.origin(3);
+                temps.bounds.lb.thetaInit = obj.bounds.lb.thetaInit(2);
+                temps.bounds.lb.sigma = obj.bounds.lb.sigma(3);
+                temps.bounds.lb.amplitude = obj.bounds.lb.amplitude;
+                temps.bounds.lb.L = obj.bounds.lb.L;
+                temps.bounds.lb.normalVec = obj.bounds.lb.normalVec;
+            end
             vec = []; ub=[]; lb=[];
             for jProp = 1 : length( props2get)
-                vec = [ vec, obj.( props2get{jProp} ) ];
-                ub = [ ub, obj.bounds.ub.( props2get{jProp} ) ];
-                lb = [ lb, obj.bounds.lb.( props2get{jProp} ) ];
+                if obj.dim == 3 && strcmp(obj.fit, 'zonly')
+                    vec = [ vec, temps.( props2get{jProp} ) ];
+                    ub = [ ub, temps.bounds.ub.( props2get{jProp} ) ];
+                    lb = [ lb, temps.bounds.lb.( props2get{jProp} ) ];
+                else
+                    vec = [ vec, obj.( props2get{jProp} ) ];
+                    ub = [ ub, obj.bounds.ub.( props2get{jProp} ) ];
+                    lb = [ lb, obj.bounds.lb.( props2get{jProp} ) ];
+                end
             end
 
             % Also get a string array with property names
@@ -69,7 +95,11 @@ classdef CurvedMT < BasicElement
                 if numel( obj.( props2get{jProp} ) ) ~= length( obj.( props2get{jProp} ) )
                     error('getVec : property selected is a non-singleton matrix')
                 end
-                numRep = length( obj.( props2get{jProp} ) );
+                if obj.dim == 3 && strcmp(obj.fit, 'zonly')
+                    numRep = length( temps.( props2get{jProp} ) );                 
+                else
+                    numRep = length( obj.( props2get{jProp} ) );
+                end
                 labelRep = cell( 1, numRep);
                 labelRep(:) = props2get(jProp);
                 vecLabels = { vecLabels{:}, labelRep{:} };
@@ -91,17 +121,21 @@ classdef CurvedMT < BasicElement
                 if isempty( idxProp)
                     continue;
                 end
-                if length( obj.( props2find{ jProp} ) ) ~= length( vec(idxProp) )
-                    error( 'absorbVec: length of vector props to absorb does not match the old property size')
+                if obj.dim == 3 && strcmp(obj.fit, 'zonly')
+                    obj.( props2find{ jProp} )(1+end-length(idxProp):end) = vec( idxProp);
+                    
+                else
+                    if length( obj.( props2find{ jProp} ) ) ~= length( vec(idxProp) )
+                        error( 'absorbVec: length of vector props to absorb does not match the old property size')
+                    end
+
+                    % Set final property
+                    obj.( props2find{ jProp} ) = vec( idxProp);
                 end
-            
-                % Set final property
-                if any(obj.( props2find{ jProp} ) ~= vec( idxProp))
-                    stoph = 1;
-                end
-                obj.( props2find{ jProp} ) = vec( idxProp);
 
             end
+            obj.sigma(1) = mean( obj.sigma(1:2));
+            obj.sigma(2) = obj.sigma(1);
 
         end
         % }}}
@@ -215,10 +249,13 @@ classdef CurvedMT < BasicElement
             end
             
             Rot = [ 0 -1; 1 0]; % Rotation matrix
-            
-            tanVec = [ cos( obj.thetaInit(1)), sin( obj.thetaInit(1) ), cos( obj.thetaInit(2) )];
+            if obj.dim == 2
+                tanVec = [ cos( obj.thetaInit(1)), sin( obj.thetaInit(1) )];
+            elseif obj.dim == 3
+                tanVec = [ cos( obj.thetaInit(1)), sin( obj.thetaInit(1) ), cos( obj.thetaInit(2) )];
+            end
             % construct time vector
-            t = 0:0.1:tmax;  [~,idxStart] = min( abs(t-tmin));
+            t = linspace(0, tmax, ceil(10*tmax));  [~,idxStart] = min( abs(t-tmin));
 
             % Acceleration function discretized in time
             acc = obj.normalVec(1) + obj.normalVec(2)*t;
@@ -304,15 +341,65 @@ classdef CurvedMT < BasicElement
 
         end
         % }}}
+        
+         % GetProjection2DSpecific {{{
+        function obj = GetProjection2DSpecific( obj)
+            % Get 2D projection of feature
+            
+            % Check object dimensionality
+            if obj.dim == 2
+                warning('object dimensionality is already 2')
+            end
+            
+            obj.origin = obj.origin(1:2);
+            obj.thetaInit = obj.thetaInit(1);
+            obj.SetBounds();
+            
+        end
+        % }}}
+        
+        % GetProjection3DSpecific {{{
+        function obj = GetProjection3DSpecific( obj)
+            % Get 3D projection of feature
+            
+            % Check object dimensionality
+            if obj.dim == 3
+                warning('object dimensionality is already 3')
+            end
+            
+            obj.origin(3) = 7;
+            obj.thetaInit(2) = 0;
+            obj.SetBounds();
+        end
+        % }}}
+        
+        % Update3DFrom2D {{{
+        function obj = Update3DFrom2D(obj, obj2D)
+            
+            obj.origin(1:2) = obj2D.origin(1:2);
+            obj.thetaInit(1) = obj2D.thetaInit(1);
+            obj.sigma(1:2) = obj2D.sigma(1:2);
+            obj.amplitude = obj2D.amplitude;
+            obj.L = obj2D.L;
+            obj.normalVec = obj2D.normalVec;
+            
+        end
+        % }}}
 
         % SetBounds {{{
         function SetBounds( obj)
            
             % origin
             tanVec = round( abs( 7*[cos(obj.thetaInit(1,1)), sin(obj.thetaInit(1,1)) ]));
-            ub.origin = [ obj.origin(1)+tanVec(1)+5, obj.origin(2)+tanVec(2)+5, obj.origin(3)-3];
-            lb.origin = [ obj.origin(1)-tanVec(1)-5, obj.origin(2)-tanVec(2)-5, obj.origin(3)+3];
-
+            
+            if obj.dim == 3
+                ub.origin = [ obj.origin(1)+tanVec(1)+5, obj.origin(2)+tanVec(2)+5, obj.origin(3)-3];
+                lb.origin = [ obj.origin(1)-tanVec(1)-5, obj.origin(2)-tanVec(2)-5, obj.origin(3)+3];
+            elseif obj.dim == 2
+                ub.origin = [ obj.origin(1)+tanVec(1)+5, obj.origin(2)+tanVec(2)+5];
+                lb.origin = [ obj.origin(1)-tanVec(1)-5, obj.origin(2)-tanVec(2)-5];
+            end
+            
             % amplitude
             ub.amplitude = 1;
             lb.amplitude = 0;
@@ -327,13 +414,17 @@ classdef CurvedMT < BasicElement
             end
             
             % L 
-            ub.L = 100;
-            lb.L = 8;
+            ub.L = obj.L + 20;
+            lb.L = obj.L-5;
 
             % thetaInit
-            ub.thetaInit = obj.thetaInit + [0.4, 0.2];
-            lb.thetaInit = obj.thetaInit - [0.4, 0.2];
-
+            if obj.dim == 3
+                ub.thetaInit = obj.thetaInit + [0.4, 0.2];
+                lb.thetaInit = obj.thetaInit - [0.4, 0.2];
+            elseif obj.dim == 2
+                ub.thetaInit = obj.thetaInit + [0.4];
+                lb.thetaInit = obj.thetaInit - [0.4];
+            end
             % normalVec 
             ub.normalVec = obj.normalVec + [0.05, 0.03];
             lb.normalVec = obj.normalVec - [0.05, 0.03];
@@ -378,7 +469,8 @@ classdef CurvedMT < BasicElement
                 imSim = imBkg + obj.simulateFeature( size(imBkg));
                 res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
             end
-            [~,idA] = min( min(res,[],2) ); obj.amplitude = amps(idA); 
+            [~,idA] = min(res); 
+            obj.amplitude = amps(idA);
 
             % optimize sigma
             % sx
@@ -410,7 +502,8 @@ classdef CurvedMT < BasicElement
                 imSim = imBkg + obj.simulateFeature( size(imBkg));
                 res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
             end
-            [~, idx] = min( res); obj.L = l1(idx);
+            [~, idx] = min( res); 
+            obj.L = l1(idx);
             obj.SetBounds();
             
         end

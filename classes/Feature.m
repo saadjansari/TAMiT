@@ -6,6 +6,7 @@ classdef Feature < handle & matlab.mixin.Copyable
         type % feature specialization (if any)
         ID
         label
+        fit = 'all' % 'all' or 'zonly'
     end
 
     methods

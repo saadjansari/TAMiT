@@ -422,6 +422,7 @@ classdef Organizer < Feature
             try
                 obj.Update3DFrom2DSpecific( obj2D);
             end
+            obj.fit = 'zonly';
             
             rmFeat = [];
             for jF = 1 : obj.numFeatures
@@ -446,6 +447,7 @@ classdef Organizer < Feature
                 if isempty( feat3D)
                     % Change feature to 3D
                     feat3D = obj2D.featureList{jF}.GetProjection3D();
+                    feat3D.fit = 'zonly';
                     obj.addFeatureToList( feat3D );
                 end
                 

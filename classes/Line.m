@@ -58,6 +58,20 @@ classdef Line < BasicElement
             end
 
             % Get vector of Properties
+            if obj.dim == 3 && strcmp(obj.fit, 'zonly')
+                temps.startPosition = obj.startPosition(3);
+                temps.endPosition = obj.endPosition(3);
+                temps.sigma = obj.sigma(3);
+                temps.amplitude = obj.amplitude;
+                temps.bounds.ub.startPosition = obj.bounds.ub.startPosition(3);
+                temps.bounds.ub.endPosition = obj.bounds.ub.endPosition(3);
+                temps.bounds.ub.sigma = obj.bounds.ub.sigma(3);
+                temps.bounds.ub.amplitude = obj.bounds.ub.amplitude;
+                temps.bounds.lb.startPosition = obj.bounds.lb.startPosition(3);
+                temps.bounds.lb.endPosition = obj.bounds.lb.endPosition(3);
+                temps.bounds.lb.sigma = obj.bounds.lb.sigma(3);
+                temps.bounds.lb.amplitude = obj.bounds.lb.amplitude;
+            end
             vec = []; ub = []; lb = [];
             for jProp = 1 : length( props2get)
                 if strcmp( obj.repr, 'cartesian') && ( strcmp(props2get{jProp},'theta') || strcmp(props2get{jProp},'length'))
@@ -65,8 +79,13 @@ classdef Line < BasicElement
                 elseif strcmp( obj.repr, 'spherical') && strcmp(props2get{jProp},'endPosition')
                     continue
                 end
-                vec = [ vec, obj.( props2get{jProp} ) ];
-                try
+                
+                if obj.dim == 3 && strcmp(obj.fit, 'zonly')
+                    vec = [ vec, temps.( props2get{jProp} ) ];
+                    ub = [ ub, temps.bounds.ub.( props2get{jProp} ) ];
+                    lb = [ lb, temps.bounds.lb.( props2get{jProp} ) ];
+                else
+                    vec = [ vec, obj.( props2get{jProp} ) ];
                     ub = [ ub, obj.bounds.ub.( props2get{jProp} ) ];
                     lb = [ lb, obj.bounds.lb.( props2get{jProp} ) ];
                 end
@@ -83,10 +102,16 @@ classdef Line < BasicElement
                 elseif strcmp( obj.repr, 'spherical') && strcmp(props2get{jProp},'endPosition')
                     continue
                 end
-                numRep = length( obj.( props2get{jProp} ) );
+                
+                if obj.dim == 3 && strcmp(obj.fit, 'zonly')
+                    numRep = length( temps.( props2get{jProp} ) );                 
+                else
+                    numRep = length( obj.( props2get{jProp} ) );
+                end
                 labelRep = cell( 1, numRep);
                 labelRep(:) = props2get(jProp);
                 vecLabels = { vecLabels{:}, labelRep{:} };
+                
             end
             if isempty(ub)
                 clearvars ub lb
@@ -108,12 +133,18 @@ classdef Line < BasicElement
                 if isempty( idxProp)
                     continue
                 end
-                if length( obj.( props2find{ jProp} ) ) ~= length( vec(idxProp) )
-                    error( 'absorbVec: length of vector props to absorb does not match the old property size')
+                
+                if obj.dim == 3 && strcmp(obj.fit, 'zonly')
+                    obj.( props2find{ jProp} )(1+end-length(idxProp):end) = vec( idxProp);
+                    
+                else
+                    if length( obj.( props2find{ jProp} ) ) ~= length( vec(idxProp) )
+                        error( 'absorbVec: length of vector props to absorb does not match the old property size')
+                    end
+
+                    % Set final property
+                    obj.( props2find{ jProp} ) = vec( idxProp);
                 end
-            
-                % Set final property
-                obj.( props2find{ jProp} ) = vec( idxProp);
 
             end
             
@@ -125,6 +156,8 @@ classdef Line < BasicElement
                     obj.endPosition = obj.startPosition + obj.length* [cos(obj.theta(1)), sin(obj.theta(1))];
                 end
             end
+            obj.sigma(1) = mean( obj.sigma(1:2));
+            obj.sigma(2) = obj.sigma(1);
 
         end
         % }}}
@@ -260,6 +293,7 @@ classdef Line < BasicElement
             
             obj.startPosition = obj.startPosition(1:2);
             obj.endPosition = obj.endPosition(1:2);
+            obj.SetBounds();
             
         end
         % }}}

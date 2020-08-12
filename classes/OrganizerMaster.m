@@ -284,8 +284,11 @@ classdef OrganizerMaster < Organizer
                warning('object dimensionality is already 2')
            end
            
-           obj.image = max( obj.image, [], 3);            
-            
+           obj.image = max( obj.image, [], 3);          
+           try
+               obj.mask = min( obj.mask, [], 3);  
+           end
+           
         end
         % }}}
 
