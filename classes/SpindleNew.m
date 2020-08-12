@@ -206,7 +206,8 @@ classdef SpindleNew < OrganizerMaster
 
             % Add feature to the correct subfeature 
             idxAdd = obj.featureList{1+idxKeep}.addFeatureToList( feature{idxKeep} );
-            feature{idxKeep}.preOptimize();
+            imbkg = 0*obj.image; imbkg(:) = obj.background;
+            feature{idxKeep}.preOptimize(obj.image, imbkg);
 
             % Add feature ID and update the featureMap
             feature{idxKeep}.ID = max( cell2mat( keys( obj.featureMap) ) )+1;
