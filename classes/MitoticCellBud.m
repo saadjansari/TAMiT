@@ -130,12 +130,19 @@ classdef MitoticCellBud < Cell
                 spindleAngle(1) = mod( atan2( spindleMT.endPosition(2)-spindleMT.startPosition(2) , spindleMT.endPosition(1)-spindleMT.startPosition(1) ) , 2*pi );
                 spindleAngle(2) = mod( atan2( spindleMT.startPosition(2)-spindleMT.endPosition(2) , spindleMT.startPosition(1)-spindleMT.endPosition(1) ) , 2*pi );
 
+                % Get start position of astrals (3-5 pixels away from the
+                % spb opposite to the direction of spindle.
+                rr = 3;
+                sp{1} = spindleMT.startPosition + rr*[cos(spindleAngle(1)+pi), sin(spindleAngle(1)+pi), 0];
+                sp{2} = spindleMT.endPosition + rr*[cos(spindleAngle(2)+pi), sin(spindleAngle(2)+pi), 0];
+                
                 % Find Astral Microtubules
-                AMT{1} = MitoticCellBud.findAstralMicrotubules( imageIn, spindleMT.startPosition, spindleAngle(1), spindleExclusionRange);
-                AMT{2} = MitoticCellBud.findAstralMicrotubules( imageIn, spindleMT.endPosition, spindleAngle(2), spindleExclusionRange); 
+                AMT{1} = MitoticCellBud.findAstralMicrotubules( imageIn, sp{1}, spindleAngle(1), spindleExclusionRange);
+                AMT{2} = MitoticCellBud.findAstralMicrotubules( imageIn, sp{2}, spindleAngle(2), spindleExclusionRange); 
 
                 % Create Curved MT objects
                 for jAster = 1 : 2
+                    idxRm = [];
                     curvedMTs = cell(1, length( AMT{jAster} ));
                     for jb = 1 : length( curvedMTs )
                         
@@ -177,10 +184,14 @@ classdef MitoticCellBud < Cell
                                 thetaInit(1,2) = pi/2 + 0.03;
                             end
                         end
+                        if sign(nV(1)) == sign(nV(2)) && (abs(nV(1)) > 0.01 && abs(nV(2)) > 0.005)
+                            idxRm = [idxRm; jb];
+                        end
 
                         % Create
                         curvedMTs{jb} = CurvedMT( origin, thetaInit, nV, L, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
                     end
+                    curvedMTs( idxRm) = [];
                     
                     if ~isempty( curvedMTs )
                         AsterObjects{jAster} = { AsterObjects{jAster}{:}, curvedMTs{:} };
@@ -353,6 +364,10 @@ classdef MitoticCellBud < Cell
                 ind1 = indD-1; ind2 = indD+1;
             else
                 ind1 = indSpindle(1); ind2 = indSpindle(end); end
+            if length(indSpindle) > 7
+                ind1 = ind1+3;
+                ind2 = ind2-3;
+            end
 
             % Here X is the horizontal coordinate.
             [AstersY, AstersX] = ind2sub( size(imPlane), idxMaxPix( [ind1, ind2] ) );
@@ -467,7 +482,7 @@ classdef MitoticCellBud < Cell
             
             % remove angle belonging to spindle.
             spindleAngle = mod( spindleAngle, 2*pi);
-            idxRm = find( abs(peakPhi-spindleAngle) < spindleExclusionRange);
+            idxRm = find( abs(peakPhi-spindleAngle) < spindleExclusionRange | abs(peakPhi-spindleAngle+2*pi) < spindleExclusionRange | abs(peakPhi-spindleAngle-2*pi) < spindleExclusionRange);
             peakPhi( idxRm)=[];
             
             % Default Values

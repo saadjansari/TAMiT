@@ -426,8 +426,10 @@ classdef CurvedMT < BasicElement
                 lb.thetaInit = obj.thetaInit - [0.4];
             end
             % normalVec 
-            ub.normalVec = obj.normalVec + [0.05, 0.03];
-            lb.normalVec = obj.normalVec - [0.05, 0.03];
+            ub.normalVec = obj.normalVec + [0.01, 0.005];
+            lb.normalVec = obj.normalVec - [0.01, 0.005];
+%             ub.normalVec = [0.01, 0.005];
+%             lb.normalVec = -[0.01, 0.005];
             
             obj.bounds.lb = lb;
             obj.bounds.ub = ub;

@@ -62,7 +62,6 @@ classdef Aster < Organizer
             % Get the vector for the spindle by removing the spindle substring. Absorb the vector
             vecSPB = vec( idxSPB);
             vecLabelsSPB = erase( vecLabels( idxSPB), 'SPB_');
-            obj.featureList{ 1} = absorbVec( obj.featureList{ 1}, vecSPB, vecLabelsSPB );
 
             % Get the vector for each microtubule, and ask the microtubule objects to absorb the vector
             for jmt = 2 : obj.numFeatures
@@ -72,7 +71,14 @@ classdef Aster < Organizer
                 vecLabelsMT = erase( vecLabels( idxMT), strMT );
                 obj.featureList{ jmt} = absorbVec( obj.featureList{ jmt}, vecMT, vecLabelsMT);
             end
-            obj.updateSubFeatures();
+            
+            p0 = obj.featureList{ 1}.position;
+            obj.featureList{ 1} = absorbVec( obj.featureList{ 1}, vecSPB, vecLabelsSPB );
+            p1 = obj.featureList{ 1}.position;
+            
+            for jmt = 2 : obj.numFeatures
+                obj.featureList{jmt}.origin = obj.featureList{jmt}.origin + (p1-p0)';
+            end
 
         end
         % }}}
@@ -82,7 +88,8 @@ classdef Aster < Organizer
 
             % Get the SPB  position and update the MTs  associated with the SPB
             for jmt = 1 : obj.numFeatures-1
-                obj.featureList{1+jmt}.origin = obj.featureList{1}.position;
+%                 obj.featureList{1+jmt}.origin = obj.featureList{1}.position;
+                obj.featureList{1+jmt}.origin = obj.featureList{1}.position + 5*[cos(spindleAngle(1)+pi), sin(spindleAngle(1)+pi)];
             end
 
         end
@@ -97,21 +104,32 @@ classdef Aster < Organizer
             Image2Find( Image2Find < 0) = 0; 
             
             bkg = median( Image2Find( Image2Find(:) > 0) );
+            
+            thr = multithresh( imOrg(:), 2);
+            bkg1 = mean( imOrg( imOrg < thr(1)));
+            bkg2 = mean( imOrg( imOrg(:) > thr(1) & imOrg(:) < thr(2)));
+            
             minLength = 10;
             [Image2Find2D, idxZ] = max(Image2Find, [],3);
 
             % Remove intensity for curves
-            mask = obj.getMaskWithoutFeatures( Image2Find);
+%             mask = obj.getMaskWithoutFeatures( Image2Find);
             
             % Do a sweep radial sweep and look for peaks corresponding to
             % rods.
-            im2 = max( Image2Find,[],3).*min(mask,[],3); [~,~,nms,~] = steerableDetector(Image2Find2D, 4, 2);
-            [phiIntensity, phiValues] = Cell.radIntegrate2D( im2, obj.featureList{1}.position(1:2));
+%             im2 = max( Image2Find,[],3).*min(mask,[],3);
+            im2 = max( Image2Find,[],3); 
+            [~,~,nms,~] = steerableDetector(Image2Find2D, 4, 2);
+            
+            startPoint = obj.featureList{1}.position(1:2) + 3*[ cos(xAngle+pi), sin(xAngle+pi)];
+            [phiIntensity, phiValues] = Cell.radIntegrate2D( im2, startPoint, 5, 15);
             
             % find peaks in Phi Intensity
             imVals = im2( im2 ~= 0);
-            mtBkg = median( imVals );
-            minPkHeight = mtBkg + std( imVals );
+%             mtBkg = median( imVals );
+%             minPkHeight = mtBkg + std( imVals );
+            mtBkg = bkg2-bkg1;
+            minPkHeight = mtBkg + bkg1;
             warning('off', 'signal:findpeaks:largeMinPeakHeight' )
             [ peakIntensity, peakPhi ] = findpeaks( phiIntensity, phiValues, 'MinPeakHeight', minPkHeight );
             peakPhi = mod( peakPhi, 2*pi);
@@ -123,8 +141,28 @@ classdef Aster < Organizer
             end
 
             % remove angle belonging to spindle.
-            spindleAngle = mod( xAngle, 2*pi);
-            idxRm = find( abs(peakPhi-spindleAngle) < xRange);
+            spindleAngle = mod( xAngle, 2*pi); 
+            idxRm = find( abs(peakPhi-spindleAngle) < xRange | abs(peakPhi-spindleAngle+2*pi) < xRange | abs(peakPhi-spindleAngle-2*pi) < xRange);
+            peakPhi( idxRm)=[];
+
+            if length(peakPhi) == 0
+                success = 0; mt = []; resid=[];
+                return
+            end
+            
+            % Remove angle belonging to pre-existing curves
+            idxRm = [];
+            for j1 = 1 : length(peakPhi)
+                for j2 = 2 : obj.numFeatures
+                    phi1 = peakPhi(j1);
+                    % get phi of pre-existing line
+                    cc2 = obj.featureList{j2}.GetCoords();
+                    phi2 = atan2( cc2(2,2)-cc2(2,1) , cc2(1,2)-cc2(1,1) );
+                    if abs( phi1 - phi2) < 0.3 || abs( phi1 - phi2 -2*pi) < 0.3 || abs( phi1 - phi2 + 2*pi) < 0.3
+                        idxRm = [idxRm, j1];
+                    end
+                end
+            end
             peakPhi( idxRm)=[];
 
             if length(peakPhi) == 0
@@ -138,12 +176,22 @@ classdef Aster < Organizer
             defaultStepSize = 4;
             minLength = 10;
             
+            nms3 = 0*Image2Find;
+            for jZ = 1 : size(Image2Find,3)
+                [~, ~, nms3(:,:,jZ), ~] = steerableDetector(Image2Find(:,:,jZ), 4, 3);
+            end
+            
+            % create a mask to apply to steerable image
+            mask = imgaussfilt3(imOrg, 1);
+            st = Methods.GetImageStats(mask,0);
+            mask( mask < st.Median+2*st.Sigma) = 0; mask(mask ~=0) = 1;
+            
             % Find curved MT 
             missingFeatures = {};
             for pp = 1 : length(peakPhi)
                                
                 % Set the two opposite angles for search
-                cc = Methods.estimateCurveCoords( obj.featureList{1}.position(1:2)', peakPhi(pp), nms, defaultStepSize, defaultVisibility, defaultFieldOfView, 1);
+                cc = Methods.estimateCurveCoords( startPoint', peakPhi(pp), sum(nms3,3).*max(mask,[],3), defaultStepSize, defaultVisibility, defaultFieldOfView, 1);
                 
                 % figure out z-coordinates
                 [a2D, i2d] = max( imgaussfilt(Image2Find, 1), [], 3);
@@ -168,9 +216,34 @@ classdef Aster < Organizer
                 end
                 
             end
+            
+            % Remove any duplicates
+            phiz = zeros(1, length(missingFeatures));
+            for j1 = 1 : length( missingFeatures)
+                phiz(j1) = atan2( missingFeatures{j1}(2,2)-missingFeatures{j1}(2,1) , missingFeatures{j1}(1,2)-missingFeatures{j1}(1,1) );
+            end
+            destroy = [];
+            for p1 = 1:length(phiz)
+                for p2 = 1:length(phiz)
+                    if p1 ~=p2
+                        if abs( phiz(p1) - phiz(p2)) < 0.1 || abs( phiz(p1) - phiz(p2) -2*pi) < 0.1 || abs( phiz(p1) - phiz(p2) + 2*pi) < 0.1
+                            % figure out which one to destroy
+                            if norm( missingFeatures{p1}(:,end)-missingFeatures{p1}(:,1)) > norm( missingFeatures{p2}(:,end)-missingFeatures{p2}(:,1))
+                                destroy = [destroy, p2];
+                            else
+                                destroy = [destroy, p1];
+                            end
+                        end
+                    end
+                end
+            end
+            destroy = unique(destroy);
+            missingFeatures( destroy) = [];
+            
 
             % Create curved MT objects
             curvedMTs = cell(1, length( missingFeatures ));
+            idxRm = [];
             for jb = 1 : length( curvedMTs )
 
                 coords = missingFeatures{jb};
@@ -201,8 +274,11 @@ classdef Aster < Organizer
                     6*(cf1{1}(3)*cf1{2}(1) - cf1{1}(1)*cf1{2}(3))];
 
                 % Get amplitude along each bundle
-                A1 = smooth( Cell.findAmplitudeAlongCurveCoords( max(Image2Find,[],3), round([cX1;cY1]) ) - bkg);
-                A1( A1 < bkg) = bkg; amp = median(A1);
+                A1 = Cell.findAmplitudeAlongCurveCoords( max(Image2Find,[],3), round([cX1;cY1]) ) - bkg1;
+                amp = median(A1( floor( length(A1)/2):end ));
+                if amp < 1.5*bkg2-bkg1 || ( sign(nV(1)) == sign(nV(2)) && (abs(nV(1)) > 0.01 && abs(nV(2)) > 0.005) )
+                    idxRm = [idxRm, jb];
+                end
 
                 % Ensure coefficients are within the image region
                 if obj.dim == 3
@@ -216,6 +292,7 @@ classdef Aster < Organizer
                 % Create
                 curvedMTs{jb} = CurvedMT( origin, thetaInit, nV, L, amp, sigma, obj.dim, props, display);
             end
+            curvedMTs(idxRm) = [];
                 
             % remove curves shorter than minLength
             idxRm = [];
