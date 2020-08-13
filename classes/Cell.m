@@ -1244,7 +1244,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             spot.graphics.green = {'Color', [0 1 0] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 2};
             spot.graphics.blue = {'Color', [0 0 1] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 2};
             spot.graphics.red = {'Color', [1 0 0] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 2};
-            spot.graphics.purple = {'Color', [0.5 0.4 0.8] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 3};
+            spot.graphics.purple = {'Color', [0.35 0.06 0.51] , 'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 5};
 
             % Line
 %             line.fit{2} = {'startPosition', 'endPosition', 'amplitude', 'sigma'};

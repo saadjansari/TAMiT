@@ -437,7 +437,13 @@ classdef Line < BasicElement
            
             % optimize sigma
             % sx
-            res = []; sx = linspace(1.2,2.5,15); sx0 = obj.sigma(1); sy0 = obj.sigma(2);
+            res = [];
+            if strcmp(obj.label, 'spindle')
+                sx = linspace(1.2,2.5,15); 
+            else
+                sx = linspace(1.2,2.0,15); 
+            end
+            sx0 = obj.sigma(1); sy0 = obj.sigma(2);
             for ix = sx
                 obj.sigma(1) = ix; obj.sigma(2) = ix;
                 imSim = imBkg + obj.simulateFeature( size(imBkg));
@@ -449,7 +455,13 @@ classdef Line < BasicElement
 
             % sz
             if obj.dim == 3
-                res = []; sz = linspace(1.0,2.0,10); sz0 = obj.sigma(3);
+                res = [];
+                if strcmp(obj.label, 'spindle')
+                    sz = linspace(1.0,2.0,10);
+                else
+                    sz = linspace(1.0,2.0,10);
+                end
+                sz0 = obj.sigma(3);
                 for ix = sz
                     obj.sigma(3) = ix;
                     imSim = imBkg + obj.simulateFeature( size(imBkg));
@@ -457,17 +469,29 @@ classdef Line < BasicElement
                 end
                 [~, idx] = min( res); obj.sigma(3) = sz(idx);
             end
-            %{
-             {% optimize amp 
-             {res = []; amps = linspace( 0, max( imOrg(:))-imBkg(1), 20); 
-             {A0 = obj.amplitude; 
-             {for ia = amps
-             {    obj.amplitude = ia; 
-             {    imSim = imBkg + obj.simulateFeature( size(imBkg));
-             {    res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
-             {end
-             {[~,idA] = min( min(res,[],2) ); obj.amplitude = amps(idA); 
-             %}
+            
+            if ~strcmp(obj.label, 'spindle')
+                % optimize amp
+                res = []; amps = linspace( 0, max( imOrg(:))-imBkg(1), 20);
+                A0 = obj.amplitude;
+                for ia = amps
+                    obj.amplitude = ia;
+                    imSim = imBkg + obj.simulateFeature( size(imBkg));
+                    res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+                end
+                [~,idA] = min(res); obj.amplitude = amps(idA);
+                
+                % optimize length
+                res = []; lens = linspace( obj.length, 2*obj.length, 10);
+                L0 = obj.length;
+                for ia = lens
+                    obj.SetLength(ia);
+                    imSim = imBkg + obj.simulateFeature( size(imBkg));
+                    res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+                end
+                [~,idL] = min(res); obj.length = lens(idL);
+            end
+            obj.SetBounds();
             
         end
         % }}}

@@ -358,6 +358,7 @@ classdef Spot < BasicElement
              {end
              {[~,idA] = min( min(res,[],2) ); obj.amplitude = amps(idA); 
              %}
+            obj.SetBounds();
             
         end
         % }}}
