@@ -103,15 +103,27 @@ classdef AsterMT < Organizer
         % }}}
 
         % findBestMissingFeature {{{
-        function missingFeature = findBestMissingFeature( obj, Image2Find, xAngle, xRange, featType)
+        function [missingFeature, succ] = findBestMissingFeature( obj, imOrg, Image2Find, xAngle, xRange, featType)
             % featType = 'Line' or 'Curve'
             
-            if nargin <5
+            if nargin <6
                 featType = 'Line';
             end
             % Find Possible missing features
             missingFeatures = findMissingFeatures( obj, Image2Find, xAngle, xRange, featType);
 
+            % remove weak lines
+            idxRm = []; bkg = median( imOrg( imOrg ~= 0));
+            for j1 = 1 : length(missingFeatures)
+                if missingFeatures{j1}.amplitude < bkg % i.e SNR is less than 2
+                    idxRm = [idxRm, j1];
+                end
+            end
+            missingFeatures( idxRm) = [];
+            if isempty(missingFeatures)
+                missingFeature = []; succ = 0; return
+            end
+            
             % Find the best missing feature
             residual = [];
             for jmt = 1 : length( missingFeatures)
@@ -125,6 +137,7 @@ classdef AsterMT < Organizer
             missingFeature = missingFeatures{idxKeep};
             missingFeature.amplitude = mean( lineAmp{idxKeep} );
             missingFeature.residual = residual(idxKeep);
+            succ = 1;
 
         end
         % }}}
@@ -183,7 +196,7 @@ classdef AsterMT < Organizer
                 missingFeatures{1}.amplitude = mean( lineAmp);
                 missingFeatures{1}.residual = mean( abs( lineAmp - mean(lineAmp) ) );
             end
-
+            
         end
         % }}}
 

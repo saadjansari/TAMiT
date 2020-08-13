@@ -208,12 +208,20 @@ classdef Spindle < OrganizerMaster
             imSpinLog( find(imSpin < 0.03*max(imSpin(:)))) = 1;
 %             imSpinLog = imSpin < 0.03*max(imSpin(:));
             Image2Find = Image2Find .* imSpinLog;
+            Image2Find( Image2Find < 0) = 0;
+            [feature{1}, suc1] = obj.featureList{2}.findBestMissingFeature( obj.image, Image2Find, spindleAngle(1), spindleExclusionRange, 'Line');
+            [feature{2}, suc2] = obj.featureList{3}.findBestMissingFeature( obj.image, Image2Find, spindleAngle(2), spindleExclusionRange, 'Line');
             
-            feature{1} = obj.featureList{2}.findBestMissingFeature( Image2Find, spindleAngle(1), spindleExclusionRange, 'Line');
-            feature{2} = obj.featureList{3}.findBestMissingFeature( Image2Find, spindleAngle(2), spindleExclusionRange, 'Line');
-
             % Make higher level decision on the best missing feature
-            [~,idxKeep] = min( [ feature{1}.residual, feature{2}.residual ] );
+            if ~suc1 && ~suc2
+                successAdd = 0; return;
+            elseif suc1 && ~suc2
+                idxKeep = 1;
+            elseif suc2 && ~suc1
+                idxKeep = 2;
+            elseif suc1 && suc2
+                [~,idxKeep] = min( [ feature{1}.residual, feature{2}.residual ] );
+            end
 
             % Create feature object 
             amp = feature{ idxKeep}.amplitude;

@@ -112,8 +112,13 @@ classdef MonopolarAster < OrganizerMaster
             if obj.dim==3, sigma=[1.2 1.2 1.0]; elseif obj.dim==2, sigma=[1.2 1.2]; end
 
             % ask subfeatures to find missing features
-            featureKeep = obj.featureList{1}.findBestMissingFeature( Image2Find, [], []);
-
+            Image2Find( Image2Find < 0) = 0;
+            [featureKeep, succ] = obj.featureList{1}.findBestMissingFeature( obj.image, Image2Find, [], []);
+            
+            if ~succ
+                successAdd = 0; return
+            end
+            
             % Create feature object 
             amp = featureKeep.amplitude;
             feature = Line( featureKeep.startPosition, featureKeep.endPosition, amp, sigma, obj.dim, props2Fit, display);
