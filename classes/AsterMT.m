@@ -164,7 +164,12 @@ classdef AsterMT < Organizer
             % Apply the length cutoff
             L = cellfun( @(x) x.length, missingFeatures);
             missingFeatures( find( L<Lmin) ) = [];
-
+            for j1 = 1 : length(missingFeatures)
+                lineAmp = Cell.findAmplitudeAlongLine( Image2Find, missingFeatures{j1}.startPosition, missingFeatures{j1}.endPosition);
+                missingFeatures{j1}.amplitude = mean( lineAmp);
+                missingFeatures{j1}.residual = mean( abs( lineAmp - mean(lineAmp) ) );
+            end
+            
             % If missing features aren't found organically, we will guestimate a feature
             if isempty( missingFeatures)
                 % Take the image (which is actually the residual from a previous fit), then bleach the SPB region to eliminate really small lines. Find the location of the max residual and draw a feature from the SPB to this point of max residual.
