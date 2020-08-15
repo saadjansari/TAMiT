@@ -63,14 +63,20 @@ classdef Line < BasicElement
                 temps.endPosition = obj.endPosition(3);
                 temps.sigma = obj.sigma(3);
                 temps.amplitude = obj.amplitude;
+                temps.length = obj.length;
+                temps.theta = obj.theta(2);
                 temps.bounds.ub.startPosition = obj.bounds.ub.startPosition(3);
                 temps.bounds.ub.endPosition = obj.bounds.ub.endPosition(3);
                 temps.bounds.ub.sigma = obj.bounds.ub.sigma(3);
                 temps.bounds.ub.amplitude = obj.bounds.ub.amplitude;
+                temps.bounds.ub.theta = obj.bounds.ub.theta(2);
+                temps.bounds.ub.length = obj.bounds.ub.length;
                 temps.bounds.lb.startPosition = obj.bounds.lb.startPosition(3);
                 temps.bounds.lb.endPosition = obj.bounds.lb.endPosition(3);
                 temps.bounds.lb.sigma = obj.bounds.lb.sigma(3);
                 temps.bounds.lb.amplitude = obj.bounds.lb.amplitude;
+                temps.bounds.lb.theta = obj.bounds.lb.theta(2);
+                temps.bounds.lb.length = obj.bounds.lb.length;
             end
             vec = []; ub = []; lb = [];
             for jProp = 1 : length( props2get)
@@ -293,6 +299,7 @@ classdef Line < BasicElement
             
             obj.startPosition = obj.startPosition(1:2);
             obj.endPosition = obj.endPosition(1:2);
+            obj.theta = obj.theta(1);
             obj.SetBounds();
             
         end
@@ -309,6 +316,7 @@ classdef Line < BasicElement
             
             obj.startPosition(3) = 1;
             obj.endPosition(3) = 1;
+            obj.theta(2) = 0;
             
         end
         % }}}
@@ -319,6 +327,7 @@ classdef Line < BasicElement
             obj.startPosition(1:2) = obj2D.startPosition(1:2);
             obj.endPosition(1:2) = obj2D.endPosition(1:2);
             obj.sigma(1:2) = obj2D.sigma(1:2);
+            obj.theta(1) = obj2D.theta(1);
             obj.amplitude = obj2D.amplitude;
             
         end

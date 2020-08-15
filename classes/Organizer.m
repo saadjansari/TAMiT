@@ -123,7 +123,7 @@ classdef Organizer < Feature
                 end
                 imageOut = imageOut + imNew;
                 error_code = any( [error_code, error_code_new]);
-                err = mean( [err, errr]);
+                err = max( [err, errr]);
             end
             obj.imageSim = imageOut;
 

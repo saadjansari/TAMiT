@@ -195,6 +195,7 @@ classdef FitEngine
         function [fitInfo] = OptimizeHyperParameters( obj, fitInfoOld)
             % Optimize the hyperparameters of this fit
 
+            fitInfoOld.featureCurrent.absorbVec( fitInfoOld.fitResults.vfit.*fitInfoOld.speedVec, fitInfoOld.fitVecs.labels);
             obj.feature.fit = 'all';
             for j1 = 1 : obj.feature.numFeatures
                 obj.feature.featureList{j1}.fit = 'all';
@@ -209,6 +210,7 @@ classdef FitEngine
                     end
                 end
             end
+            [fitInfoOld.fitResults.vfit,fitInfoOld.fitVecs.labels,~,~] = fitInfoOld.featureCurrent.getVec();
             
             % Optimize Feature Number
             [obj,fitInfo] = obj.OptimizeFeatureNumber( fitInfoOld);
