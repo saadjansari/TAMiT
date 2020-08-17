@@ -146,20 +146,62 @@ classdef AsterMT < Organizer
         function missingFeatures = findMissingFeatures( obj, Image2Find, xAngle, xRange, featType)
             % featType = 'Line' or 'Curve'
             
+%             % Minimum length of a feature to consider
+%             Lmin = 7;
+%             
+%             % Find mask without current sim image
+%             simImg = obj.simulateFeature( size(Image2Find) );
+%             simMask = simImg < 0.1*max(simImg(:));
+% 
+%             % Find Astral Microtubules away from current microtubules
+%             missingFeatures = MitoticCell.findAstralMicrotubules( Image2Find.*simMask, obj.featureList{1}.position, xAngle, xRange);
+% 
+%             % Apply the length cutoff
+%             L = cellfun( @(x) x.length, missingFeatures);
+%             missingFeatures( find( L<Lmin) ) = [];
+%             for j1 = 1 : length(missingFeatures)
+%                 lineAmp = Cell.findAmplitudeAlongLine( Image2Find, missingFeatures{j1}.startPosition, missingFeatures{j1}.endPosition);
+%                 missingFeatures{j1}.amplitude = mean( lineAmp);
+%                 missingFeatures{j1}.residual = mean( abs( lineAmp - mean(lineAmp) ) );
+%             end
+%             
+%             % If missing features aren't found organically, we will guestimate a feature
+%             if isempty( missingFeatures)
+%                 % Take the image (which is actually the residual from a previous fit), then bleach the SPB region to eliminate really small lines. Find the location of the max residual and draw a feature from the SPB to this point of max residual.
+%                 
+%                 % Bleach the SPB
+%                 Image2Find2D = max( Image2Find, [], 3);
+%                 imgBleached = imgaussfilt( Image2Find2D, 1);
+%                 imgBleached = obj.featureList{1}.BleachSpot( imgBleached, Lmin); 
+% 
+%                 conBleach = 1;
+%                 while conBleach
+%                     
+%                     [~,indMax] = max( imgBleached(:) );
+%                     [ endY, endX] = ind2sub( size(imgBleached), indMax);
+%                     if isempty(xRange) && isempty(xAngle)
+%                         conBleach = 0;
+%                     elseif abs( mod( atan2( endY-obj.featureList{1}.position(2), endX-obj.featureList{1}.position(1) ), 2*pi) - xAngle ) > xRange
+%                         conBleach = 0;
+%                     else
+%                         imgBleached( endY-1:endY+1, endX-1:endX+1) = 0;
+%                     end
+%                 end
+%                 
+%                 % feature 1
+%                 missingFeatures{1}.startPosition = obj.featureList{1}.position;
+%                 missingFeatures{1}.endPosition = obj.featureList{1}.position;
+%                 missingFeatures{1}.endPosition(1:2) = [ endX, endY];
+%                 lineAmp = Cell.findAmplitudeAlongLine( Image2Find, missingFeatures{1}.startPosition, missingFeatures{1}.endPosition);
+%                 missingFeatures{1}.amplitude = mean( lineAmp);
+%                 missingFeatures{1}.residual = mean( abs( lineAmp - mean(lineAmp) ) );
+%             end
+            
             % Minimum length of a feature to consider
             Lmin = 7;
-            
-            % Find mask without current sim image
-            simImg = obj.simulateFeature( size(Image2Find) );
-            simMask = simImg < 0.1*max(simImg(:));
 
-            % Find Astral Microtubules away from current microtubules
-            switch featType
-                case 'Line'
-                    missingFeatures = MitoticCell.findAstralMicrotubules( Image2Find.*simMask, obj.featureList{1}.position, xAngle, xRange);
-                case 'Curve'
-                    missingFeatures = InterphaseCell.findAstralMicrotubules( Image2Find.*simMask, obj.featureList{1}.position, xAngle, xRange);
-            end
+            % Find Astral Microtubules in residual image
+            missingFeatures = MitoticCell.findAstralMicrotubules( Image2Find, obj.featureList{1}.position, xAngle, xRange);
 
             % Apply the length cutoff
             L = cellfun( @(x) x.length, missingFeatures);
