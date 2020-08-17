@@ -324,10 +324,10 @@ classdef Line < BasicElement
         % Update3DFrom2D {{{
         function obj = Update3DFrom2D(obj, obj2D)
             
-            obj.startPosition(1:2) = obj2D.startPosition(1:2);
-            obj.endPosition(1:2) = obj2D.endPosition(1:2);
+            obj.SetStartPosition( [obj2D.startPosition(1:2), obj.startPosition(3)]);
+            obj.SetEndPosition( [obj2D.endPosition(1:2), obj.endPosition(3)]);
             obj.sigma(1:2) = obj2D.sigma(1:2);
-            obj.theta(1) = obj2D.theta(1);
+            obj.SetTheta( [obj2D.theta(1), obj.theta(2)]);
             obj.amplitude = obj2D.amplitude;
             
         end
@@ -490,8 +490,9 @@ classdef Line < BasicElement
                 end
                 [~,idA] = min(res); obj.amplitude = amps(idA);
                 
-                % optimize length
-                res = []; lens = linspace( obj.length, 2*obj.length, 10);
+                % optimize length (ensuring it stays inside z
+                % planes
+                res = []; lens = linspace( 0.8*obj.length, 1.4*obj.length, 10);
                 L0 = obj.length;
                 for ia = lens
                     obj.SetLength(ia);
@@ -499,6 +500,11 @@ classdef Line < BasicElement
                     res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
                 end
                 [~,idL] = min(res); obj.length = lens(idL);
+                if obj.dim == 3 && obj.endPosition(3) < 1
+                    obj.SetEndPosition( [obj.endPosition(1:2), 1]);
+                elseif obj.dim == 3 && obj.endPosition(3) > size(imOrg,3)
+                    obj.SetEndPosition( [obj.endPosition(1:2), size(imOrg,3)]);
+                end
             end
             obj.SetBounds();
             

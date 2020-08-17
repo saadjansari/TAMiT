@@ -195,26 +195,26 @@ classdef FitEngine
         function [fitInfo] = OptimizeHyperParameters( obj, fitInfoOld)
             % Optimize the hyperparameters of this fit
 
-            fitInfoOld.featureCurrent.absorbVec( fitInfoOld.fitResults.vfit.*fitInfoOld.speedVec, fitInfoOld.fitVecs.labels);
-            obj.feature.fit = 'all';
-            for j1 = 1 : obj.feature.numFeatures
-                obj.feature.featureList{j1}.fit = 'all';
-                if isprop( obj.feature.featureList{j1}, 'featureList')
-                    for j2 = 1 : obj.feature.featureList{j1}.numFeatures
-                        obj.feature.featureList{j1}.featureList{j2}.fit = 'all';
-                        if isprop( obj.feature.featureList{j1}.featureList{j2}, 'featureList')
-                            for j3 = 1 : obj.feature.featureList{j1}.featureList{j2}.numFeatures
-                                obj.feature.featureList{j1}.featureList{j2}.featureList{j3}.fit = 'all';
-                            end
-                        end
-                    end
-                end
-            end
-            [fitInfoOld.fitResults.vfit,fitInfoOld.fitVecs.labels,~,~] = fitInfoOld.featureCurrent.getVec();
-            if obj.parameters.fitExploreSpeed
-                fitInfoOld.speedVec = FitEngine.getExplorationSpeedVector( fitInfoOld.fitVecs.labels);
-                fitInfoOld.fitResults.vfit = fitInfoOld.fitResults.vfit ./ fitInfoOld.speedVec;
-            end
+%             fitInfoOld.featureCurrent.absorbVec( fitInfoOld.fitResults.vfit.*fitInfoOld.speedVec, fitInfoOld.fitVecs.labels);
+%             obj.feature.fit = 'all';
+%             for j1 = 1 : obj.feature.numFeatures
+%                 obj.feature.featureList{j1}.fit = 'all';
+%                 if isprop( obj.feature.featureList{j1}, 'featureList')
+%                     for j2 = 1 : obj.feature.featureList{j1}.numFeatures
+%                         obj.feature.featureList{j1}.featureList{j2}.fit = 'all';
+%                         if isprop( obj.feature.featureList{j1}.featureList{j2}, 'featureList')
+%                             for j3 = 1 : obj.feature.featureList{j1}.featureList{j2}.numFeatures
+%                                 obj.feature.featureList{j1}.featureList{j2}.featureList{j3}.fit = 'all';
+%                             end
+%                         end
+%                     end
+%                 end
+%             end
+%             [fitInfoOld.fitResults.vfit,fitInfoOld.fitVecs.labels,~,~] = fitInfoOld.featureCurrent.getVec();
+%             if obj.parameters.fitExploreSpeed
+%                 fitInfoOld.speedVec = FitEngine.getExplorationSpeedVector( fitInfoOld.fitVecs.labels);
+%                 fitInfoOld.fitResults.vfit = fitInfoOld.fitResults.vfit ./ fitInfoOld.speedVec;
+%             end
             
             % Optimize Feature Number
             [obj,fitInfo] = obj.OptimizeFeatureNumber( fitInfoOld);
@@ -491,6 +491,25 @@ classdef FitEngine
                         if isprop( obj.feature.featureList{j1}.featureList{j2}, 'featureList')
                             for j3 = 1 : obj.feature.featureList{j1}.featureList{j2}.numFeatures
                                 obj.feature.featureList{j1}.featureList{j2}.featureList{j3}.fit = 'zonly';
+                            end
+                        end
+                    end
+                end
+            end
+            
+            % Global Z-Optimization
+            fitInfo = obj.OptimizeGlobal(fitInfo);
+            
+            fitInfo.featureCurrent.absorbVec( fitInfo.fitResults.vfit.*fitInfo.speedVec, fitInfo.fitVecs.labels);
+            obj.feature.fit = 'all';
+            for j1 = 1 : obj.feature.numFeatures
+                obj.feature.featureList{j1}.fit = 'all';
+                if isprop( obj.feature.featureList{j1}, 'featureList')
+                    for j2 = 1 : obj.feature.featureList{j1}.numFeatures
+                        obj.feature.featureList{j1}.featureList{j2}.fit = 'all';
+                        if isprop( obj.feature.featureList{j1}.featureList{j2}, 'featureList')
+                            for j3 = 1 : obj.feature.featureList{j1}.featureList{j2}.numFeatures
+                                obj.feature.featureList{j1}.featureList{j2}.featureList{j3}.fit = 'all';
                             end
                         end
                     end
@@ -829,7 +848,7 @@ classdef FitEngine
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
                                         'display', 'iter' ,...
-                                        'MaxIter', 10);
+                                        'MaxIter', 20);
             end
             
             % Set Parallel Optimization
