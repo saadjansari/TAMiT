@@ -211,7 +211,7 @@ classdef FitEngine
                 end
             end
             [fitInfoOld.fitResults.vfit,fitInfoOld.fitVecs.labels,~,~] = fitInfoOld.featureCurrent.getVec();
-            
+            fitInfoOld.fitResults.vfit = fitInfoOld.fitResults.vfit ./ fitInfoOld.speedVec;
             % Optimize Feature Number
             [obj,fitInfo] = obj.OptimizeFeatureNumber( fitInfoOld);
             fitInfo.fitInfoOld = fitInfoOld;

@@ -66,7 +66,7 @@ function params = initConfiguration( opts)
     fit.display = display;
     fit.alpha = 0.4;
     fit.fitExploreSpeed = 1;
-    fit.fit2DFirst = 0;
+    fit.fit2DFirst = 1;
     % }}}
 
     % Analysis Parameters
