@@ -387,7 +387,7 @@ classdef CurvedMT < BasicElement
         % }}}
 
         % SetBounds {{{
-        function SetBounds( obj)
+        function SetBounds( obj, pars)
            
             % origin
             tanVec = round( abs( 7*[cos(obj.thetaInit(1,1)), sin(obj.thetaInit(1,1)) ]));
@@ -401,8 +401,22 @@ classdef CurvedMT < BasicElement
             end
             
             % amplitude
-            ub.amplitude = 1;
-            lb.amplitude = 0;
+            if nargin==2
+                ub.amplitude = pars.amplitude.ub;
+                lb.amplitude = pars.amplitude.lb;
+                if obj.amplitude < lb.amplitude
+                    obj.amplitude = 1.05*lb.amplitude;
+                    disp('forcing curved MT amplitude above a lower threshold for Budding yeast')
+                end
+            else
+                if ~isfield(obj.bounds, 'ub')
+                    ub.amplitude = 1;
+                    lb.amplitude = 0;
+                else
+                    ub.amplitude = obj.bounds.ub.amplitude;
+                    lb.amplitude = obj.bounds.lb.amplitude;
+                end
+            end
             
             % sigma 
             if obj.dim == 3
@@ -414,7 +428,7 @@ classdef CurvedMT < BasicElement
             end
             
             % L 
-            ub.L = obj.L + 20;
+            ub.L = obj.L + 10;
             lb.L = obj.L-5;
 
             % thetaInit
@@ -506,7 +520,11 @@ classdef CurvedMT < BasicElement
             end
             [~, idx] = min( res); 
             obj.L = l1(idx);
-            obj.SetBounds();
+            
+            thr = multithresh(imOrg(:),2);
+            par.amplitude.lb = thr(1)*2;
+            par.amplitude.ub = max( imOrg(:));
+            obj.SetBounds(par);
             
         end
         % }}}
