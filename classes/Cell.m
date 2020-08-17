@@ -183,14 +183,14 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Pre-fit adjustments
             mainFeature.preOptimize();
             
-            Prepare fit params
+            % Prepare fit params
             params = obj.params.fit;
             params.channel = parameters.channelTrue;
             params.time = parameters.time;
             params.saveDirectory = parameters.saveDirectory;
             params.timeReversal = obj.params.timeReversal;
             
-            Fit Features via Fit Engine.
+            % Fit Features via Fit Engine.
             fitEngine = FitEngine( Image2Fit, mainFeature, params);
             fitEngine = fitEngine.Optimize();
             obj.featureList{ parameters.channelIdx , parameters.time} = fitEngine.GetFeature();
