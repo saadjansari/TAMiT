@@ -468,12 +468,13 @@ classdef MitoticCellBud < Cell
             % Do a sweep radial sweep and look for peaks corresponding to
             % rods.
             im2 = max(imageIn,[],3); [~,~,nms,~] = steerableDetector(im2, 4, 2);
-            [phiIntensity, phiValues] = Cell.radIntegrate2D( im2, startPoint, 5, 15);
+            [phiIntensity, phiValues] = Cell.radIntegrate2D( im2, startPoint, 5, 25);
             
             % find peaks in Phi Intensity
             imVals = im2( im2 ~= 0);
             mtBkg = median( imVals );
-            minPkHeight = 2*mtBkg + 0*std( imVals );
+            thr = multithresh( imageIn(:),2);
+            minPkHeight = 2*thr(1) + 0*std( imVals );
 %             minPkHeight = mtBkg + 1*std( imVals );
             warning('off', 'signal:findpeaks:largeMinPeakHeight' )
             [ peakIntensity, peakPhi ] = findpeaks( phiIntensity, phiValues, 'MinPeakHeight', minPkHeight );
@@ -524,11 +525,17 @@ classdef MitoticCellBud < Cell
                 
             end
             
-            % Remove any duplicates
+            % Remove any duplicates (also remove if angle matches the
+            % spindle angle)
             phiz = zeros(1, length(AstralMicrotubules));
             for j1 = 1 : length( AstralMicrotubules)
-                phiz(j1) = atan( AstralMicrotubules{j1}(2,2)-AstralMicrotubules{j1}(2,1) ./ AstralMicrotubules{j1}(1,2)-AstralMicrotubules{j1}(1,1) );
+                phiz(j1) = atan2( AstralMicrotubules{j1}(2,2)-AstralMicrotubules{j1}(2,1) , AstralMicrotubules{j1}(1,2)-AstralMicrotubules{j1}(1,1) );
             end
+            
+            % spindle angle first
+            idxRm = find( abs(phiz-spindleAngle) < spindleExclusionRange | abs(phiz-spindleAngle+2*pi) < spindleExclusionRange | abs(phiz-spindleAngle-2*pi) < spindleExclusionRange);
+            AstralMicrotubules(idxRm) = []; phiz(idxRm) = [];
+            
             destroy = [];
             for p1 = 1:length(phiz)
                 for p2 = 1:length(phiz)

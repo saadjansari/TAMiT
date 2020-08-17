@@ -177,19 +177,20 @@ classdef Cell < handle & matlab.mixin.Copyable
 %             axes( ax(2) );
 %             img = imagesc( image2D ); eval( imageSets); hold on;
 %             mainFeature.displayFeature(gca); set( get(gca, 'title'), 'String', 'Features');
+%             suptitle( num2str(parameters.time))
 %             drawnow; pause(1);
-%             
+            
             % Pre-fit adjustments
             mainFeature.preOptimize();
             
-            % Prepare fit params
+            Prepare fit params
             params = obj.params.fit;
             params.channel = parameters.channelTrue;
             params.time = parameters.time;
             params.saveDirectory = parameters.saveDirectory;
             params.timeReversal = obj.params.timeReversal;
             
-            % Fit Features via Fit Engine.
+            Fit Features via Fit Engine.
             fitEngine = FitEngine( Image2Fit, mainFeature, params);
             fitEngine = fitEngine.Optimize();
             obj.featureList{ parameters.channelIdx , parameters.time} = fitEngine.GetFeature();
