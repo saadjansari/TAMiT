@@ -211,7 +211,11 @@ classdef FitEngine
                 end
             end
             [fitInfoOld.fitResults.vfit,fitInfoOld.fitVecs.labels,~,~] = fitInfoOld.featureCurrent.getVec();
-            fitInfoOld.fitResults.vfit = fitInfoOld.fitResults.vfit ./ fitInfoOld.speedVec;
+            if obj.parameters.fitExploreSpeed
+                fitInfoOld.speedVec = FitEngine.getExplorationSpeedVector( fitInfoOld.fitVecs.labels);
+                fitInfoOld.fitResults.vfit = fitInfoOld.fitResults.vfit ./ fitInfoOld.speedVec;
+            end
+            
             % Optimize Feature Number
             [obj,fitInfo] = obj.OptimizeFeatureNumber( fitInfoOld);
             fitInfo.fitInfoOld = fitInfoOld;
@@ -825,7 +829,7 @@ classdef FitEngine
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
                                         'display', 'iter' ,...
-                                        'MaxIter', 20);
+                                        'MaxIter', 10);
             end
             
             % Set Parallel Optimization
