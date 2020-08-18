@@ -492,7 +492,7 @@ classdef Line < BasicElement
                 
                 % optimize length (ensuring it stays inside z
                 % planes
-                res = []; lens = linspace( 0.8*obj.length, 1.4*obj.length, 10);
+                res = []; lens = linspace( 1.0*obj.length, 1.4*obj.length, 10);
                 L0 = obj.length;
                 for ia = lens
                     obj.SetLength(ia);
