@@ -521,7 +521,7 @@ classdef Line < BasicElement
                 end
             end
             med = median( imOrg( imOrg ~=0));
-            par.amplitude.lb = med*1.5;
+            par.amplitude.lb = med*2;
             par.amplitude.ub = max( imOrg(:));
             obj.SetBounds(par);
             

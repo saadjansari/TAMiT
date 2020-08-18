@@ -170,51 +170,40 @@ classdef FitEngine
             
             disp('Environment Optimization...')
 
-            % Prepare for the Fit
-            obj.feature.forceInsideMask();
-            [ fitProblem, fitInfo] = obj.PrepareOptimizeEnvironment();
-            if isempty(obj.feature.featureList)
-                fprintf('Skipping fitting for %s\n', obj.feature.type);  
-                return
+            b0 = median( obj.feature.image( obj.feature.image > 0)); 
+            binit = obj.feature.background; fprintf('  Initial = %.4f\n',binit)
+            blist = linspace(0.3*b0, 2*b0, 100);
+            res = zeros( size(blist));
+            for ib = 1 : length(blist)
+                
+                obj.feature.background = blist(ib);
+                iSim = obj.feature.simulateAll( 0*obj.feature.image, obj.feature.ID);
+                res(ib) = sum( (obj.feature.image(:) - iSim(:)).^2 );
+                
             end
-
-            % Solve Optimization Problem
-            fitInfo.fitResults = obj.SolveOptimizationProblem( fitProblem );
-            obj.feature.absorbVecEnvironment( fitInfo.fitResults.vfit.*fitInfo.speedVec, fitInfo.fitVecs.labels);
-            fitInfo.fitInfoOld = fitInfo;
-            fitInfo.fitVecOld = fitInfo.fitVecs.vec;
-
-            % Display and Save
-            if obj.parameters.display
-                Cell.displayFinalFit( obj.image, obj.feature, fitInfo);
-            end
+            [~, idx] = min( res);
+            obj.feature.background = blist(idx);
+            fprintf('  Final = %.4f\n', obj.feature.background)
+            
+%             % Prepare for the Fit
+%             obj.feature.forceInsideMask();
+%             [ fitProblem, fitInfo] = obj.PrepareOptimizeEnvironment();
+%             if isempty(obj.feature.featureList)
+%                 fprintf('Skipping fitting for %s\n', obj.feature.type);  
+%                 return
+%             end
+% 
+%             % Solve Optimization Problem
+%             fitInfo.fitResults = obj.SolveOptimizationProblem( fitProblem );
+%             obj.feature.absorbVecEnvironment( fitInfo.fitResults.vfit.*fitInfo.speedVec, fitInfo.fitVecs.labels);
+%             fitInfo.fitInfoOld = fitInfo;
+%             fitInfo.fitVecOld = fitInfo.fitVecs.vec;
 
         end
         % }}}
         % OptimizeHyperParameters {{{
         function [fitInfo] = OptimizeHyperParameters( obj, fitInfoOld)
             % Optimize the hyperparameters of this fit
-
-%             fitInfoOld.featureCurrent.absorbVec( fitInfoOld.fitResults.vfit.*fitInfoOld.speedVec, fitInfoOld.fitVecs.labels);
-%             obj.feature.fit = 'all';
-%             for j1 = 1 : obj.feature.numFeatures
-%                 obj.feature.featureList{j1}.fit = 'all';
-%                 if isprop( obj.feature.featureList{j1}, 'featureList')
-%                     for j2 = 1 : obj.feature.featureList{j1}.numFeatures
-%                         obj.feature.featureList{j1}.featureList{j2}.fit = 'all';
-%                         if isprop( obj.feature.featureList{j1}.featureList{j2}, 'featureList')
-%                             for j3 = 1 : obj.feature.featureList{j1}.featureList{j2}.numFeatures
-%                                 obj.feature.featureList{j1}.featureList{j2}.featureList{j3}.fit = 'all';
-%                             end
-%                         end
-%                     end
-%                 end
-%             end
-%             [fitInfoOld.fitResults.vfit,fitInfoOld.fitVecs.labels,~,~] = fitInfoOld.featureCurrent.getVec();
-%             if obj.parameters.fitExploreSpeed
-%                 fitInfoOld.speedVec = FitEngine.getExplorationSpeedVector( fitInfoOld.fitVecs.labels);
-%                 fitInfoOld.fitResults.vfit = fitInfoOld.fitResults.vfit ./ fitInfoOld.speedVec;
-%             end
             
             % Optimize Feature Number
             [obj,fitInfo] = obj.OptimizeFeatureNumber( fitInfoOld);
@@ -848,7 +837,7 @@ classdef FitEngine
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
                                         'display', 'iter' ,...
-                                        'MaxIter', 20);
+                                        'MaxIter', 5);
             end
             
             % Set Parallel Optimization
