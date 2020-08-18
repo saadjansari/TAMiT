@@ -396,11 +396,25 @@ classdef Line < BasicElement
         % }}}
         
         % SetBounds {{{
-        function SetBounds( obj)
+        function SetBounds( obj,pars)
            
             % amplitude
-            ub.amplitude = 1;
-            lb.amplitude = 0;
+            if ~strcmp(obj.label, 'spindle') && nargin==2
+                ub.amplitude = pars.amplitude.ub;
+                lb.amplitude = pars.amplitude.lb;
+                if obj.amplitude < lb.amplitude
+                    obj.amplitude = 1.05*lb.amplitude;
+                    disp('forcing line amplitude above a lower threshold for monopolar')
+                end
+            else
+                if ~isfield(obj.bounds, 'ub')
+                    ub.amplitude = 1;
+                    lb.amplitude = 0;
+                else
+                    ub.amplitude = obj.bounds.ub.amplitude;
+                    lb.amplitude = obj.bounds.lb.amplitude;
+                end
+            end
             
             % sigma % positions % theta
             if obj.dim == 3
@@ -506,7 +520,10 @@ classdef Line < BasicElement
                     obj.SetEndPosition( [obj.endPosition(1:2), size(imOrg,3)]);
                 end
             end
-            obj.SetBounds();
+            med = median( imOrg( imOrg ~=0));
+            par.amplitude.lb = med*1.5;
+            par.amplitude.ub = max( imOrg(:));
+            obj.SetBounds(par);
             
         end
         % }}}

@@ -540,7 +540,7 @@ classdef MitoticCellBud < Cell
             for p1 = 1:length(phiz)
                 for p2 = 1:length(phiz)
                     if p1 ~=p2
-                        if abs( phiz(p1) - phiz(p2)) < 0.1 || abs( phiz(p1) - phiz(p2) -2*pi) < 0.1 || abs( phiz(p1) - phiz(p2) + 2*pi) < 0.1
+                        if abs( phiz(p1) - phiz(p2)) < 0.2 || abs( phiz(p1) - phiz(p2) -2*pi) < 0.2 || abs( phiz(p1) - phiz(p2) + 2*pi) < 0.2
                             % figure out which one to destroy
                             if norm( AstralMicrotubules{p1}(:,end)-AstralMicrotubules{p1}(:,1)) > norm( AstralMicrotubules{p2}(:,end)-AstralMicrotubules{p2}(:,1))
                                 destroy = [destroy, p2];

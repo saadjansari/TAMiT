@@ -208,7 +208,7 @@ classdef AsterMT < Organizer
             missingFeatures( find( L<Lmin) ) = [];
             for j1 = 1 : length(missingFeatures)
                 lineAmp = Cell.findAmplitudeAlongLine( Image2Find, missingFeatures{j1}.startPosition, missingFeatures{j1}.endPosition);
-                missingFeatures{j1}.amplitude = mean( lineAmp);
+                missingFeatures{j1}.amplitude = mean( lineAmp( ceil(end/2): end));
                 missingFeatures{j1}.residual = mean( abs( lineAmp - mean(lineAmp) ) );
             end
             

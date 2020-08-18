@@ -107,8 +107,9 @@ classdef MonopolarAster < OrganizerMaster
             %   1. Angular Sweep (not clear how to ensure a line is found if there are no peaks)
             %   2. Pick the location of the highest residual and draw a line from both pole connecting to the max residual point. Find the mean intensity of each line. Subtract the mean from the actual voxel values along the line to find a total residual. Pick the pole with the minimum residual.
 
+            props = Cell.GetFeatureProps();
             props2Fit = {'endPosition', 'theta','amplitude', 'sigma'};
-            display = {'Color', [1 0.5 0], 'LineWidth', 3};
+            display = props.line.graphics.green;
             if obj.dim==3, sigma=[1.2 1.2 1.0]; elseif obj.dim==2, sigma=[1.2 1.2]; end
 
             % ask subfeatures to find missing features
