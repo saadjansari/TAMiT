@@ -123,8 +123,8 @@ classdef MitoticCell < Cell
                 end
                 SPB{1} = Spot( spindleMT.startPosition, spbAmp(1), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot); SPB{1}.label = 'spb';
                 SPB{2} = Spot( spindleMT.endPosition, spbAmp(2), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot); SPB{2}.label = 'spb';
-                AsterObjects{1} = {SPB{1}};
-                AsterObjects{2} = {SPB{2}};
+                AsterObjects{1} = SPB{1};
+                AsterObjects{2} = SPB{2};
             end
 
             % Astral MTs
@@ -135,47 +135,50 @@ classdef MitoticCell < Cell
                 spindleAngle(2) = mod( atan2( spindleMT.startPosition(2)-spindleMT.endPosition(2) , spindleMT.startPosition(1)-spindleMT.endPosition(1) ) , 2*pi );
 
                 % Find Astral Microtubules
-                AMT{1} = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.startPosition, spindleAngle(1), spindleExclusionRange);
-                AMT{2} = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.endPosition, spindleAngle(2), spindleExclusionRange); 
+                spindle.Aster{1}.MT = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.startPosition, spindleAngle(1), spindleExclusionRange);
+                spindle.Aster{2}.MT = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.endPosition, spindleAngle(2), spindleExclusionRange); 
 
                 % Create Astral MTs
                 AstralMT = cell(1,2);
                 for jAster = 1 : 2
-                    idxRm=[]; 
-                    mts = cell(1, length( AMT{jAster} ));
-                    for jmt = 1 : length( mts )
+                    for jmt = 1 : length( spindle.Aster{jAster}.MT )
 
-                        lineAmp = median( Cell.findAmplitudeAlongLine( imageIn, AMT{jAster}{jmt}.startPosition, AMT{jAster}{jmt}.endPosition ) )-bkg;
-                        mts{jmt} = Line( AMT{jAster}{jmt}.startPosition, AMT{jAster}{jmt}.endPosition, lineAmp, sigma, dim, props.fit{dim}.line, props.graphics.aster.line);
-                        mts{jmt}.repr = 'spherical'; mts{jmt}.label = 'astralFY';
-                        if mts{jmt}.GetLength() > 4
-                            idxRm = [idxRm, jmt];
+                        lineAmp = median( Cell.findAmplitudeAlongLine( imageIn, spindle.Aster{jAster}.MT{jmt}.startPosition, spindle.Aster{jAster}.MT{jmt}.endPosition ) )-bkg;
+                        
+                        newMT = Line( spindle.Aster{jAster}.MT{jmt}.startPosition, spindle.Aster{jAster}.MT{jmt}.endPosition, lineAmp, sigma, dim, props.fit{dim}.line, props.graphics.aster.line);
+                        newMT.repr = 'spherical'; newMT.label = 'astral';
+                        if newMT.GetLength() > 4
+                            if isempty( AstralMT{jAster} )
+                                AstralMT{jAster} = {newMT};
+                            else
+                                AstralMT{jAster} = { AstralMT{jAster}{:}, newMT};
+                            end
                         end
                     end
-                    mts( idxRm) = [];
-                    
-                    if ~isempty( mts )
-                        AsterObjects{jAster} = { AsterObjects{jAster}{:}, mts{:} };
+                    try
+                        AsterObjects{jAster} = { AsterObjects{jAster}, AstralMT{jAster}{:} };
+                    catch
+                        AsterObjects{jAster} = { AsterObjects{jAster} };
                     end
                 end
+
             end
 
             % Store basic objects in object Hierarchy
             
             % Aster MT Objects
             % SPBs + Astral MTs stored in an AsterMT
-            Asters = cell(1,2);
             for jAster = 1 : 2
                 Asters{jAster} = AsterMT( dim, AsterObjects{jAster}{:} );
             end
 
             % Spindle Feature
             % SpindleMT + 2 Asters stored in a Spindle
-%             if isempty( AsterObjects) 
-%                 spindleObj = Spindle( dim, imageIn, {spindleMT}, props);
-%             else
+            if isempty( AsterObjects) 
+                spindleObj = Spindle( dim, imageIn, {spindleMT}, props);
+            else
                 spindleObj = Spindle( dim, imageIn, {spindleMT, Asters{:} }, props);
-%             end
+            end
 
             if displayFlag
 %                 fName = 'estimate_spindle';

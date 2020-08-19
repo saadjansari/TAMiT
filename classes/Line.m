@@ -325,9 +325,13 @@ classdef Line < BasicElement
         function obj = Update3DFrom2D(obj, obj2D)
             
             obj.SetStartPosition( [obj2D.startPosition(1:2), obj.startPosition(3)]);
-            obj.SetEndPosition( [obj2D.endPosition(1:2), obj.endPosition(3)]);
             obj.sigma(1:2) = obj2D.sigma(1:2);
-            obj.SetTheta( [obj2D.theta(1), obj.theta(2)]);
+            if strcmp(obj.repr, 'cartesian')
+                obj.SetEndPosition( [obj2D.endPosition(1:2), obj.endPosition(3)]);
+            elseif strcmp(obj.repr, 'spherical')
+                obj.length = obj2D.length;
+                obj.SetTheta( [obj2D.theta(1), obj.theta(2)]);
+            end
             obj.amplitude = obj2D.amplitude;
             
         end
@@ -520,6 +524,7 @@ classdef Line < BasicElement
                     obj.SetEndPosition( [obj.endPosition(1:2), size(imOrg,3)]);
                 end
             end
+
             med = median( imOrg( imOrg ~=0));
             par.amplitude.lb = med*2;
             par.amplitude.ub = max( imOrg(:));

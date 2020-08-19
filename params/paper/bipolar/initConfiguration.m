@@ -3,7 +3,7 @@ function params = initConfiguration( opts)
 
     % reverse time
     params.timeReversal = 0;
-    params.newEstimateEveryT = 0;
+    params.newEstimateEveryT = 1;
 
     runFit = 1;
     runTracking = 1;
@@ -64,9 +64,9 @@ function params = initConfiguration( opts)
     fit.useParallel = true;
     fit.state = opts.CFG;
     fit.display = display;
-    fit.alpha = 0.4;
+    fit.alpha = 0.1;
     fit.fitExploreSpeed = 1;
-    fit.fit2DFirst = 0;
+    fit.fit2DFirst = 1;
     % }}}
 
     % Analysis Parameters

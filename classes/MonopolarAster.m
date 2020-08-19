@@ -108,7 +108,7 @@ classdef MonopolarAster < OrganizerMaster
             %   2. Pick the location of the highest residual and draw a line from both pole connecting to the max residual point. Find the mean intensity of each line. Subtract the mean from the actual voxel values along the line to find a total residual. Pick the pole with the minimum residual.
 
             props = Cell.GetFeatureProps();
-            props2Fit = {'endPosition', 'theta','amplitude', 'sigma'};
+            props2Fit = {'length', 'theta','amplitude', 'sigma'};
             display = props.line.graphics.green;
             if obj.dim==3, sigma=[1.2 1.2 1.0]; elseif obj.dim==2, sigma=[1.2 1.2]; end
 
@@ -131,6 +131,12 @@ classdef MonopolarAster < OrganizerMaster
             
             % Add feature to the correct subfeature 
             idxAdd = obj.featureList{1}.addFeatureToList( feature);
+            imbkg = 0*obj.image; imbkg(:) = obj.background;
+            feature.preOptimize(obj.image, imbkg);
+
+            % Add feature ID and update the featureMap
+            feature.ID = max( cell2mat( keys( obj.featureMap) ) )+1;
+            obj.featureMap( feature.ID) = [ 1 idxAdd];
             successAdd = 1;
             
         end
