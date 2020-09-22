@@ -154,18 +154,23 @@ classdef Spot < BasicElement
             
             if obj.dim==3 && nargin==3
                 
-                cm = cool;
+                cm = hsv;
                 col = cm( round((obj.position(3)/sizeZ)*length(cm)), :);
                 h1 = plot( obj.position(1), obj.position(2), 'Marker', 'o', 'MarkerSize',10, 'Color', 'w', 'LineWidth', 2);
                 set(h1, 'markerfacecolor', col);
-                colorbar('Ticks',linspace(0,1,sizeZ),'TickLabels',1:sizeZ)
+                % colorbar('Ticks',linspace(0,1,sizeZ),'TickLabels',1:sizeZ)
                 
             else
                 % Create the spot to display
                 plot( obj.position(1), obj.position(2), obj.display{:} );
             end
-            
 
+        end
+        % }}}
+        
+        % displayFeature3D {{{
+        function ax = displayFeature3D( obj, ax)
+            line( obj.position(1), obj.position(2), obj.position(3), obj.display{:} );
         end
         % }}}
         

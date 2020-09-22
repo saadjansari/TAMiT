@@ -212,7 +212,7 @@ classdef Line < BasicElement
                 coords = [linspace(obj.startPosition(1), obj.endPosition(1),100); ...
                     linspace(obj.startPosition(2), obj.endPosition(2),100); ...
                     linspace(obj.startPosition(3), obj.endPosition(3),100)];
-                cm = cool;
+                cm = hsv;
                 cols = round((coords(3,:)/sizeZ)*length(cm));
                 cols( cols < 1) = 1; cols(cols>256) = 256;
                 col = cm( cols, :);
@@ -222,12 +222,21 @@ classdef Line < BasicElement
                         'facecol','no',...
                         'edgecol','interp',...
                         'linew',4);
-                colorbar('Ticks',linspace(0,1,sizeZ),'TickLabels',1:sizeZ)
+                % colorbar('Ticks',linspace(0,1,sizeZ),'TickLabels',1:sizeZ)
             else
                 % Create the line to display
                 line( [obj.startPosition(1) obj.endPosition(1)], [obj.startPosition(2) obj.endPosition(2)], obj.display{:} )
             end
             
+        end
+        % }}}
+        
+        % displayFeature3D {{{
+        function ax = displayFeature3D( obj, ax)
+            x = [obj.startPosition(1), obj.endPosition(1)];
+            y = [obj.startPosition(2), obj.endPosition(2)];
+            z = [obj.startPosition(3), obj.endPosition(3)];
+            line( x, y, z, obj.display{:} );
         end
         % }}}
         

@@ -280,7 +280,7 @@ classdef SpindleNew < OrganizerMaster
                 featureList{ jFeat} = Aster.loadFromStruct( S.featureList{ jFeat} ); 
             end
 
-            obj = Spindle( S.dim, S.image, featureList, S.props2Fit);
+            obj = SpindleNew( S.dim, S.image, featureList, S.props2Fit);
 %             obj = obj@Organizer( S.dim, featureList, S.type);
             obj.findEnvironmentalConditions();
             obj.syncFeaturesWithMap();

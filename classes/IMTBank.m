@@ -523,13 +523,21 @@ classdef IMTBank < OrganizerMaster
             elseif dim == 3
                 sigma=[1.2 1.2 1.0];
             end
-
+            
             % Filter image 
             [imG, ~] = Methods.FilterImageForCurveDetection( imageIn);
 
             % Find the curves
+            params.FieldOfView = 60;
             vars = Methods.struct2cellvars(params);
-            coords = Methods.FindCurves( imG, 'Plot', 0, vars{:}); 
+            coords = Methods.FindCurves( imageIn, 'Plot', 1, vars{:}); 
+            
+            coords_new = cell( length( coords) );
+            for jj = 1 : length( coords)
+                if length(coords{jj}) == 2
+                    coords_new{jj} = coords{jj}{1}(:,end:-1:1);
+                end
+            end
             nBundles = length( coords);
             
 %             figure;
@@ -537,6 +545,144 @@ classdef IMTBank < OrganizerMaster
 %             imagesc( max(imageIn,[],3)); colormap gray; axis equal; xlim([0 150]); ylim([0 150]); xticks([]); yticks([]); 
             % Create interphase bundles
             for jb = 1 : nBundles
+                
+                % interpolate coords
+                [c1,c2,c3] = Methods.InterpolateCoords3( coords_new{jb}(1,:), coords_new{jb}(2,:),coords_new{jb}(3,:), 5);
+                cc = [c1;c2;c3];
+                % for each bundle, find a higher intensity overlap region
+                amps = Cell.findAmplitudeAlongCurveCoords(imageIn, round(cc));
+                [maxAmp, idxMax] = max(amps);
+                medAmp = median(amps);
+                
+                % break curve into curve--overlap--curve if possible
+                % curve indices
+                idxCurves = find(amps<medAmp);
+                idx1 = find(idxCurves < idxMax,1,'last');
+                if isempty(idx1)
+                    idx1 = 1; end
+                idx2 = find(idxCurves > idxMax,1,'first');
+                if isempty(idx2)
+                    idx2 = length(amps); end
+                
+                % Get overlap region
+                overlap = Line( cc(:,idx1), cc(:,idx2), mean( amps(idx1:idx2)), sigma, dim, props.fit{dim}.curve, props.graphics.curve);
+                
+                curvedMTs = cell(1,2);
+                % Get 2 curves
+                if idx1 > 1
+                    
+                    c1 = cc(:,1:idx1);
+                    % Get length
+                    L = sum( sqrt( diff( c1(1,:)).^2 + diff( c1(2,:)).^2 + diff( c1(3,:)).^2 ) );
+                    nInt1 = max( [round( L/ length( c1(1,:) ) ), 2]);
+                    [cX1,cY1,cZ1] = Methods.InterpolateCoords3( c1(1,:), c1(2,:), c1(3,:), nInt1 );
+                    % Get Coeff
+                    cf1 = Bundle.estimatePolyCoefficients( [cX1;cY1;cZ1], [3 3 1], linspace(0,L,length(cX1 )));
+                    % Get coordinates from coeffs
+                    t1 = linspace(0,L,length(cX1 ));
+                    x1 = polyval( cf1{1}, t1); y1 = polyval( cf1{2}, t1);
+
+                    % Get origin
+%                         origin = [cf1{1}(end), cf1{2}(end),cf1{3}(end)];
+                    origin = c1(:,1);
+                    if origin(3) >= size( imageIn,3)
+                        origin(3) = size(imageIn,3)-0.2;
+                    elseif origin(3) <= 1
+                        origin(3) = 1.2;
+                    end
+                    % Get initial tangent vector and theta vector
+                    tanInit{1} = [cf1{1}(3), cf1{2}(3), cf1{3}(1)];
+                    thetaInit = [atan2( tanInit{1}(2), tanInit{1}(1) ), pi/2];
+                    % Normal Magnitude Coefficients
+                    nV = [ 2*(cf1{1}(3)*cf1{2}(2) - cf1{1}(2)*cf1{2}(3)), ...
+                        6*(cf1{1}(3)*cf1{2}(1) - cf1{1}(1)*cf1{2}(3))];
+
+                    % Get amplitude along each bundle
+                    A1 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX1;cY1]) ) - bkg);
+                    A1( A1 < bkg) = bkg; amp = median(A1);
+
+                    % Ensure coefficients are within the image region
+                    if dim == 3
+                        if origin(3) == 1
+                            thetaInit(1,2) = pi/2 - 0.03;
+                        elseif origin(3) == size(imageIn, 3)
+                            thetaInit(1,2) = pi/2 + 0.03;
+                        end
+                    end
+                    if ( sign(nV(1)) == sign(nV(2)) && (abs(nV(1)) > 0.01 && abs(nV(2)) > 0.005) ) || L < 5
+                        curvedMTs{1} = [];
+                    else
+                        % Create
+                        curvedMTs{1} = CurvedMT( origin, thetaInit, nV, L, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
+                    end
+                    
+                end
+                
+                if idx2 < length(amps)
+                    
+                    c1 = cc(:,idx2:end);
+                    % Get length
+                    L = sum( sqrt( diff( c1(1,:)).^2 + diff( c1(2,:)).^2 + diff( c1(3,:)).^2 ) );
+                    nInt1 = max( [round( L/ length( c1(1,:) ) ), 2]);
+                    [cX1,cY1,cZ1] = Methods.InterpolateCoords3( c1(1,:), c1(2,:), c1(3,:), nInt1 );
+                    % Get Coeff
+                    cf1 = Bundle.estimatePolyCoefficients( [cX1;cY1;cZ1], [3 3 1], linspace(0,L,length(cX1 )));
+                    % Get coordinates from coeffs
+                    t1 = linspace(0,L,length(cX1 ));
+                    x1 = polyval( cf1{1}, t1); y1 = polyval( cf1{2}, t1);
+
+                    % Get origin
+%                         origin = [cf1{1}(end), cf1{2}(end),cf1{3}(end)];
+                    origin = c1(:,1);
+                    if origin(3) >= size( imageIn,3)
+                        origin(3) = size(imageIn,3)-0.2;
+                    elseif origin(3) <= 1
+                        origin(3) = 1.2;
+                    end
+                    % Get initial tangent vector and theta vector
+                    tanInit{1} = [cf1{1}(3), cf1{2}(3), cf1{3}(1)];
+                    thetaInit = [atan2( tanInit{1}(2), tanInit{1}(1) ), pi/2];
+                    % Normal Magnitude Coefficients
+                    nV = [ 2*(cf1{1}(3)*cf1{2}(2) - cf1{1}(2)*cf1{2}(3)), ...
+                        6*(cf1{1}(3)*cf1{2}(1) - cf1{1}(1)*cf1{2}(3))];
+
+                    % Get amplitude along each bundle
+                    A1 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX1;cY1]) ) - bkg);
+                    A1( A1 < bkg) = bkg; amp = median(A1);
+
+                    % Ensure coefficients are within the image region
+                    if dim == 3
+                        if origin(3) == 1
+                            thetaInit(1,2) = pi/2 - 0.03;
+                        elseif origin(3) == size(imageIn, 3)
+                            thetaInit(1,2) = pi/2 + 0.03;
+                        end
+                    end
+                    if ( sign(nV(1)) == sign(nV(2)) && (abs(nV(1)) > 0.01 && abs(nV(2)) > 0.005) ) || L < 5
+                        curvedMTs{1} = [];
+                    else
+                        % Create
+                        curvedMTs{1} = CurvedMT( origin, thetaInit, nV, L, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
+                    end
+                    
+                end
+                    
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
 
                 % Get length
                 L = []; LO = [];

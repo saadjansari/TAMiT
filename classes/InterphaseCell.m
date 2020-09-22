@@ -67,10 +67,27 @@ classdef InterphaseCell < Cell
         % Microtubules {{{
         
         % findFeaturesDeNovo_MT {{{
-        function iMTBankObj = findFeaturesDeNovo_MT( imageIn, params)
+        function iMTBankObj = findFeaturesDeNovo_MT( imageIn, param, props)
             % Interphase Cell:
             % Find special interphase asters (MTOC + 2 curves in an opposite direction)
 
+            displayFlag = params.display;
+            dim = length( size(imageIn) );
+            imageIn = im2double( imageIn);
+
+            if dim==3, sigma=[1.2 1.2 1.0]; elseif dim==2, sigma=[1.2 1.2]; end
+            bkg = median( imageIn( imageIn(:) > 0) );
+
+            % Filter image 
+            [imG, ~] = Methods.FilterImageForCurveDetection( imageIn);
+
+            % Find the curves
+            vars = Methods.struct2cellvars(params);
+            coords = Methods.FindCurves( imG, 'Plot', 0, vars{:}); 
+            nBundles = length( coords);
+            
+            
+            
             dim = length( size(imageIn) );
             imageIn = im2double( imageIn);
             bkg = median( imageIn( imageIn(:) > 0) );

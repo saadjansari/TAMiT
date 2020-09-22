@@ -188,7 +188,7 @@ classdef CurvedMT < BasicElement
             
             % 2D color plot for 3D information
             if obj.dim==3 && nargin==3
-                cm = cool;
+                cm = hsv;
                 col = cm( round((coords(3,:)/sizeZ)*length(cm)), :);
                 col = [ permute(col, [3 1 2]); permute(col, [3 1 2])];
                 z = zeros([ 1, size( coords,2)]);
@@ -196,13 +196,21 @@ classdef CurvedMT < BasicElement
                         'facecol','no',...
                         'edgecol','interp',...
                         'linew',3);
-                colorbar('Ticks',linspace(0,1,sizeZ),'TickLabels',1:sizeZ)
+                % colorbar('Ticks',linspace(0,1,sizeZ),'TickLabels',1:sizeZ)
                 
             else
                 % Create the curve to display
                 line( coords(1,:), coords(2,:), obj.display{:} )
             end
 
+        end
+        % }}}
+        
+        % displayFeature3D {{{
+        function ax = displayFeature3D( obj, ax)
+             % Get (x,y,z) coordinates of the curve
+            coords = obj.GetCoords();
+            line( coords(1,:), coords(2,:), coords(3,:), obj.display{:} );
         end
         % }}}
 

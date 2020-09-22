@@ -94,6 +94,9 @@ classdef AnalysisSingleCell < handle
                         obj.makeMovieFwdReverse( jChannel);
                     end
                 end
+                
+                % Tracking
+                obj.trackChannel( jChannel);
 
             end
 
@@ -174,6 +177,25 @@ classdef AnalysisSingleCell < handle
             
             % Run Feature Specific analysis
             obj.analyzeFeature( mainFeature, jChannel, jTime);
+            
+            switch mainFeature.type
+                case 'SpindleNew'
+                    for ja = 2 : 3
+                        for jc = 2 : length(mainFeature.featureList{ja}.featureList)
+                            mainFeature.featureList{ja}.featureList{jc}.display = {'Color', [1 0 0] , 'LineWidth', 2};
+                        end
+                    end
+                case 'Spindle'
+                    for ja = 2 : 3
+                        for jc = 2 : length(mainFeature.featureList{ja}.featureList)
+                            mainFeature.featureList{ja}.featureList{jc}.display = {'Color', [0 1 0] , 'LineWidth', 2};
+                        end
+                    end
+                case 'MonopolarAster'
+                    for jc = 2 : length(mainFeature.featureList{1}.featureList)
+                        mainFeature.featureList{1}.featureList{jc}.display = {'Color', [0 1 0] , 'LineWidth', 2};
+                    end
+            end
 
             % Save information for making movies
             obj.data{jChannel}.features{jTime} = mainFeature;
@@ -210,6 +232,11 @@ classdef AnalysisSingleCell < handle
 
             switch mainFeature.type
                 case 'Spindle'
+
+                    % Spindle Length
+                    %[ obj.data{jChannel}.spindleLength(jTime) ] = obj.analyzeSpindle( mainFeature, jTime);
+                
+                case 'SpindleNew'
 
                     % Spindle Length
                     %[ obj.data{jChannel}.spindleLength(jTime) ] = obj.analyzeSpindle( mainFeature, jTime);
@@ -594,9 +621,72 @@ classdef AnalysisSingleCell < handle
 
                 img = im2double(feat.image);
 
+%                 % make figure
+%                 f = figure('visible', 'on'); 
+%                 h = tight_subplot(2,2, [.05 .01]);
+%                 
+%                 % Axes (1,1): Original
+%                 set(f, 'currentaxes', h(1) );
+%                 imagesc( h(1), max(img , [], 3) ), 
+%                 colormap( h(1), gray); axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
+%                 title('Original Image');
+%                 
+%                 % Axes (1,2): Original + 2D features
+%                 set(f, 'currentaxes', h(2) );
+%                 imagesc( h(2), max(img , [], 3) ), hold on
+%                 axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
+%                     
+%                 feat.displayFeature( h(2));
+%                 title('2D Features');
+%                 
+%                 % Axes (2,1): Simulated Image
+%                 set(f, 'currentaxes', h(3) );
+%                 imagesc( h(3), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
+%                 colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(3), 'xtick', [], 'ytick', []);
+%                 title('Fitted Image');
+%                 
+%                 % Axes (2,2): 3D features
+%                 % Axes 1 for image background
+%                 set(f, 'currentaxes', h(4) );hold on
+%                 imagesc( h(4), max(img , [], 3) ), colormap(h(4), gray);hold on; h(4).Color = 'Black';
+%                 axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(4), 'xtick', [], 'ytick', []);
+%                 
+%                 % Axes 2 for 3D features
+%                 h_temp = axes('Position',get(h(4),'Position')); % make new axes
+%                 set(h_temp, 'Color', 'none'); % i thought this may make the new axes background transparent, but it doesn't work 
+% 
+%                 axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]);
+%                 set( h_temp, 'xtick', [], 'ytick', []);
+%                 set(f, 'currentaxes', h_temp );hold on
+%                 colormap( h_temp, hsv);
+%                 
+%                 % boundary
+%                 %[B,~] = bwboundaries(max(img , [], 3) > 0,'noholes');
+%                 %plot( B{1}(:,2), B{1}(:,1), 'color', 'w', 'linewidth',3)
+%                 feat.displayFeature( h_temp,1);
+%                 
+%                 % Axes 3 for colorbar
+%                 h_temp2 = axes('Position',get(h(4),'Position'), 'Color', 'none', 'xtick', [], 'ytick', [], 'XColor', 'none', 'YColor', 'none');
+%                 axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]);
+%                 set(f, 'currentaxes', h_temp2 );hold on
+%                 colormap( h_temp2, hsv);
+% 
+%                 tcks = linspace(0,1, size(img,3)); tcks = tcks(1:2:end);
+%                 tcks_label = 1:2: size(img,3);
+%                 cb = colorbar('Location','eastoutside', 'Ticks',tcks, 'TickLabels',tcks_label,  'FontWeight', 'bold', 'FontSize', 10, 'Box', 'off');
+%                 set(h_temp2, 'Position',get(h(4),'Position'))
+% 
+%                 % Change cb height to be within 90% of axes
+%                 pos0 = get(cb, 'Position'); pos1=pos0;
+%                 cen = mean(pos0([2,4]));
+%                 pos1([2,4]) = [ cen - 0.95*(cen-pos0(2)), 0.95*pos0(4)];
+%                 set(cb, 'Position', pos1)
+%                 title('3D Features');
+                
+                fs = 12;
                 % make figure
                 f = figure('visible', 'on'); 
-                h = tight_subplot(2,2, [.05 .01]);
+                h = tight_subplot(1,3, 0.01, 0.3, 0.1);
                 
                 % Axes (1,1): Original
                 set(f, 'currentaxes', h(1) );
@@ -604,34 +694,73 @@ classdef AnalysisSingleCell < handle
                 colormap( h(1), gray); axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
                 title('Original Image');
                 
-                % Axes (1,2): Original + 2D features
-                set(f, 'currentaxes', h(2) );
-                imagesc( h(2), max(img , [], 3) ), hold on
-                axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
-                    
-                feat.displayFeature( h(2));
-                title('2D Features');
-                
                 % Axes (2,1): Simulated Image
-                set(f, 'currentaxes', h(3) );
-                imagesc( h(3), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
-                colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(3), 'xtick', [], 'ytick', []);
+                set(f, 'currentaxes', h(2) );
+                imagesc( h(2), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
+                colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
                 title('Fitted Image');
                 
                 % Axes (2,2): 3D features
-                set(f, 'currentaxes', h(4) );hold on
-                h(4).Color = 'Black';
-                axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
-                colormap( h(4), cool);
-                % boundary
-                [B,~] = bwboundaries(max(img , [], 3) > 0,'noholes');
-                plot( B{1}(:,2), B{1}(:,1), 'color', 'w', 'linewidth',3)
-                feat.displayFeature( h(4),1);
+                % Axes 1 for image background
+                set(f, 'currentaxes', h(3) );hold on
+                imagesc( h(3), max(img , [], 3) ), colormap(h(3), gray);hold on; h(3).Color = 'Black';
+                axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(3), 'xtick', [], 'ytick', []);
                 title('3D Features');
+                
+                % Axes 2 for 3D features
+                h_temp = axes('Position',get(h(3),'Position')); % make new axes
+                set(h_temp, 'Color', 'none'); % i thought this may make the new axes background transparent, but it doesn't work 
+
+                axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]);
+                set( h_temp, 'xtick', [], 'ytick', []);
+                set(f, 'currentaxes', h_temp );hold on
+                colormap( h_temp, hsv);
+                
+                % boundary
+                %[B,~] = bwboundaries(max(img , [], 3) > 0,'noholes');
+                %plot( B{1}(:,2), B{1}(:,1), 'color', 'w', 'linewidth',3)
+                feat.displayFeature( h_temp,1);
                 suptitle( sprintf('T=%d',obj.times(jTime)))
+                
+                % Axes 3 for colorbar
+                h_temp2 = axes('Position',get(h(3),'Position'), 'Color', 'none', 'xtick', [], 'ytick', [], 'XColor', 'none', 'YColor', 'none');
+                axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]);
+                set(f, 'currentaxes', h_temp2 );hold on
+                colormap( h_temp2, hsv);
+
+                tcks = linspace(0,1, size(img,3)); tcks = tcks(1:2:end);
+                tcks_label = 1:2: size(img,3);
+                cb = colorbar('Location','eastoutside', 'Ticks',tcks, 'TickLabels',tcks_label,  ...
+                    'FontWeight', 'bold', 'FontSize', fs, 'Box', 'off', 'LineWidth',1);
+                cb.Label.String = 'Z'; cb.Label.Rotation = 0;
+                set(h_temp2, 'Position',get(h(3),'Position'))
+
+                % Change cb height to be within 90% of axes
+                pos0 = get(cb, 'Position'); pos1=pos0;
+                cen = (pos0(2) + pos0(2)+pos0(4))/2;
+                bottom = cen - 0.95*(cen-pos0(2)); top = cen + 0.95*(cen-pos0(2));
+                pos1([2,4]) = [ bottom, top-bottom];
+                set(cb, 'Position', pos1)
+                
+                % Set All font sizes
+                for ii = 1:length(h)
+                    set(h(ii),'FontSize',fs)
+                end
 
                 obj.data{jChannel}.mov( jTime) = getframe(f);
                 close(f)
+                
+                % TEMP CODE: 3D FIGURE
+                time_enable = 44;
+                if time_enable == obj.times(jTime)
+                    h = figure; hold on; ax = gca; axis ij; grid on; grid minor; set(ax, 'View',[-45,33]); h.Color = 'white';
+                    set(ax,'zlim',[1 size(img,3)])
+                    xlabel('X', 'FontWeight','bold'); ylabel('Y', 'FontWeight','bold'); zlabel('Z', 'FontWeight','bold')
+                    % set( ax, 'xtick', [], 'ytick', []);
+                    feat.displayFeature3D( ax); set(ax,'FontSize',fs)
+                    close(h)
+                end
+
             end
             
             obj.writeMovie(jChannel);
@@ -939,6 +1068,178 @@ classdef AnalysisSingleCell < handle
             % close the writer object
             close(writerObj);
 
+        end
+        % }}}
+        
+        % makeMovie {{{
+        function trackChannel( obj, jChannel)
+            % Create frames for a movie
+            
+            % Get feature information
+            
+            switch obj.cellType
+                case 'MitosisBud'
+                    for jTime = 1 : length( obj.times)
+                        feat = obj.data{jChannel}.features{jTime};
+                        
+                        % Create a structure with fields xCoord, yCoord,
+                        % zCoord, amp, length, theta
+                        % The coordinates will be of the endposition
+                        % There is a single spindle with two asters inside.
+                        xC = []; yC = []; zC = []; amp = []; el = []; phi = []; theta=[];
+                        for ja = 2: feat.numFeatures
+                            faster = feat.featureList{ja};
+                            for jc = 2: faster.numFeatures
+                                cc = faster.featureList{jc}.GetCoords();
+                                xC = [xC; [cc(1,end), 0]];
+                                yC = [yC; [cc(2,end), 0]];
+                                zC = [zC; [cc(3,end), 0]];
+                                amp = [amp; [faster.featureList{jc}.amplitude, 0]];
+                                el = [el; [faster.featureList{jc}.L, 0]];
+                                phi = [phi; [faster.featureList{jc}.thetaInit(1), 0]];
+                                theta = [theta; [faster.featureList{jc}.thetaInit(2), 0]];
+                            end
+                        end
+                        movieInfo(jTime).xCoords = xC;
+                        movieInfo(jTime).yCoords = yC;
+                        movieInfo(jTime).zCoords = zC;
+                        movieInfo(jTime).amp = amp;
+                        movieInfo(jTime).el = el;
+                        movieInfo(jTime).theta = theta;
+                        movieInfo(jTime).xCoord = el;
+                        movieInfo(jTime).yCoord = phi;
+                        movieInfo(jTime).zCoord = theta;
+                            
+                    end
+                    tracksFinal = obj.trackMitosisBud(movieInfo);
+                    % change tracksFinal to get coordinates instead of
+                    % length, phi, theta
+                    for idx = 1 : length(tracksFinal)
+                        times = tracksFinal(idx).seqOfEvents(:,1);
+                        for tt = times(1):times(2)
+                            ii = tt+1-times(1);
+                            track_number = tracksFinal(idx).tracksFeatIndxCG(ii);
+                            if track_number == 0
+                                continue
+                            end
+                            cm = [ movieInfo(tt).xCoords(track_number,:), ...
+                                movieInfo(tt).yCoords(track_number,:),...
+                                movieInfo(tt).zCoords(track_number,:),...
+                                movieInfo(tt).amp(track_number,:),];
+                            tracksFinal(idx).tracksCoordAmpCG( 8*ii-7: 8*ii) = cm;
+                        end
+                    end
+                    plotTracks2D(tracksFinal, [], 2, [], 1, 1, zeros(140,123), [], 0, [], 1)
+                    
+                case 'Mitosis'
+                    error('not set up')
+                case 'Monopolar'
+                    error('not set up')
+            end
+        end
+        % }}}
+        
+        % trackMitosisBud {{{
+        function tracksFinal = trackMitosisBud( obj, movieInfo)
+           
+            gapCloseParam.timeWindow = 5; %maximum allowed time gap (in frames) between a track segment end and a track segment start that allows linking them.
+            gapCloseParam.mergeSplit = 0; %1 if merging and splitting are to be considered, 2 if only merging is to be considered, 3 if only splitting is to be considered, 0 if no merging or splitting are to be considered.
+            gapCloseParam.minTrackLen = 2; %minimum length of track segments from linking to be used in gap closing.
+
+            %optional input:
+            gapCloseParam.diagnostics = 0; %1 to plot a histogram of gap lengths in the end; 0 or empty otherwise.
+            %function name
+            costMatrices(1).funcName = 'costMatRandomDirectedSwitchingMotionLink';
+
+            %parameters
+
+            parameters.linearMotion = 0; %use linear motion Kalman filter.
+            parameters.minSearchRadius = 6; %minimum allowed search radius. The search radius is calculated on the spot in the code given a feature's motion parameters. If it happens to be smaller than this minimum, it will be increased to the minimum.
+            parameters.maxSearchRadius = 6; %maximum allowed search radius. Again, if a feature's calculated search radius is larger than this maximum, it will be reduced to this maximum.
+            parameters.brownStdMult = 3; %multiplication factor to calculate search radius from standard deviation.
+
+            parameters.useLocalDensity = 1; %1 if you want to expand the search radius of isolated features in the linking (initial tracking) step.
+            parameters.nnWindow = gapCloseParam.timeWindow; %number of frames before the current one where you want to look to see a feature's nearest neighbor in order to decide how isolated it is (in the initial linking step).
+
+            parameters.kalmanInitParam = []; %Kalman filter initialization parameters.
+            % parameters.kalmanInitParam.searchRadiusFirstIteration = 10; %Kalman filter initialization parameters.
+
+            %optional input
+            parameters.diagnostics = []; %if you want to plot the histogram of linking distances up to certain frames, indicate their numbers; 0 or empty otherwise. Does not work for the first or last frame of a movie.
+
+            costMatrices(1).parameters = parameters;
+            clear parameters
+            
+            %function name
+            costMatrices(2).funcName = 'costMatRandomDirectedSwitchingMotionCloseGaps';
+
+            %parameters
+
+            %needed all the time
+            parameters.linearMotion = 0; %use linear motion Kalman filter.
+
+            parameters.minSearchRadius = 6; %minimum allowed search radius.
+            parameters.maxSearchRadius = 6; %maximum allowed search radius.
+            parameters.brownStdMult = 3*ones(gapCloseParam.timeWindow,1); %multiplication factor to calculate Brownian search radius from standard deviation.
+
+            parameters.brownScaling = [0.25 0.01]; %power for scaling the Brownian search radius with time, before and after timeReachConfB (next parameter).
+            % parameters.timeReachConfB = 3; %before timeReachConfB, the search radius grows with time with the power in brownScaling(1); after timeReachConfB it grows with the power in brownScaling(2).
+            parameters.timeReachConfB = gapCloseParam.timeWindow; %before timeReachConfB, the search radius grows with time with the power in brownScaling(1); after timeReachConfB it grows with the power in brownScaling(2).
+
+            parameters.ampRatioLimit = []; %for merging and splitting. Minimum and maximum ratios between the intensity of a feature after merging/before splitting and the sum of the intensities of the 2 features that merge/split.
+
+            parameters.lenForClassify = 3; %minimum track segment length to classify it as linear or random.
+
+            parameters.useLocalDensity = 0; %1 if you want to expand the search radius of isolated features in the gap closing and merging/splitting step.
+            parameters.nnWindow = gapCloseParam.timeWindow; %number of frames before/after the current one where you want to look for a track's nearest neighbor at its end/start (in the gap closing step).
+
+            parameters.linStdMult = 3*ones(gapCloseParam.timeWindow,1); %multiplication factor to calculate linear search radius from standard deviation.
+
+            parameters.linScaling = [1 0.01]; %power for scaling the linear search radius with time (similar to brownScaling).
+            % parameters.timeReachConfL = 4; %similar to timeReachConfB, but for the linear part of the motion.
+            parameters.timeReachConfL = gapCloseParam.timeWindow; %similar to timeReachConfB, but for the linear part of the motion.
+
+            parameters.maxAngleVV = 30; %maximum angle between the directions of motion of two tracks that allows linking them (and thus closing a gap). Think of it as the equivalent of a searchRadius but for angles.
+
+            %optional; if not input, 1 will be used (i.e. no penalty)
+            parameters.gapPenalty = 1.5; %penalty for increasing temporary disappearance time (disappearing for n frames gets a penalty of gapPenalty^(n-1)).
+
+            %optional; to calculate MS search radius
+            %if not input, MS search radius will be the same as gap closing search radius
+            parameters.resLimit = []; %resolution limit, which is generally equal to 3 * point spread function sigma.
+
+            %NEW PARAMETER
+            parameters.gapExcludeMS = 1; %flag to allow gaps to exclude merges and splits
+
+            %NEW PARAMETER
+            parameters.strategyBD = -1; %strategy to calculate birth and death cost
+
+            costMatrices(2).parameters = parameters;
+            clear parameters
+            
+            kalmanFunctions.reserveMem  = 'kalmanResMemLM';
+            kalmanFunctions.initialize  = 'kalmanInitLinearMotion';
+            kalmanFunctions.calcGain    = 'kalmanGainLinearMotion';
+            kalmanFunctions.timeReverse = 'kalmanReverseLinearMotion';
+
+            %% additional input
+
+            %saveResults
+            saveResults.dir = '~/Documents/Projects/ImageAnalysis/SingleCell'; %directory where to save input and output
+            saveResults.filename = 'tracksTest.mat'; %name of file where input and output are saved
+            % saveResults = 0; %don't save results
+
+            %verbose state
+            verbose = 1;
+
+            %problem dimension
+            probDim = 3;
+
+            %% tracking function call
+
+            [tracksFinal,kalmanInfoLink,errFlag] = trackCloseGapsKalmanSparse(movieInfo,...
+                costMatrices,gapCloseParam,kalmanFunctions,probDim,saveResults,verbose);
+            
         end
         % }}}
         
