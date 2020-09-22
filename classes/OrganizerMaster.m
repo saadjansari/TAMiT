@@ -133,12 +133,8 @@ classdef OrganizerMaster < Organizer
                 % Find the feature to simulate using ID
                 cFeature = obj.findObjectFromID( featureID);
 
-                % Simulate feature 
-                try
-                    [imageOut,error_code, err1] = cFeature.simulateFeature( size(imageIn) );
-                catch
-                    imageOut = cFeature.simulateFeature( size(imageIn) ); err1 = 0; error_code =0;
-                end
+                % Simulate feature
+                [imageOut,error_code, err1] = cFeature.simulateFeature( size(imageIn) );
 
             else % Just get image
                 if isempty( obj.imageSim)

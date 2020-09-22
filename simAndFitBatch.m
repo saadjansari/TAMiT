@@ -1,9 +1,17 @@
-function simAndFitBatch()
+function simAndFitBatch(spath)
 
     addpath('classes');
     addpath(genpath('functions'))
+    if nargin == 0
+        spath = [];
+    end
     
-    launch_summit = 0;
+    nTrials = 200;
+    snrVals = [2,4,8,16,32];
+    test_type = 'Monopolar';
+    savepath = [spath, filesep, 'simFitdata_', test_type, '.mat'];
+
+    launch_summit = 1;
     pc = parcluster('local');
     if launch_summit
         % explicitly set the JobStorageLocation to a temp directory
@@ -12,22 +20,19 @@ function simAndFitBatch()
     else
         parpool(pc);
     end
-        
-    nTrials = 2;
-    noiseVals = [0 0.2];
-    
-    dxyz = cell( length(noiseVals), nTrials);
-    spb_xyz = cell( length(noiseVals), nTrials);
-    FP = cell( length(noiseVals), nTrials);
-    TN = cell( length(noiseVals), nTrials);
-    lenTN = cell( length(noiseVals), nTrials);
-    lenTP = cell( length(noiseVals), nTrials);
-    lenFP = cell( length(noiseVals), nTrials);
-    
-    for nidx = 1 : length( noiseVals)
+
+    dxyz = cell( length(snrVals), nTrials);
+    spb_xyz = cell( length(snrVals), nTrials);
+    FP = cell( length(snrVals), nTrials);
+    TN = cell( length(snrVals), nTrials);
+    lenTN = cell( length(snrVals), nTrials);
+    lenTP = cell( length(snrVals), nTrials);
+    lenFP = cell( length(snrVals), nTrials);
+
+    for nidx = 1 : length( snrVals)
         parfor jT = 1 : nTrials
-            
-            dat = simAndFit( noiseVals(nidx), 'Monopolar');
+
+            dat = simAndFit( snrVals(nidx), test_type);
             dxyz{nidx, jT} = dat.dxyz;
             spb_xyz{nidx, jT} = dat.spb_xyz;
             FP{nidx,jT} = dat.FP;
@@ -35,13 +40,18 @@ function simAndFitBatch()
             lenTN{nidx, jT} = dat.lenTN;
             lenTP{nidx, jT} = dat.lenTP;
             lenFP{nidx, jT} = dat.lenFP;
-            
+
+
+            fid = fopen([spath, filesep, 'running.txt'],'w');
+            fprintf(fid,['noise = ' num2str(snrVals(nidx)) '\nTrial = ' num2str(jT) '\n']);
+            fclose(fid);
+
         end
     end
-    
+
     % combine data and save
-    save('simFitdata.mat', 'nTrials', 'noiseVals', 'dxyz', 'spb_xyz', 'FP', 'TN', 'lenTN', 'lenTP', 'lenFP')
-    
+    save(savepath, 'nTrials', 'snrVals', 'dxyz', 'spb_xyz', 'FP', 'TN', 'lenTN', 'lenTP', 'lenFP')
+
 %     figure;
 %     dd = [];
 %     for ii = 1:size( datt.dxyz,1)
