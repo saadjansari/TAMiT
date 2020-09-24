@@ -207,10 +207,22 @@ classdef CurvedMT < BasicElement
         % }}}
         
         % displayFeature3D {{{
-        function ax = displayFeature3D( obj, ax)
+        function ax = displayFeature3D( obj, ax, sizeZ)
              % Get (x,y,z) coordinates of the curve
             coords = obj.GetCoords();
             line( coords(1,:), coords(2,:), coords(3,:), obj.display{:} );
+            x = [coords(1,:),NaN];
+            y = [coords(2,:),NaN];
+            z = [coords(3,:),NaN];
+            cm = hsv;
+%             colormap(hsv)
+            cols = round((z/sizeZ)*length(cm)); cols(end)=cols(end-1);
+            cols( cols < 1) = 1; cols(cols>256) = 256;
+%             cols = cols/256;
+            col = 256*cm( cols, :);
+            col = permute(col, [1 3 2]);
+            
+            p=patch(x,y,z,col/256,'FaceColor','Flat','EdgeColor','Flat','LineWidth',10);
         end
         % }}}
 

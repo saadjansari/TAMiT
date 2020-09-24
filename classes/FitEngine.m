@@ -968,7 +968,7 @@ classdef FitEngine
             % Background
             estBkg = median( image( image > 0) );
             maxBkg = max( image(:) );
-            minBkg = min( image(:) );
+            minBkg = min( [min( image(:) ), 0]);
 
             % Find the correct label in vecLabels, and place the correct bounds in the correct places
 

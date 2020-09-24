@@ -1,4 +1,4 @@
-function simAndFitBatch(spath)
+function simAndFitBatch(spath,type_logical)
 
     addpath('classes');
     addpath(genpath('functions'))
@@ -6,9 +6,14 @@ function simAndFitBatch(spath)
         spath = [];
     end
     
-    nTrials = 200;
-    snrVals = [2,4,8,16,32];
-    test_type = 'Monopolar';
+    nTrials = 300;
+    snrVals = [4,8,16,32];
+    if nargin == 1 || type_logical == 0
+        test_type = 'Monopolar';
+    elseif type_logical == 1
+        test_type = 'MitosisBud';
+    end
+    
     savepath = [spath, filesep, 'simFitdata_', test_type, '.mat'];
 
     launch_summit = 1;

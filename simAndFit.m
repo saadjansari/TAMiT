@@ -38,30 +38,6 @@ function dat = simAndFit(snr,type)
             feature.syncFeatures();
             feature.preOptimize();
             
-%             % find best length
-%             for jf = 2 : length(feature.featureList{1}.featureList)
-%                 L0 = feature.featureList{1}.featureList{jf}.length;
-%                 Ls = linspace( L0-10, L0+10, 20); Ls( Ls < 5) = [];
-%                 resids = [];
-%                 for el = Ls
-%                     feature.featureList{1}.featureList{jf}.SetLength(el);
-%                     ims = feature.simulateAll( imNoisy, feature.ID);
-%                     resids = [resids, sum( (ims(:) - imNoisy(:) ).^2)];
-%                 end
-%                 [~, idx] = min(resids); feature.featureList{1}.featureList{jf}.SetLength( Ls(idx) );
-%             end
-%             
-%             % delete microtubules less than length = 7
-%             rmLine = [];
-%             for jf = 2 : length(feature.featureList{1}.featureList)
-%                 if feature.featureList{1}.featureList{jf}.length < 7
-%                     rmLine = [ rmLine jf];
-%                 end
-%             end
-%             feature.featureList{1}.featureList(rmLine) = []; feature.featureList{1}.numFeatures = length( feature.featureList{1}.featureList);
-%             feature.syncFeaturesWithMap(); 
-%             figure; imagesc( max(imNoisy,[],3) ); axis equal; colormap gray; hold on; feature.displayFeature( gca)
-
             % Fit Features via Fit Engine.
             fitEngine = FitEngine( imNoisy, feature, fpar);
             fitEngine = fitEngine.Optimize();

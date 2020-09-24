@@ -232,11 +232,21 @@ classdef Line < BasicElement
         % }}}
         
         % displayFeature3D {{{
-        function ax = displayFeature3D( obj, ax)
-            x = [obj.startPosition(1), obj.endPosition(1)];
-            y = [obj.startPosition(2), obj.endPosition(2)];
-            z = [obj.startPosition(3), obj.endPosition(3)];
-            line( x, y, z, obj.display{:} );
+        function ax = displayFeature3D( obj, ax,sizeZ)
+            x = [linspace(obj.startPosition(1), obj.endPosition(1),100),NaN];
+            y = [linspace(obj.startPosition(2), obj.endPosition(2),100),NaN];
+            z = [linspace(obj.startPosition(3), obj.endPosition(3),100),NaN];
+            cm = hsv;
+%             colormap(hsv)
+            cols = round((z/sizeZ)*length(cm)); cols(end)=cols(end-1);
+            cols( cols < 1) = 1; cols(cols>256) = 256;
+%             cols = cols/256;
+            col = 256*cm( cols, :);
+            col = permute(col, [1 3 2]);
+            
+            p=patch(x,y,z,col/256,'FaceColor','Flat','EdgeColor','Flat','LineWidth',10);
+
+            
         end
         % }}}
         

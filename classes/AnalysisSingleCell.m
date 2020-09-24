@@ -96,7 +96,7 @@ classdef AnalysisSingleCell < handle
                 end
                 
                 % Tracking
-                obj.trackChannel( jChannel);
+%                 obj.trackChannel( jChannel);
 
             end
 
@@ -620,68 +620,22 @@ classdef AnalysisSingleCell < handle
                 feat.updateFeatureMap();
 
                 img = im2double(feat.image);
-
-%                 % make figure
-%                 f = figure('visible', 'on'); 
-%                 h = tight_subplot(2,2, [.05 .01]);
-%                 
-%                 % Axes (1,1): Original
-%                 set(f, 'currentaxes', h(1) );
-%                 imagesc( h(1), max(img , [], 3) ), 
-%                 colormap( h(1), gray); axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
-%                 title('Original Image');
-%                 
-%                 % Axes (1,2): Original + 2D features
-%                 set(f, 'currentaxes', h(2) );
-%                 imagesc( h(2), max(img , [], 3) ), hold on
-%                 axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
-%                     
-%                 feat.displayFeature( h(2));
-%                 title('2D Features');
-%                 
-%                 % Axes (2,1): Simulated Image
-%                 set(f, 'currentaxes', h(3) );
-%                 imagesc( h(3), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
-%                 colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(3), 'xtick', [], 'ytick', []);
-%                 title('Fitted Image');
-%                 
-%                 % Axes (2,2): 3D features
-%                 % Axes 1 for image background
-%                 set(f, 'currentaxes', h(4) );hold on
-%                 imagesc( h(4), max(img , [], 3) ), colormap(h(4), gray);hold on; h(4).Color = 'Black';
-%                 axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(4), 'xtick', [], 'ytick', []);
-%                 
-%                 % Axes 2 for 3D features
-%                 h_temp = axes('Position',get(h(4),'Position')); % make new axes
-%                 set(h_temp, 'Color', 'none'); % i thought this may make the new axes background transparent, but it doesn't work 
-% 
-%                 axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]);
-%                 set( h_temp, 'xtick', [], 'ytick', []);
-%                 set(f, 'currentaxes', h_temp );hold on
-%                 colormap( h_temp, hsv);
-%                 
-%                 % boundary
-%                 %[B,~] = bwboundaries(max(img , [], 3) > 0,'noholes');
-%                 %plot( B{1}(:,2), B{1}(:,1), 'color', 'w', 'linewidth',3)
-%                 feat.displayFeature( h_temp,1);
-%                 
-%                 % Axes 3 for colorbar
-%                 h_temp2 = axes('Position',get(h(4),'Position'), 'Color', 'none', 'xtick', [], 'ytick', [], 'XColor', 'none', 'YColor', 'none');
-%                 axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]);
-%                 set(f, 'currentaxes', h_temp2 );hold on
-%                 colormap( h_temp2, hsv);
-% 
-%                 tcks = linspace(0,1, size(img,3)); tcks = tcks(1:2:end);
-%                 tcks_label = 1:2: size(img,3);
-%                 cb = colorbar('Location','eastoutside', 'Ticks',tcks, 'TickLabels',tcks_label,  'FontWeight', 'bold', 'FontSize', 10, 'Box', 'off');
-%                 set(h_temp2, 'Position',get(h(4),'Position'))
-% 
-%                 % Change cb height to be within 90% of axes
-%                 pos0 = get(cb, 'Position'); pos1=pos0;
-%                 cen = mean(pos0([2,4]));
-%                 pos1([2,4]) = [ cen - 0.95*(cen-pos0(2)), 0.95*pos0(4)];
-%                 set(cb, 'Position', pos1)
-%                 title('3D Features');
+                im2 = max(img,[],3);
+                
+                % Get xand y ranges for non-mask pixels
+                % monopolar or bipolar (square images)
+                xrange = find( any(im2,1)); yrange = find( any(im2,2));
+%                 if length(xrange) > length(yrange)
+%                     yrange = ceil( mean(yrange))-ceil(length(xrange)/2) : ceil( mean(yrange))-ceil(length(xrange)/2)+length(xrange)-1;
+%                 elseif length(xrange) < length(yrange)
+%                     xrange = ceil( mean(xrange))-ceil(length(yrange)/2) : ceil( mean(xrange))-ceil(length(yrange)/2)+length(yrange)-1;
+%                 end
+                    %byeast
+%                 xrange = 1:size(img,2); yrange=1:size(img,1);
+                
+                % Custom trimming (for cases without masks)
+                
+                %xlim( [xrange(1) xrange(end) ]); ylim( [yrange(1) yrange(end) ]);
                 
                 fs = 12;
                 % make figure
@@ -691,47 +645,50 @@ classdef AnalysisSingleCell < handle
                 % Axes (1,1): Original
                 set(f, 'currentaxes', h(1) );
                 imagesc( h(1), max(img , [], 3) ), 
-                colormap( h(1), gray); axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(1), 'xtick', [], 'ytick', []);
-                title('Original Image');
+                colormap( h(1), gray); axis equal; xlim( [xrange(1) xrange(end) ]); ylim( [yrange(1) yrange(end) ]); set( h(1), 'xtick', [], 'ytick', []);
+                hold on;
+                %title('Original Image');
+                
+                % Scale bar
+                PixelSize = obj.sizeVoxels(1); Scalebar_length = 2;
+                xend = xrange(end)-4; xstart = xend - Scalebar_length/PixelSize; y0 = yrange(end)-4;
+                % x_location and y_location are wherever you want your scale bar to appear.
+                line([xstart, xend],[y0,y0], 'Color','w', 'LineWidth', 4)
                 
                 % Axes (2,1): Simulated Image
                 set(f, 'currentaxes', h(2) );
                 imagesc( h(2), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
-                colormap gray; axis equal; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(2), 'xtick', [], 'ytick', []);
-                title('Fitted Image');
+                colormap gray; axis equal; xlim( [xrange(1) xrange(end) ]); ylim( [yrange(1) yrange(end) ]); set( h(2), 'xtick', [], 'ytick', []);
+                %title('Fitted Image');
                 
                 % Axes (2,2): 3D features
                 % Axes 1 for image background
                 set(f, 'currentaxes', h(3) );hold on
                 imagesc( h(3), max(img , [], 3) ), colormap(h(3), gray);hold on; h(3).Color = 'Black';
-                axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]); set( h(3), 'xtick', [], 'ytick', []);
-                title('3D Features');
+                axis equal; axis ij; xlim( [xrange(1) xrange(end) ]); ylim( [yrange(1) yrange(end) ]); set( h(3), 'xtick', [], 'ytick', []);
+                %title('3D Features');
                 
                 % Axes 2 for 3D features
                 h_temp = axes('Position',get(h(3),'Position')); % make new axes
                 set(h_temp, 'Color', 'none'); % i thought this may make the new axes background transparent, but it doesn't work 
 
-                axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]);
+                axis equal; axis ij; xlim( [xrange(1) xrange(end) ]); ylim( [yrange(1) yrange(end) ]);
                 set( h_temp, 'xtick', [], 'ytick', []);
                 set(f, 'currentaxes', h_temp );hold on
                 colormap( h_temp, hsv);
-                
-                % boundary
-                %[B,~] = bwboundaries(max(img , [], 3) > 0,'noholes');
-                %plot( B{1}(:,2), B{1}(:,1), 'color', 'w', 'linewidth',3)
                 feat.displayFeature( h_temp,1);
                 suptitle( sprintf('T=%d',obj.times(jTime)))
                 
                 % Axes 3 for colorbar
                 h_temp2 = axes('Position',get(h(3),'Position'), 'Color', 'none', 'xtick', [], 'ytick', [], 'XColor', 'none', 'YColor', 'none');
-                axis equal; axis ij; xlim( [1 size(img, 2) ]); ylim( [1 size(img, 1) ]);
+                axis equal; axis ij; xlim( [xrange(1) xrange(end) ]); ylim( [yrange(1) yrange(end) ]);
                 set(f, 'currentaxes', h_temp2 );hold on
                 colormap( h_temp2, hsv);
 
                 tcks = linspace(0,1, size(img,3)); tcks = tcks(1:2:end);
                 tcks_label = 1:2: size(img,3);
                 cb = colorbar('Location','eastoutside', 'Ticks',tcks, 'TickLabels',tcks_label,  ...
-                    'FontWeight', 'bold', 'FontSize', fs, 'Box', 'off', 'LineWidth',1);
+                    'FontWeight', 'bold', 'FontSize', fs, 'Box', 'off', 'LineWidth',0.5);
                 cb.Label.String = 'Z'; cb.Label.Rotation = 0;
                 set(h_temp2, 'Position',get(h(3),'Position'))
 
@@ -740,25 +697,21 @@ classdef AnalysisSingleCell < handle
                 cen = (pos0(2) + pos0(2)+pos0(4))/2;
                 bottom = cen - 0.95*(cen-pos0(2)); top = cen + 0.95*(cen-pos0(2));
                 pos1([2,4]) = [ bottom, top-bottom];
+                pos1(3) = 0.015;
                 set(cb, 'Position', pos1)
                 
                 % Set All font sizes
                 for ii = 1:length(h)
                     set(h(ii),'FontSize',fs)
                 end
-
+                f.Color = 'white';
                 obj.data{jChannel}.mov( jTime) = getframe(f);
                 close(f)
                 
                 % TEMP CODE: 3D FIGURE
-                time_enable = 44;
+                time_enable = 38;
                 if time_enable == obj.times(jTime)
-                    h = figure; hold on; ax = gca; axis ij; grid on; grid minor; set(ax, 'View',[-45,33]); h.Color = 'white';
-                    set(ax,'zlim',[1 size(img,3)])
-                    xlabel('X', 'FontWeight','bold'); ylabel('Y', 'FontWeight','bold'); zlabel('Z', 'FontWeight','bold')
-                    % set( ax, 'xtick', [], 'ytick', []);
-                    feat.displayFeature3D( ax); set(ax,'FontSize',fs)
-                    close(h)
+                    stop_for_script=1;
                 end
 
             end
@@ -774,17 +727,18 @@ classdef AnalysisSingleCell < handle
             
             switch obj.features{jChannel}
                 case 'Microtubule'
-                    mname = 'mt_video.avi';
+                    mname = 'mt_video';
                 case 'Kinetochore'
-                    mname = 'kc_video.avi';
+                    mname = 'kc_video';
                 case 'Cut7'
-                    mname = 'cut7_video.avi';
+                    mname = 'cut7_video';
                 otherwise
                     error('analyzeFrame: unknown feature')
             end
 
-            writerObj = VideoWriter([obj.path, filesep, mname]);
+            writerObj = VideoWriter([obj.path, filesep, mname],'MPEG-4');
             writerObj.FrameRate = 10;
+            writerObj.Quality = 100;
 
             % open the video writer
             open(writerObj);
