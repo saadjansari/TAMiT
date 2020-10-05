@@ -240,7 +240,7 @@ function [imNoisy, mainObj, params] = simCell(snr, type)
     
     % addPoissNoise {{{
     function imNoisy = addPoissNoise(img, ampMT, snr)
-        noisyy = 7*poissrnd( 50, size(img))/50 - 7;
+        noisyy = poissrnd( 5, size(img))/5;
         imNoisy = img + (ampMT/snr)*noisyy;
     end
     % }}}
