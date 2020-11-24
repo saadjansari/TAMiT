@@ -514,8 +514,8 @@ classdef MitoticCellBud < Cell
                     [~, idd] = max( alist); c3( jj) = idlist(idd);
                 end
                 
-                c3(1: floor(length(c3)/2) ) = c3(1);
-                c3(floor(length(c3)/2) : end) = mean( c3(end-2:end) );
+                c3(1: ceil(length(c3)/2) ) = c3(1);
+                c3(ceil(length(c3)/2) : end) = mean( c3(ceil(2*length(c3)/3):end) );
                 pz = polyfit( linspace(0,1, length(c3)), c3, 1);
                 zz = polyval( pz, linspace(0,1, length(c3)));
                 zz(zz < 1) = 1.2; zz(zz > size(imageIn,3) ) = size(imageIn,3)-0.2;
