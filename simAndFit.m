@@ -5,7 +5,7 @@ function dat = simAndFit(snr,type)
 
     %% simulate an image
     [imNoisy, mainObj, params] = simCell(snr, type);
-    
+    imNoisy = mat2gray(imNoisy);
     %% Fit
     disp('Estimating features...')
     % Estimate the features based on an estimation routine (defined in specialized sub-class )

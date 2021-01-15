@@ -123,7 +123,7 @@ classdef MonopolarCell < Cell
 
                     newMT = Line( Aster.MT{jmt}.startPosition, Aster.MT{jmt}.endPosition, lineAmp, sigma, dim, props.fit{dim}.line, props.graphics.aster.line);
                     % XXX : spherical set
-                    newMT.repr = 'spherical';
+%                     newMT.repr = 'spherical';
                     if norm( [Aster.MT{jmt}.startPosition - Aster.MT{jmt}.endPosition]) > 4
                         lines = { lines{:}, newMT };
                     end

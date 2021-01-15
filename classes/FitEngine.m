@@ -425,7 +425,7 @@ classdef FitEngine
             % Get the errors from the jacobian
             ci = nlparci( fitResults.vfit, ...
                 fitResults.residual, ...
-                'jacobian', fitResults.jacobian, ...
+                'jacobian', full(fitResults.jacobian), ...
                 'alpha', 0.07); 
             fitResults.vfitError = abs( (ci(:,2)-ci(:,1) ) / 2 )';
 
@@ -1090,6 +1090,7 @@ classdef FitEngine
             idx = find( ~cellfun( @isempty, strfind( vecLabels, 'theta') ) );speedVec( idx) = 10;
             % Phi
             idx = find( ~cellfun( @isempty, strfind( vecLabels, 'phi') ) );speedVec( idx) = 10;
+            speedVec = ones( size(speedVec));
             
         end
         % }}}

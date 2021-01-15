@@ -187,11 +187,11 @@ function [imNoisy, mainObj, params] = simCell(snr, type)
 
     end
     imgSim = mainObj.simulateFeature( params.size);
-    imNoisy = mat2gray(addPoissNoise(imgSim, a_mt, snr));
+    imNoisy = addPoissNoise(imgSim, a_mt, snr);
 %     figure; subplot(122); imagesc( max( imNoisy,[],3)); colormap gray; axis equal;
 %     subplot(121); imagesc( max(imgSim,[],3)); colormap gray; axis equal;
-    figure; imagesc( max( imNoisy,[],3)); colormap gray; axis equal; xlim([0 params.size(1)]); ylim([0 params.size(1)]); xticks([]); yticks([]);
-    title(['SNR = ', num2str(params.snr)]);
+%     figure; imagesc( max( imNoisy,[],3)); colormap gray; axis equal; xlim([0 params.size(1)]); ylim([0 params.size(1)]); xticks([]); yticks([]);
+%     title(['SNR = ', num2str(params.snr)]);
 
     % getCoordsRand {{{
     function cc = getRand(params, ub, lb)
