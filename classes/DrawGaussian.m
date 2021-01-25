@@ -254,6 +254,12 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         end
         errorCode = 0;
         error_amount = 0;
+        
+        if z1 < 1
+            errorCode = 1;
+        elseif z1 > size(imageIn,3)
+            errorCode = size(imageIn,3);
+        end
         if z1 < 1 || z1 > size(imageIn,3)
             [x1,y1,z1,error_amount] = TrimAndGetErrorZ( startPos,endPos,imageIn);
         end

@@ -2,6 +2,7 @@ classdef Spot < BasicElement
 
     properties
         position
+        err_position
     end
 
     methods ( Access = public )
@@ -80,12 +81,23 @@ classdef Spot < BasicElement
         % }}}
 
         % absorbVec {{{
-        function obj = absorbVec( obj, vec, vecLabels)
+        function obj = absorbVec( obj, vec, vecLabels, errBoolean)
 
+            if nargin < 4
+                errBoolean = 0;
+            end
+            
             props2find = {'position', 'amplitude', 'sigma'};
 
             % find the index of start positions
             for jProp = 1 : length( props2find)
+                
+                if errBoolean
+                    propCurr = ['err_',props2find{ jProp}];
+                else
+                    propCurr = props2find{ jProp};
+                end
+                
                 idxProp = find( strcmp( props2find{ jProp} , vecLabels) );
                 
                 % Checking
@@ -94,7 +106,8 @@ classdef Spot < BasicElement
                 end
                 
                 if obj.dim == 3 && strcmp(obj.fit, 'zonly')
-                    obj.( props2find{ jProp} )(1+end-length(idxProp):end) = vec( idxProp);
+                    obj.(propCurr) = obj.( props2find{ jProp});
+                    obj.( propCurr )(1+end-length(idxProp):end) = vec( idxProp);
                     
                 else
                     if length( obj.( props2find{ jProp} ) ) ~= length( vec(idxProp) )
@@ -102,7 +115,7 @@ classdef Spot < BasicElement
                     end
 
                     % Set final property
-                    obj.( props2find{ jProp} ) = vec( idxProp);
+                    obj.( propCurr ) = vec( idxProp);
                 end
 
             end
@@ -245,7 +258,9 @@ classdef Spot < BasicElement
             S.amplitude = obj.amplitude;
             S.sigma = obj.sigma;
             S.display = obj.display;
-
+            S.err_position = obj.err_position;
+            S.err_amplitude = obj.err_amplitude;
+            S.err_sigma = obj.err_sigma;
         end
         % }}}
         
@@ -383,8 +398,9 @@ classdef Spot < BasicElement
             end
 
             obj = Spot( S.position, S.amplitude, S.sigma, S.dim, S.props2Fit, S.display);
-%             obj = obj@BasicElement( S.dim, S.amplitude, S.sigma, S.props2Fit, S.display, 'Spot');
-
+            obj.err_position = S.err_position;
+            obj.err_amplitude = S.err_amplitude;
+            obj.err_sigma = S.err_sigma;
         end
         % }}}
         

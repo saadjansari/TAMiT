@@ -6,6 +6,10 @@ classdef Line < BasicElement
         length
         theta % [phi,theta] physics convention (phi:0-2pi, theta:0-pi)
         repr = 'cartesian' % cartesian or spherical
+        err_startPosition
+        err_endPosition
+        err_length
+        err_theta
     end
 
     methods
@@ -127,12 +131,23 @@ classdef Line < BasicElement
         % }}}
         
         % absorbVec {{{
-        function obj = absorbVec( obj, vec, vecLabels)
+        function obj = absorbVec( obj, vec, vecLabels, errBoolean)
 
+            if nargin < 4
+                errBoolean = 0;
+            end
+            
             props2find = {'startPosition', 'endPosition', 'amplitude', 'sigma','theta','phi', 'length'};
 
             % find the index of start positions
             for jProp = 1 : length( props2find)
+                
+                if errBoolean
+                    propCurr = ['err_',props2find{ jProp}];
+                else
+                    propCurr = props2find{ jProp};
+                end
+                
                 idxProp = find( strcmp( props2find{ jProp} , vecLabels) );
                 
                 % Checking
@@ -141,7 +156,8 @@ classdef Line < BasicElement
                 end
                 
                 if obj.dim == 3 && strcmp(obj.fit, 'zonly')
-                    obj.( props2find{ jProp} )(1+end-length(idxProp):end) = vec( idxProp);
+                    obj.( propCurr ) = obj.( props2find{ jProp} );
+                    obj.( propCurr )(1+end-length(idxProp):end) = vec( idxProp);
                     
                 else
                     if length( obj.( props2find{ jProp} ) ) ~= length( vec(idxProp) )
@@ -149,7 +165,7 @@ classdef Line < BasicElement
                     end
 
                     % Set final property
-                    obj.( props2find{ jProp} ) = vec( idxProp);
+                    obj.( propCurr ) = vec( idxProp);
                 end
 
             end
@@ -193,6 +209,19 @@ classdef Line < BasicElement
                     [imGraph, ec, err] = DrawGaussian( obj.sigma, imageOut, 'Line3', 'PosStart', obj.startPosition, 'PosEnd', obj.endPosition);
                     imageOut = obj.amplitude * mat2gray( imGraph);
                 end
+            end
+            
+            % What to do if there is an error in Z?
+            % Options:
+            % 1. Increase intensity of the penetrating tip pixel, scaling it with
+            %    the error amount.
+            
+            % Find all z-indices of the max-intensity pixels
+            if err > 0
+                errorPlane = imageOut(:,:,ec);
+                idx = find( errorPlane == max( errorPlane(:) ) );
+                [yidx,xidx] = ind2sub( size( errorPlane), idx);
+                imageOut( yidx,xidx, ec) = imageOut( yidx,xidx, ec)*(1 +obj.length*err);
             end
             obj.imageSim = imageOut;
             %imageOut( imageFeat > imageIn) = imageFeat( imageFeat > imageIn);
@@ -303,6 +332,10 @@ classdef Line < BasicElement
             S.amplitude = obj.amplitude;
             S.sigma = obj.sigma;
             S.display = obj.display;
+            S.err_startPosition = obj.err_startPosition;
+            S.err_endPosition = obj.err_endPosition;
+            S.err_amplitude = obj.err_amplitude;
+            S.err_sigma = obj.err_sigma;
 
         end
         % }}}
@@ -623,7 +656,10 @@ classdef Line < BasicElement
             end
 
             obj = Line( S.startPosition, S.endPosition, S.amplitude, S.sigma, S.dim, S.props2Fit, S.display);
-
+            obj.err_startPosition = S.err_startPosition;
+            obj.err_endPosition = S.err_endPosition;
+            obj.err_amplitude = S.err_amplitude;
+            obj.err_sigma = S.err_sigma;
         end
         % }}}
         

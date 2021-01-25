@@ -64,15 +64,19 @@ classdef AsterMT < Organizer
         % }}}
 
         % absorbVec {{{
-        function obj = absorbVec( obj, vec, vecLabels)
-
+        function obj = absorbVec( obj, vec, vecLabels, errBoolean)
+            
+            if nargin < 4
+                errBoolean = 0;
+            end
+            
             % Take the vector and find the indexes associated with the SPB parameters
             idxSPB = find( ~cellfun( @isempty, strfind( vecLabels, 'SPB_') ) );
             idxSPBPosition = find( ~cellfun( @isempty, strfind( vecLabels, 'SPB_position') ) );
             % Get the vector for the spindle by removing the spindle substring. Absorb the vector
             vecSPB = vec( idxSPB);
             vecLabelsSPB = erase( vecLabels( idxSPB), 'SPB_');
-            obj.featureList{ 1} = absorbVec( obj.featureList{ 1}, vecSPB, vecLabelsSPB );
+            obj.featureList{ 1} = absorbVec( obj.featureList{ 1}, vecSPB, vecLabelsSPB, errBoolean );
 
             % Get the vector for each microtubule, and ask the microtubule objects to absorb the vector
             for jmt = 2 : obj.numFeatures
@@ -85,7 +89,7 @@ classdef AsterMT < Organizer
                 vecMT = [ vec( idxSPBPosition) , vecMT ];
                 vecLabelsMT_start = repmat( {'startPosition'}, 1, length( idxSPBPosition) );
                 vecLabelsMT = { vecLabelsMT_start{:}, vecLabelsMT{:} };
-                obj.featureList{ jmt} = absorbVec( obj.featureList{ jmt}, vecMT, vecLabelsMT);
+                obj.featureList{ jmt} = absorbVec( obj.featureList{ jmt}, vecMT, vecLabelsMT, errBoolean);
 
             end
         end

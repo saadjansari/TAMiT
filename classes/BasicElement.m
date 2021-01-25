@@ -7,6 +7,8 @@ classdef BasicElement < Feature
         display
         params = [];
         bounds
+        err_amplitude
+        err_sigma
     end
 
     methods ( Access = public )

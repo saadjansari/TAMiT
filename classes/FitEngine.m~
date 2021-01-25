@@ -823,7 +823,7 @@ classdef FitEngine
                 vecErr = vecErr .* fitInfo.speedVec;
             end
             fitInfo.featureCurrent.absorbVec(vec, labels);
-            fitInfo.featureCurrent.absorbVec(vecErr, labels, 1);
+            
         end
         % }}}
         

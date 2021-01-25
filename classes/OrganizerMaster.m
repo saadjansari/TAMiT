@@ -7,6 +7,8 @@ classdef OrganizerMaster < Organizer
         backgroundNuclear
         maskNuclear
         props2Fit
+        err_background
+        err_backgroungNuclear
     end
 
     methods( Access = public)
@@ -101,12 +103,23 @@ classdef OrganizerMaster < Organizer
         % }}}
 
         % absorbVecEnvironment {{{
-        function obj = absorbVecEnvironment( obj, vec, vecLabels)
+        function obj = absorbVecEnvironment( obj, vec, vecLabels, errBoolean)
         
+            if nargin < 4
+                errBoolean = 0;
+            end
+            
             props2find = obj.props2Fit.fit{obj.dim}.Environment;
 
             % find the index of start positions
             for jProp = 1 : length( props2find)
+                
+                if errBoolean
+                    propCurr = ['err_',props2find{ jProp}];
+                else
+                    propCurr = props2find{ jProp};
+                end
+                
                 idxProp = find( strcmp( props2find{ jProp} , vecLabels) );
                 
                 % Checking
@@ -118,7 +131,7 @@ classdef OrganizerMaster < Organizer
                 end
             
                 % Set final property
-                obj.( props2find{ jProp} ) = vec( idxProp);
+                obj.( propCurr ) = vec( idxProp);
 
             end
 
@@ -139,12 +152,8 @@ classdef OrganizerMaster < Organizer
             else % Just get image
                 if isempty( obj.imageSim)
                     % Simulate feature 
-                    try
-                        [imageOut,error_code, err1] = obj.simulateFeature( size(imageIn) );
-                        obj.imageSim = imageOut;
-                    catch
-                        imageOut = obj.simulateFeature( size(imageIn) ); err1 = 0; error_code =0;
-                    end
+                    [imageOut,error_code, err1] = obj.simulateFeature( size(imageIn) );
+                    obj.imageSim = imageOut;
                 else
                     imageOut = obj.imageSim; err1 = 0; error_code =0;
                 end
@@ -162,7 +171,7 @@ classdef OrganizerMaster < Organizer
             
             % Fill background where features are not prominent-er
             if ~isempty( obj.background)
-                imageOut = imageOut + obj.background;
+                imageOut = imageOut + ones(size(imageOut)).*obj.mask*obj.background;
             end
 
             % Add nuclear background
@@ -171,7 +180,7 @@ classdef OrganizerMaster < Organizer
             end
 
             % Add Cellular Mask
-            imageOut = imageOut .* obj.mask;
+%             imageOut = imageOut .* obj.mask;
 
             % PenalizeOutsideMask {{{
             function amt = PenalizeOutsideMask( imageIn, mask)

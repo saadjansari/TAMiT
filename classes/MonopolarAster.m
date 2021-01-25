@@ -37,13 +37,17 @@ classdef MonopolarAster < OrganizerMaster
         % }}}
 
         % absorbVec {{{
-        function obj = absorbVec( obj, vec, vecLabels)
+        function obj = absorbVec( obj, vec, vecLabels, errBoolean)
+            
+            if nargin < 4
+                errBoolean = 0;
+            end
             
             % Absorb Environmental parameters
-            obj.absorbVecEnvironment( vec, vecLabels);
+            obj.absorbVecEnvironment( vec, vecLabels, errBoolean);
 
             % Aster Vector
-            obj.featureList{ 1}.absorbVec( vec, vecLabels );
+            obj.featureList{ 1}.absorbVec( vec, vecLabels, errBoolean );
             
         end
         % }}}
