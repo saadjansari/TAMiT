@@ -289,6 +289,17 @@ classdef FitEngine
 
                     % Solve Optimization Problem
                     fitInfo.fitResults = obj.SolveOptimizationProblem( fitProblem );
+                    
+                    % Update
+                    labels = fitInfo.fitVecs.labels;
+                    vec = fitInfo.fitResults.vfit;
+                    vecErr = fitInfo.fitResults.vfitError;
+                    if obj.parameters.fitExploreSpeed
+                        vec = vec .* fitInfo.speedVec;
+                        vecErr = vecErr .* fitInfo.speedVec;
+                    end
+                    featureNew.absorbVec(vec, labels);
+                    featureNew.absorbVec(vecErr, labels, 1);
 
                     % Check if added feature was worth it
                     im1_raw = feature.simulateFeature( size(obj.image));
@@ -369,6 +380,17 @@ classdef FitEngine
 
                     % Solve Optimization Problem
                     fitInfo.fitResults = obj.SolveOptimizationProblem( fitProblem );
+                    
+                    % Update
+                    labels = fitInfo.fitVecs.labels;
+                    vec = fitInfo.fitResults.vfit;
+                    vecErr = fitInfo.fitResults.vfitError;
+                    if obj.parameters.fitExploreSpeed
+                        vec = vec .* fitInfo.speedVec;
+                        vecErr = vecErr .* fitInfo.speedVec;
+                    end
+                    featureNew.absorbVec(vec, labels);
+                    featureNew.absorbVec(vecErr, labels, 1);
                     
                     % Check if added feature was worth it
                     im1_raw = feature.imageSim;

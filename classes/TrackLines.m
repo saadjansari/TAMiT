@@ -27,10 +27,11 @@ classdef TrackLines < TrackFeatures
                 obj.startPt(:, jTime) = faster.featureList{1}.position;
                 for jc = 2: faster.numFeatures
                     cc = faster.featureList{jc}.endPosition;
-                    xC = [xC; [cc(1), 0]];
-                    yC = [yC; [cc(2), 0]];
-                    zC = [zC; [cc(3), 0]];
-                    amp = [amp; [faster.featureList{jc}.amplitude, 0]];
+                    ccErr = faster.featureList{jc}.err_endPosition;
+                    xC = [xC; [cc(1), ccErr(1)]];
+                    yC = [yC; [cc(2), ccErr(2)]];
+                    zC = [zC; [cc(3), ccErr(3)]];
+                    amp = [amp; [faster.featureList{jc}.amplitude, faster.featureList{jc}.err_amplitude]];
                 end
                 movieInfo(jTime).xCoord = xC;
                 movieInfo(jTime).yCoord = yC;

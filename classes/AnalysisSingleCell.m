@@ -83,15 +83,15 @@ classdef AnalysisSingleCell < handle
                 if obj.flagMovie 
                     fprintf('   Directing movies...\n')
                     % obj.temp_fig1( jChannel);
-                    obj.temp_fig3( jChannel);
-                    % obj.makeMovie( jChannel);
+%                     obj.temp_fig3( jChannel);
+%                     obj.makeMovie( jChannel);
                     if obj.fwdreverse
 %                         obj.makeMovieFwdReverse( jChannel);
                     end
                 end
                 
                 % Tracking
-%                 obj.trackChannel( jChannel);
+                obj.trackChannel( jChannel);
 
             end
 
