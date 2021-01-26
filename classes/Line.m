@@ -423,7 +423,7 @@ classdef Line < BasicElement
 %                     coords = linspace( obj.startPosition(jc), obj.endPosition(jc), 100);
 %                     obj.endPosition(jc) = coords(95);
 %                 end
-                obj.absorbVec( [obj.length*0.95], {'length'});
+                obj.SetLength( obj.length*0.95 );
 
                 % Check again
                 imFeat = obj.simulateFeature( size(mask) );
