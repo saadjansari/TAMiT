@@ -130,11 +130,22 @@ classdef MonopolarAster < OrganizerMaster
             feature = Line( featureKeep.startPosition, featureKeep.endPosition, amp, sigma, obj.dim, props2Fit, display);
             feature.repr = 'cartesian';
             
-            while ~( feature.endPosition(3) > 1.2)
+            cnt_err = 0;
+            while ~( feature.endPosition(3) > 1)
+                cnt_err = cnt_err +1;
                 feature.SetLength( 0.98*feature.length() );
+                if cnt_err > 30
+                    error('end Z position is less than 1')
+                end
             end
-            while ~(feature.endPosition(3) < size( obj.image,3)-0.2)
+            
+            cnt_err = 0;
+            while ~(feature.endPosition(3) < size( obj.image,3) )
+                cnt_err = cnt_err +1;
                 feature.SetLength( 0.98*feature.length() );
+                if cnt_err > 30
+                    error('end Z position is less than max Z')
+                end
             end
 
             if feature.length < 7
