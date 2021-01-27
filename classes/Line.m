@@ -178,6 +178,14 @@ classdef Line < BasicElement
                     obj.endPosition = obj.startPosition + obj.length* [cos(obj.theta(1)), sin(obj.theta(1))];
                 end
             end
+            if strcmp( obj.repr,'cartesian')
+                obj.theta = atan2( obj.endPosition(2)-obj.startPosition(2),obj.endPosition(1)-obj.startPosition(1) );
+                obj.length = norm( obj.startPosition - obj.endPosition);
+                if obj.dim == 3
+                    phi = acos( (obj.endPosition(3)-obj.startPosition(3))/obj.length );
+                    obj.theta = [obj.theta, phi];
+                end
+            end
             obj.sigma(1) = mean( obj.sigma(1:2));
             obj.sigma(2) = obj.sigma(1);
 
