@@ -148,6 +148,16 @@ classdef Spot < BasicElement
                 imageOut = obj.amplitude * mat2gray( imGraph);
             end
 
+            % What to do if there is an error in Z?
+            % Options:
+            % 1. Increase intensity at closest 3D point
+            if err > 0
+                errorPlane = imageOut(:,:,ec);
+                idx = find( errorPlane == max( errorPlane(:) ) );
+                [yidx,xidx] = ind2sub( size( errorPlane), idx);
+                imageOut( yidx,xidx, ec) = imageOut( yidx,xidx, ec)*(1 +err);
+            end
+            
 %             imageFeat = imageOut;
             obj.imageSim = imageOut;
 %             imageOut( imageOut < imageFeat) = imageFeat( imageOut < imageFeat);

@@ -145,18 +145,18 @@ classdef TrackLines < TrackFeatures
             obj.tracksFinal = tracksFinal;
         end
         
-        function dyfeats = mat2dyfeats( obj, xC, yC, zC)
+        function dyfeats = mat2dyfeats( obj, xC, yC, zC, aC)
             % Get dynamic features from matrix xt, yt,zt data
             
             numT = size(xC,2);
             numFeat = size(xC,1);
 
             % Determine number of distinguisable colors needed
-            num_col = max( sum( ~isnan(xC), 1) );
+            num_col = max( sum( ~isnan(xC(:,:,1)), 1) );
             cols = distinguishable_colors(num_col, {'w','k'});
             
             % Get feature start and end times
-            not_nans = ~isnan( xC);
+            not_nans = ~isnan( xC(:,:,1));
             startend = zeros(numFeat,2);
             for jf = 1: numFeat
                 startend(jf,1) = find(not_nans(jf,:),1,'first');
@@ -173,13 +173,16 @@ classdef TrackLines < TrackFeatures
                 t1 = startend(jf,2);
                 
                 % get position matrix
-                pos = zeros(2,3, feat_timespan(jf) );
-                pos(1,:,:) = obj.startPt(:,t0:t1);
-                pos(2,1,:) = xC( jf,t0:t1);
-                pos(2,2,:) = yC( jf,t0:t1);
-                pos(2,3,:) = zC( jf,t0:t1);
+                pos = zeros(2,3, feat_timespan(jf) ,2 );
+                pos(1,:,:,1) = obj.startPt(:,t0:t1);
+                pos(2,1,:,:) = xC( jf,t0:t1,:);
+                pos(2,2,:,:) = yC( jf,t0:t1,:);
+                pos(2,3,:,:) = zC( jf,t0:t1,:);
                 
-                dyfeats{jf} = DynamicFeature( startend(jf,1), startend(jf,2), pos, cols( 1+rem(jf,num_col), :), obj.timeStep, obj.sizeVoxels ); 
+                % get amplitudes
+                amp = aC( jf, t0:t1, :);
+                
+                dyfeats{jf} = DynamicFeature( startend(jf,1), startend(jf,2), pos, amp, cols( 1+rem(jf,num_col), :), obj.timeStep, obj.sizeVoxels ); 
             end
             
         end

@@ -68,7 +68,8 @@ classdef AnalysisSingleCell < handle
                 obj.times = obj.findTimes( obj.channels( jChannel));
             
                 % Analysis
-                fname = [obj.path,filesep,'analysisData_',num2str(jChannel),'.mat'];
+                fname = [obj.path, filesep,'dydata.mat'];
+                
                 disp( 'temp bypass of analysis file check')
                 fprintf('   Analysis: channel %d with feature %s...\n', obj.channels( jChannel), obj.features{ jChannel}); 
                 dat = obj.analyzeChannel( jChannel); save( fname, 'dat', '-v7.3');

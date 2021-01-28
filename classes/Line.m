@@ -229,7 +229,7 @@ classdef Line < BasicElement
                 errorPlane = imageOut(:,:,ec);
                 idx = find( errorPlane == max( errorPlane(:) ) );
                 [yidx,xidx] = ind2sub( size( errorPlane), idx);
-                imageOut( yidx,xidx, ec) = imageOut( yidx,xidx, ec)*(1 +obj.length*err);
+                imageOut( yidx,xidx, ec) = imageOut( yidx,xidx, ec)*(1 +err);
             end
             obj.imageSim = imageOut;
             %imageOut( imageFeat > imageIn) = imageFeat( imageFeat > imageIn);
@@ -577,7 +577,7 @@ classdef Line < BasicElement
                     imSim = imBkg + obj.simulateFeature( size(imBkg));
                     res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
                 end
-                [~,idL] = min(res); obj.length = lens(idL);
+                [~,idL] = min(res); obj.SetLength( lens(idL));
                 if obj.dim == 3 && obj.endPosition(3) < 1
                     obj.SetEndPosition( [obj.endPosition(1:2), 1]);
                 elseif obj.dim == 3 && obj.endPosition(3) > size(imOrg,3)

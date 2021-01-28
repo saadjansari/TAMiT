@@ -874,12 +874,12 @@ classdef FitEngine
                 case 'RELEASE'
                     opts = optimoptions( opts, ...
                                         'display', 'iter',...
-                                        'MaxIter', 20);
+                                        'MaxIter', 30);
 
                 case 'DEBUG'
                     opts = optimoptions( opts, ...
                                         'display', 'iter' ,...
-                                        'MaxIter', 20);
+                                        'MaxIter', 30);
             end
             
             % Set Parallel Optimization

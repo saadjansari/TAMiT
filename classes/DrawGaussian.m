@@ -144,10 +144,17 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         errorCode = 0;
         error_amount = 0;
         if pos(1) > size(imageIn,2) || pos(2) > size(imageIn,1) ...
-                || pos(1) < 1 || pos(2) < 1 || pos(3) < 1 || pos(3) > size(imageIn,3)
+                || pos(1) < 1 || pos(2) < 1 
             error_amount = 1;
             imageSpot = 0*imageIn;
             return
+        end
+        if pos(3) < 1
+            error_amount = abs( 1-pos(3));
+            errorCode = 1;
+        elseif pos(3) > size(imageIn,3)
+            error_amount = abs( pos(3) - size(imageIn,3));
+            errorCode = size(imageIn,3);
         end
 
         % Amplitudes:
