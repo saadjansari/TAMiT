@@ -64,6 +64,9 @@ classdef FitEngine
             % Local Optimization
             fitInfo = obj.OptimizeLocal(fitInfo);
             
+            % Add z-padding
+            [obj,fitInfo] = obj.zpadding_on( fitInfo);
+            
             % Global Optimization
             fitInfo = obj.OptimizeGlobal(fitInfo);
             
@@ -73,6 +76,18 @@ classdef FitEngine
             % Save final optimized data
             fitInfo.fitScope = 'final';
             obj.feature = fitInfo.featureMain;
+            
+            % initial/final images
+            imageSimI = FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo);
+            imageSimI = im2uint16( imageSimI(:,:,2:end-1) );
+            imageSimF = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
+            imageSimF = im2uint16( imageSimF(:,:,2:end-1) );
+            fitInfo.imageSimI = imageSimI;
+            fitInfo.imageSimF = imageSimF;
+            
+            % Remove z-padding
+            [obj,fitInfo] = obj.zpadding_off( fitInfo);
+            
             obj.feature.finalizeAddedFeatures();
             if obj.parameters.display
                 Cell.displayFinalFit( obj.image, obj.feature, fitInfo);
@@ -849,6 +864,101 @@ classdef FitEngine
         end
         % }}}
         
+        function [obj,fitInfo] = zpadding_on( obj, fitInfo)
+           
+            % Pad image
+            img0 = obj.image;
+            img1 = zeros( size(img0, 1), size(img0,2), size(img0,3)+2, class(img0) );
+            img1(:,:,2:end-1) = img0;
+            obj.image = img1;
+            
+            % Pad features
+            % Main organizer
+            obj.feature.image = img1;
+            mask0 = obj.feature.mask;
+            mask1 = zeros( size(img1,1), size(img1,2), size(img1,3), class(mask0) );
+            mask1(:,:,2:end-1) = mask0;
+            mask1(:,:,1) = mask0(:,:,1);
+            mask1(:,:,end) = mask0(:,:,end);
+            obj.feature.mask = mask1;
+            sim0 = obj.feature.imageSim;
+            sim1 = zeros( size(img1,1), size(img1,2), size(img1,3), class(sim0) );
+            sim1(:,:,2:end-1) = sim0;
+            obj.feature.imageSim = sim1;
+            
+            switch obj.feature.type
+                case 'MonopolarAster'
+                    faster = obj.feature.featureList{1};
+                    sim0 = faster.imageSim;
+                    sim1 = zeros( size(img1,1), size(img1,2), size(img1,3), class(sim0) );
+                    sim1(:,:,2:end-1) = sim0;
+                    faster.imageSim = sim1;
+                    
+                    for jf = 1 : faster.numFeatures
+                        
+                        if strcmp( faster.featureList{jf}.type, 'Spot')
+                            faster.featureList{jf}.position(3) = faster.featureList{jf}.position(3)+1;
+                            faster.featureList{jf}.bounds.ub.position(3) = faster.featureList{jf}.bounds.ub.position(3) + 2;
+                        elseif strcmp( faster.featureList{jf}.type, 'Line')
+                            faster.featureList{jf}.startPosition(3) = faster.featureList{jf}.startPosition(3)+1;
+                            faster.featureList{jf}.endPosition(3) = faster.featureList{jf}.endPosition(3)+1;
+                            faster.featureList{jf}.bounds.ub.startPosition(3) = faster.featureList{jf}.bounds.ub.startPosition(3) + 2;
+                            faster.featureList{jf}.bounds.ub.endPosition(3) = faster.featureList{jf}.bounds.ub.endPosition(3) + 2;
+                        else
+                            error('unknown feature type')
+                        end
+                        faster.featureList{jf}.fillParams( size(img1) );
+                    end
+                case 'Mitosis'
+                case 'MitosisBud'
+            end
+        end
+        
+        function [obj,fitInfo] = zpadding_off( obj, fitInfo)
+           
+            % unPad image
+            obj.image = obj.image(:,:,2:end-1);
+            
+            % unPad features
+            obj.feature = fitInfo.featureMain;
+            % Main organizer
+            obj.feature.image = obj.feature.image(:,:,2:end-1);
+            obj.feature.mask = obj.feature.mask(:,:,2:end-1);
+            obj.feature.imageSim = obj.feature.imageSim(:,:,2:end-1);
+            
+            switch obj.feature.type
+                case 'MonopolarAster'
+                    faster = obj.feature.featureList{1};
+                    faster.imageSim = faster.imageSim(:,:,2:end-1);
+                    
+                    for jf = 1 : faster.numFeatures
+                        if strcmp( faster.featureList{jf}.type, 'Spot')
+                            faster.featureList{jf}.position(3) = faster.featureList{jf}.position(3)-1;
+                            faster.featureList{jf}.bounds.ub.position(3) = faster.featureList{jf}.bounds.ub.position(3) - 2;
+                            
+                        elseif strcmp( faster.featureList{jf}.type, 'Line')
+                            faster.featureList{jf}.startPosition(3) = faster.featureList{jf}.startPosition(3)-1;
+                            faster.featureList{jf}.endPosition(3) = faster.featureList{jf}.endPosition(3)-1;
+                            faster.featureList{jf}.bounds.ub.startPosition(3) = faster.featureList{jf}.bounds.ub.startPosition(3) - 2;
+                            faster.featureList{jf}.bounds.ub.endPosition(3) = faster.featureList{jf}.bounds.ub.endPosition(3) - 2;
+                        else
+                            error('unknown feature type')
+                        end
+                        faster.featureList{jf}.fillParams( size(obj.image) );
+                    end
+                case 'Mitosis'
+                case 'MitosisBud'
+            end
+            
+            % Alter fitInfo
+            fitInfo.featureMain = obj.feature;
+            fitInfo.mask = obj.feature.mask;
+            fitInfo.image = obj.feature.image;
+            fitInfo.numVoxels = size(fitInfo.image);
+
+        end
+        
+        
     end
 
     methods (Static = true)
@@ -865,7 +975,7 @@ classdef FitEngine
                                 'OptimalityTolerance', 1e-12, ...
                                 'MaxIter', 10, ...
                                 'TolFun', 1e-9, ...
-                                'FiniteDifferenceStepSize', 1e-4, ...
+                                'FiniteDifferenceStepSize', 1e-5, ...
                                 'FiniteDifferenceType', 'central', ...
                                 'StepTolerance', 1e-5);
 
@@ -1075,14 +1185,10 @@ classdef FitEngine
             % Creates a weighing vector to allow a user to assign different importance to different kinds of parameters. This will infact allow the fitting optimization engine to explore the parameters space at different speeds
             % The smaller, the faster
             % Exlporation Speed : unassigned speeds are kept at 1.0
-%             speedAmp = 100;
-%             speedBkg = 10;
-%             speedSigma = 1;
-%             speedPos = 10;
             speedAmp = 0.01;
             speedBkg = 10;
             speedSigma = 0.1;
-            speedPos = 1;
+            speedPos = 0.1;
             speedCXYZ = 10;
             speedT = 10;
             speedL = 100;
@@ -1135,6 +1241,7 @@ classdef FitEngine
             %speedVec = ones( size(speedVec));
         end
         % }}}
+        
         
     end
 

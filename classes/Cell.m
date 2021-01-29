@@ -157,7 +157,7 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             % Get the image for this frame
             Image2Fit = Image(:,:,:, parameters.time, parameters.channelTrue);
-
+            
             % Estimate the features based on an estimation routine (defined in specialized sub-class )
             disp('Estimating features...')
             % Good estimation is key to good optimization in low SnR images
@@ -182,6 +182,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             
             % Pre-fit adjustments
             mainFeature.preOptimize();
+            
             
             % Prepare fit params
             params = obj.params.fit;
@@ -1134,8 +1135,6 @@ classdef Cell < handle & matlab.mixin.Copyable
         % saveFinalFit {{{
         function h = saveFinalFit( Image2Fit, mainFeature, fitInfo)
             % Save data for this particular fit
-
-            testsave = 1;
             
             % Book-keeping
             channel = uint8(fitInfo.channel);
@@ -1145,24 +1144,11 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             % Images Simulated
             try
-                imageSimI = im2uint16( FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo) );
-                imageSimF = im2uint16( FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo) );
+                imageSimI = fitInfo.imageSimI;
+                imageSimF = fitInfo.imageSimF;
             catch
                 imageSimI = [];
                 imageSimF = [];
-            end
-            if testsave == 1 
-                maskk = (mainFeature.image > 0); vals = find(maskk);
-                % Sim image diff
-                imSim = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
-                simDiff = mainFeature.image( find(maskk)) - imSim(find(maskk));
-                mu1 = mean( simDiff(:));
-                stdev1 = std( simDiff(:));
-                % Sim background only diff
-                bkgDiff = mainFeature.image( find(maskk)) - mainFeature.background;
-                mu2 = mean( bkgDiff(:));
-                stdev2 = std( bkgDiff(:));
-                save([ fitInfo.saveDirectory, filesep, 'test.mat'], 'simDiff', 'bkgDiff');
             end
             
             % Main feature
