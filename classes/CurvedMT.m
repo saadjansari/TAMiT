@@ -157,7 +157,7 @@ classdef CurvedMT < BasicElement
         % }}}
         
         % simulateFeature {{{
-        function [imageOut,err_code,err] = simulateFeature( obj, sizeImage)
+        function [imageOut,ec,err] = simulateFeature( obj, sizeImage)
             % Simulate a gaussian curve 
 
             if nargin < 2
@@ -326,12 +326,12 @@ classdef CurvedMT < BasicElement
             % shorten any curves whose mtoc is within the mask.
 
             % Simulate image
-            [imFeat,outsideZ] = obj.simulateFeature( size(mask) );
+            imFeat = obj.simulateFeature( size(mask) );
             
             % if escapes from mask, shorten until inside mask
-            outsideXY = Methods.CheckEscapeMask( imFeat, mask, 0.02);
+            outside = Methods.CheckEscapeMask( imFeat, mask, 0.02);
 
-            while outsideXY || outsideZ
+            while outside
 
                 % Shorten
                 if obj.L-0.5 > obj.bounds.lb.L
@@ -341,8 +341,8 @@ classdef CurvedMT < BasicElement
                 end
 
                 % Check again
-                [imFeat,outsideZ] = obj.simulateFeature( size(mask) );
-                outsideXY = Methods.CheckEscapeMask( imFeat, mask);
+                imFeat = obj.simulateFeature( size(mask) );
+                outside = Methods.CheckEscapeMask( imFeat, mask);
                 obj.GetLength();
 
             end
