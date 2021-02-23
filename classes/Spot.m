@@ -408,9 +408,13 @@ classdef Spot < BasicElement
             end
 
             obj = Spot( S.position, S.amplitude, S.sigma, S.dim, S.props2Fit, S.display);
-            obj.err_position = S.err_position;
-            obj.err_amplitude = S.err_amplitude;
-            obj.err_sigma = S.err_sigma;
+            try
+                obj.err_position = S.err_position;
+                obj.err_amplitude = S.err_amplitude;
+                obj.err_sigma = S.err_sigma;
+            catch
+                warning('errors not present')
+            end
         end
         % }}}
         

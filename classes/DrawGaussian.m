@@ -543,7 +543,7 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
     % }}}
     
     % drawGaussianCurve3D {{{
-    function [imageCurve, error_code, error_amount] = drawGaussianCurve3DCoords( coords, sigma, imageIn, Idx, X, Y, Z)
+    function [imageCurve, errorCode, error_amount] = drawGaussianCurve3DCoords( coords, sigma, imageIn, Idx, X, Y, Z)
         % Draw a gaussian curve in 3D using numerical integration
 
         if isempty( coords)
@@ -554,7 +554,7 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         end
 
         dim = length( size(imageIn) );
-        error_code = 0;
+        errorCode = 0;
         error_amount = 0;
 
         % Check if microtubule escapes the z-planes. Exit with error.
@@ -571,6 +571,11 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
             xDat = coords(1,:);
             yDat = coords(2,:);
             zDat = coords(3,:);
+        end
+        if any(coords(3,:) < 1)
+            errorCode = 1;
+        elseif any(coords(3,:) >= size(imageIn,3))
+            errorCode = size(imageIn,3);
         end
         
         imageCurve = NumericalConv( sigma, [ xDat' , yDat' , zDat'], {X,Y,Z}, imageIn, Idx );

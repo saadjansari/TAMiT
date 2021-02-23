@@ -16,6 +16,10 @@ classdef CurvedMT < BasicElement
         L = 8 
         length % filament length
         orientation % average orientation
+        err_origin % origin of bundle (center of overlap zone)
+        err_thetaInit % initial tangent theta and phi
+        err_normalVec % 2x1 array
+        err_L
     end
 
     methods
@@ -109,12 +113,23 @@ classdef CurvedMT < BasicElement
         % }}}
         
         % absorbVec {{{
-        function obj = absorbVec( obj, vec, vecLabels)
+        function obj = absorbVec( obj, vec, vecLabels, errBoolean)
 
+            if nargin < 4
+                errBoolean = 0;
+            end
+            
             props2find = {'origin','thetaInit', 'normalVec', 'L', 'amplitude', 'sigma'};
             
             % find the index of start positions
             for jProp = 1 : length( props2find)
+                
+                if errBoolean
+                    propCurr = ['err_',props2find{ jProp}];
+                else
+                    propCurr = props2find{ jProp};
+                end
+                
                 idxProp = find( strcmp( props2find{ jProp} , vecLabels) );
                 
                 % Checking
@@ -122,7 +137,8 @@ classdef CurvedMT < BasicElement
                     continue;
                 end
                 if obj.dim == 3 && strcmp(obj.fit, 'zonly')
-                    obj.( props2find{ jProp} )(1+end-length(idxProp):end) = vec( idxProp);
+                    obj.( propCurr ) = obj.( props2find{ jProp} );
+                    obj.( propCurr )(1+end-length(idxProp):end) = vec( idxProp);
                     
                 else
                     if length( obj.( props2find{ jProp} ) ) ~= length( vec(idxProp) )
@@ -130,7 +146,7 @@ classdef CurvedMT < BasicElement
                     end
 
                     % Set final property
-                    obj.( props2find{ jProp} ) = vec( idxProp);
+                    obj.( propCurr ) = vec( idxProp);
                 end
 
             end
@@ -162,16 +178,21 @@ classdef CurvedMT < BasicElement
 
             % Simulate curve
             [imSim, err_code, err] = DrawGaussian( obj.sigma, imageOut, ftype, 'Coord', obj.GetCoords(), graphVars{:});
-            imageOut = imageOut + obj.amplitude*mat2gray(imSim);
-            obj.imageSim = imageOut;
-
-            if err_code
-                stoph=1;
-                disp('dang')
-            end
+            imageOut = obj.amplitude*mat2gray(imSim);
+            
+            % What to do if there is an error in Z?
+            % Options:
+            % 1. Increase intensity of the penetrating tip pixel, scaling it with
+            %    the error amount.
+            
+            % Find all z-indices of the max-intensity pixels
             if err > 0
-                stoph = 1;
+                errorPlane = imageOut(:,:,ec);
+                idx = find( errorPlane == max( errorPlane(:) ) );
+                [yidx,xidx] = ind2sub( size( errorPlane), idx);
+                imageOut( yidx,xidx, ec) = imageOut( yidx,xidx, ec)*(1 +err);
             end
+            obj.imageSim = imageOut;
 
         end
         % }}}
@@ -358,6 +379,12 @@ classdef CurvedMT < BasicElement
             S.normalVec = obj.normalVec;
             S.L = obj.L;
             S.display = obj.display;
+            S.err_amplitude = obj.err_amplitude;
+            S.err_sigma = obj.err_sigma;
+            S.err_origin = obj.err_origin;
+            S.err_thetaInit = obj.err_thetaInit;
+            S.err_normalVec = obj.err_normalVec;
+            S.err_L = obj.err_L;
 
         end
         % }}}
@@ -560,7 +587,16 @@ classdef CurvedMT < BasicElement
             end          
             
             obj = CurvedMT( S.origin, S.thetaInit, S.normalVec, S.L, S.amplitude, S.sigma, S.dim, S.props2Fit, S.display);
-
+            try
+                obj.err_origin = S.err_origin;
+                obj.err_normalVec = S.err_normalVec;
+                obj.err_thetaInit = S.err_thetaInit;
+                obj.err_L = S.err_L;
+                obj.err_amplitude = S.err_amplitude;
+                obj.err_sigma = S.err_sigma;
+            catch
+                warning('errors not present')
+            end
         end
         % }}}
         

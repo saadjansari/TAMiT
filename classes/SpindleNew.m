@@ -24,8 +24,8 @@ classdef SpindleNew < OrganizerMaster
 
             vec = []; lb = []; ub = []; vecLabels={};
             % Get general environmental properties
-            [vec, vecLabels] = obj.getVecEnvironment();
-            ub = vec; lb = vec;
+            [vecE, vecLabelsE] = obj.getVecEnvironment();
+            ubE = vecE; lbE = vecE;
 
             % get vectors from features
             props.spindle = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
@@ -54,44 +54,43 @@ classdef SpindleNew < OrganizerMaster
         % }}}
 
         % absorbVec {{{
-        function obj = absorbVec( obj, vec, vecLabels)
+        function obj = absorbVec( obj, vec, vecLabels, errBoolean)
+            
+            if nargin < 4
+                errBoolean = 0;
+            end
             
             % Absorb Environmental parameters
-            obj.absorbVecEnvironment( vec, vecLabels);
+            obj.absorbVecEnvironment( vec, vecLabels, errBoolean);
 
             % Spindle Vector
-            try
-                % Take the vector and find the indexes associated with the spindle parameters
-                idxSpindle = find( ~cellfun( @isempty, strfind( vecLabels, 'S_') ) );
-                idxSpindlePosition( 1, :) = find( ~cellfun( @isempty, strfind( vecLabels, 'S_startPosition') ) );
-                idxSpindlePosition( 2, :) = find( ~cellfun( @isempty, strfind( vecLabels, 'S_endPosition') ) );
-                % Get the vector for the spindle by removing the spindle substring. Absorb the vector
-                vecS = vec( idxSpindle);
-                vecLabelsS = erase( vecLabels( idxSpindle), 'S_');
-                obj.featureList{ 1} = absorbVec( obj.featureList{ 1}, vecS, vecLabelsS );
-            catch
-                disp('Spindle line absorption failed')
-            end
+            % Take the vector and find the indexes associated with the spindle parameters
+            idxSpindle = find( ~cellfun( @isempty, strfind( vecLabels, 'S_') ) );
+            idxSpindlePosition( 1, :) = find( ~cellfun( @isempty, strfind( vecLabels, 'S_startPosition') ) );
+            idxSpindlePosition( 2, :) = find( ~cellfun( @isempty, strfind( vecLabels, 'S_endPosition') ) );
+
+            % Get the vector for the spindle by removing the spindle substring. Absorb the vector
+            vecS = vec( idxSpindle);
+            vecLabelsS = erase( vecLabels( idxSpindle), 'S_');
+            obj.featureList{ 1} = absorbVec( obj.featureList{ 1}, vecS, vecLabelsS, errBoolean );
+
             % Aster Vector
             % Create the vector for each subfeature MT_Array and send it to the objects for absorption
-            try
-                for jAster = 1 : obj.numFeatures-1
+            for jAster = 1 : obj.numFeatures-1
 
-                    strAster = [ 'SP_', num2str(jAster), '_' ];
-                    % Take the vector and find indices associated with the mt_array. 
-                    idxSP = find( ~cellfun( @isempty, strfind( vecLabels, strAster ) ) );
-                    vecSP = vec( idxSP );
-                    vecLabelsSP = erase( vecLabels( idxSP ), strAster );
-                    % Append the parameters for the Spindle Pole Body for this array
-                    vecSP = [ vec( idxSpindlePosition( jAster, :) ) , vecSP ];
-                    vecLabelsSPB = repmat( {'SPB_position'}, 1, length( idxSpindlePosition( jAster, :) ) );
-                    vecLabelsSP = { vecLabelsSPB{:}, vecLabelsSP{:} };
-                    obj.featureList{ 1+jAster} = absorbVec( obj.featureList{ 1+jAster}, vecSP, vecLabelsSP );
+                strAster = [ 'SP_', num2str(jAster), '_' ];
+                % Take the vector and find indices associated with the mt_array. 
+                idxSP = find( ~cellfun( @isempty, strfind( vecLabels, strAster ) ) );
+                vecSP = vec( idxSP );
+                vecLabelsSP = erase( vecLabels( idxSP ), strAster );
+                % Append the parameters for the Spindle Pole Body for this array
+                vecSP = [ vec( idxSpindlePosition( jAster, :) ) , vecSP ];
+                vecLabelsSPB = repmat( {'SPB_position'}, 1, length( idxSpindlePosition( jAster, :) ) );
+                vecLabelsSP = { vecLabelsSPB{:}, vecLabelsSP{:} };
+                obj.featureList{ 1+jAster} = absorbVec( obj.featureList{ 1+jAster}, vecSP, vecLabelsSP, errBoolean );
 
-                end
-            catch
-                disp('Aster absorption failed')
             end
+
         end
         % }}}
 

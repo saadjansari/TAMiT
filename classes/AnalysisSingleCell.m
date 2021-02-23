@@ -53,6 +53,8 @@ classdef AnalysisSingleCell < handle
                 obj.flagMovie = flagMovie;
                 obj.flagGraph = flagGraph;
             end
+            
+            
 
         end
         % }}}
@@ -85,7 +87,7 @@ classdef AnalysisSingleCell < handle
                     fprintf('   Directing movies...\n')
                     % obj.temp_fig1( jChannel);
 %                     obj.temp_fig3( jChannel);
-%                     obj.makeMovie( jChannel);
+                    obj.makeMovie( jChannel);
                     if obj.fwdreverse
 %                         obj.makeMovieFwdReverse( jChannel);
                     end
@@ -113,13 +115,19 @@ classdef AnalysisSingleCell < handle
             obj.data{jChannel}.tag = obj.features{jChannel};
             data = obj.data{jChannel};
             
+            fix_amp_bug = 1;
+            if fix_amp_bug
+                fprintf('Fixing amplitude bug...\n')               
+                obj.fix_amp_scaling_bug();      
+            end
+            
         end
         % }}}
 
         % analyzeFrame {{{
         function analyzeFrame( obj, jChannel, jTime)
             % Analyze the time given in cTime
-
+                        
             global COUNTER
             
             % Current channel 
@@ -141,7 +149,7 @@ classdef AnalysisSingleCell < handle
             obj.data{jChannel}.features{jTime} = mainFeature;
             
             % Run Feature Specific analysis
-            obj.analyzeFeature( mainFeature, jChannel, jTime);
+%             obj.analyzeFeature( mainFeature, jChannel, jTime);
             
 %             switch mainFeature.type
 %                 case 'SpindleNew'
@@ -363,7 +371,7 @@ classdef AnalysisSingleCell < handle
                 J = imgaussfilt( J,1).*mask;
 %                 J=im2;
 %                 J = imgaussfilt( im2,1).*mask;
-                imagesc( h(1), J ), 
+                imagesc( h(1), im2 ), 
                 colormap( h(1), gray); axis equal; xlim( [xrange(1) xrange(end) ]); ylim( [yrange(1) yrange(end) ]); set( h(1), 'xtick', [], 'ytick', []);
                 hold on;
                 %title('Original Image');
@@ -389,7 +397,7 @@ classdef AnalysisSingleCell < handle
                 % Axes (2,2): 3D features
                 % Axes 1 for image background
                 set(f, 'currentaxes', h(3) );hold on
-                imagesc( h(3), J ), colormap(h(3), gray);hold on; h(3).Color = 'Black';
+                imagesc( h(3), im2 ), colormap(h(3), gray);hold on; h(3).Color = 'Black';
                 axis equal; axis ij; xlim( [xrange(1) xrange(end) ]); ylim( [yrange(1) yrange(end) ]); set( h(3), 'xtick', [], 'ytick', []);
                 %title('3D Features');
                 
@@ -484,6 +492,9 @@ classdef AnalysisSingleCell < handle
         function trackChannel( obj, jChannel)
             % Create frames for a movie
             
+            % Flag for tracking movie
+            do_movie_tracking=1;
+            
             % Get movie
             movieMat = zeros( size(obj.simImageMT,1), size(obj.simImageMT,2), size(obj.simImageMT,4) );
             for jTime = 1 : length( obj.times)
@@ -494,73 +505,89 @@ classdef AnalysisSingleCell < handle
             % Get feature information
             switch obj.cellType
                 case 'MitosisBud'
-                    for jTime = 1 : length( obj.times)
-                        feat = obj.data{jChannel}.features{jTime};
+                    
+                    % Track the SPBs. We will track curves at each SPB separately.
+                    idx1 = zeros( 1,length( obj.times) ); idx1(1) = 1;
+                    idx2 = idx1; idx2(1) = 2;
+                    
+                    % for each timestep, we will find a global minimal cost
+                    % of SPB assignment. This cost will scale as dist^2.
+                    for jTime = 2 : length( obj.times)
+                        % get positions at previous and current time
+                        pos01 = obj.data{jChannel}.features{jTime-1}.featureList{1}.startPosition;
+                        pos02 = obj.data{jChannel}.features{jTime-1}.featureList{1}.endPosition;
+                        pos11 = obj.data{jChannel}.features{jTime}.featureList{1}.startPosition;
+                        pos12 = obj.data{jChannel}.features{jTime}.featureList{1}.endPosition;
                         
-                        % Create a structure with fields xCoord, yCoord,
-                        % zCoord, amp, length, theta
-                        % The coordinates will be of the endposition
-                        % There is a single spindle with two asters inside.
-                        xC = []; yC = []; zC = []; amp = []; el = []; phi = []; theta=[];
-                        for ja = 2: feat.numFeatures
-                            faster = feat.featureList{ja};
-                            for jc = 2: faster.numFeatures
-                                cc = faster.featureList{jc}.GetCoords();
-                                xC = [xC; [cc(1,end), 0]];
-                                yC = [yC; [cc(2,end), 0]];
-                                zC = [zC; [cc(3,end), 0]];
-                                amp = [amp; [faster.featureList{jc}.amplitude, 0]];
-                                el = [el; [faster.featureList{jc}.L, 0]];
-                                phi = [phi; [faster.featureList{jc}.thetaInit(1), 0]];
-                                theta = [theta; [faster.featureList{jc}.thetaInit(2), 0]];
-                            end
-                        end
-                        movieInfo(jTime).xCoords = xC;
-                        movieInfo(jTime).yCoords = yC;
-                        movieInfo(jTime).zCoords = zC;
-                        movieInfo(jTime).amp = amp;
-                        movieInfo(jTime).el = el;
-                        movieInfo(jTime).theta = theta;
-                        movieInfo(jTime).xCoord = el;
-                        movieInfo(jTime).yCoord = phi;
-                        movieInfo(jTime).zCoord = theta;
-                            
-                    end
-                    tracksFinal = obj.trackMitosisBud(movieInfo);
-                    % change tracksFinal to get coordinates instead of
-                    % length, phi, theta
-                    for idx = 1 : length(tracksFinal)
-                        times = tracksFinal(idx).seqOfEvents(:,1);
-                        for tt = times(1):times(2)
-                            ii = tt+1-times(1);
-                            track_number = tracksFinal(idx).tracksFeatIndxCG(ii);
-                            if track_number == 0
-                                continue
-                            end
-                            cm = [ movieInfo(tt).xCoords(track_number,:), ...
-                                movieInfo(tt).yCoords(track_number,:),...
-                                movieInfo(tt).zCoords(track_number,:),...
-                                movieInfo(tt).amp(track_number,:),];
-                            tracksFinal(idx).tracksCoordAmpCG( 8*ii-7: 8*ii) = cm;
+                        cost11 = ( norm( pos11-pos01) + norm( pos12-pos02) )^2;
+                        cost12 = ( norm( pos12-pos01) + norm( pos11-pos02) )^2;
+                        % fprintf('Cost11 = %.2f\nCost12 = %.2f\n',cost11,cost12)
+                        if cost11 <= cost12
+                            idx1(jTime) = idx1(jTime-1);
+                            idx2(jTime) = idx2(jTime-1);
+                        else
+                            idx1(jTime) = 1+mod( idx1(jTime-1),2);
+                            idx2(jTime) = 1+mod( idx2(jTime-1),2);
                         end
                     end
-                    plotTracks2D(tracksFinal, [], 2, [], 1, 1, zeros(140,123), [], 0, [], 1)
+                    
+                    % get asters at each SPB
+                    feats1 = cell(1, length( obj.times));
+                    feats2 = feats1;
+                    spindles = feats1;
+                    for jTime = 1 : length( obj.times)
+                        feats1{jTime} = obj.data{jChannel}.features{jTime}.featureList{ 1+ idx1(jTime) };
+                        feats2{jTime} = obj.data{jChannel}.features{jTime}.featureList{ 1+ idx2(jTime) };
+                        spindles{jTime} = obj.data{jChannel}.features{jTime}.featureList{ 1};
+                    end
+                    
+                    % Tracks curves at first SPB
+                    trackBud1 = TrackCurves( movieMat, obj.times, obj.timeStep, obj.sizeVoxels);
+                    trackBud1 = trackBud1.parseMainFeature( feats1 );
+                    trackBud1 = trackBud1.trackUTRACK();
+                    if ~isempty(trackBud1.tracksFinal)
+                        trackBud1 = trackBud1.parseTracksFinal(feats1);
+                    end
+                    
+                    % Tracks curves at second SPB
+                    trackBud2 = TrackCurves( movieMat, obj.times, obj.timeStep, obj.sizeVoxels);
+                    trackBud2 = trackBud2.parseMainFeature( feats2 );
+                    trackBud2 = trackBud2.trackUTRACK();
+                    if ~isempty(trackBud2.tracksFinal)
+                        trackBud2 = trackBud2.parseTracksFinal( feats2);
+                    end
+                    dymgmt = DynamicFeatureMgmt( { trackBud1.features{:}, trackBud2.features{:} } );
+                    dymgmt.saveMat( obj.path)
+                    dymgmt.saveCSV( obj.path)
+                    
+                    feats = {spindles, trackBud1, trackBud2};
                     
                 case 'Mitosis'
                     error('not set up')
                 case 'Monopolar'
                     
+                    % get asters at  SPB
+                    spbs = cell(1, length( obj.times));
+                    for jTime = 1 : length( obj.times)
+                        spbs{jTime} = obj.data{jChannel}.features{jTime}.featureList{ 1}.featureList{ 1};
+                    end
+                    
                     trackMono = TrackLines(movieMat, obj.times, obj.timeStep, obj.sizeVoxels);
                     trackMono = trackMono.parseMainFeature( obj.data{jChannel}.features );
                     trackMono = trackMono.trackUTRACK();
                     if ~isempty(trackMono.tracksFinal)
-                        trackMono = trackMono.parseTracksFinal();
-%                     makeMovieTracking( tracksFinal, [],0,0,[],0,0,0,1,[],1,0,[],0,1,movieMat, [],1,0,'mp4_unix', startPt)
-%                     plotTracks2D(tracksFinal, [], 2, [], 1, 1, zeros(150,150), [], 0, [], 1)
+                        trackMono = trackMono.parseTracksFinal( obj.data{jChannel}.features );
                         dymgmt = DynamicFeatureMgmt( trackMono.features);
                         dymgmt.saveMat( obj.path)
                     end
+                    feats = {spbs, trackMono};
+                    
             end
+            
+            if do_movie_tracking
+                TrackFeatures.makeMovie( obj.cellType, movieMat, obj.times, feats, obj.path );
+            end
+                    
         end
         % }}}
         
@@ -855,109 +882,124 @@ classdef AnalysisSingleCell < handle
                             
         end
         
-        % trackMitosisBud {{{
-        function tracksFinal = trackMitosisBud( obj, movieInfo)
-           
-            gapCloseParam.timeWindow = 5; %maximum allowed time gap (in frames) between a track segment end and a track segment start that allows linking them.
-            gapCloseParam.mergeSplit = 0; %1 if merging and splitting are to be considered, 2 if only merging is to be considered, 3 if only splitting is to be considered, 0 if no merging or splitting are to be considered.
-            gapCloseParam.minTrackLen = 2; %minimum length of track segments from linking to be used in gap closing.
-
-            %optional input:
-            gapCloseParam.diagnostics = 0; %1 to plot a histogram of gap lengths in the end; 0 or empty otherwise.
-            %function name
-            costMatrices(1).funcName = 'costMatRandomDirectedSwitchingMotionLink';
-
-            %parameters
-
-            parameters.linearMotion = 0; %use linear motion Kalman filter.
-            parameters.minSearchRadius = 6; %minimum allowed search radius. The search radius is calculated on the spot in the code given a feature's motion parameters. If it happens to be smaller than this minimum, it will be increased to the minimum.
-            parameters.maxSearchRadius = 6; %maximum allowed search radius. Again, if a feature's calculated search radius is larger than this maximum, it will be reduced to this maximum.
-            parameters.brownStdMult = 3; %multiplication factor to calculate search radius from standard deviation.
-
-            parameters.useLocalDensity = 1; %1 if you want to expand the search radius of isolated features in the linking (initial tracking) step.
-            parameters.nnWindow = gapCloseParam.timeWindow; %number of frames before the current one where you want to look to see a feature's nearest neighbor in order to decide how isolated it is (in the initial linking step).
-
-            parameters.kalmanInitParam = []; %Kalman filter initialization parameters.
-            % parameters.kalmanInitParam.searchRadiusFirstIteration = 10; %Kalman filter initialization parameters.
-
-            %optional input
-            parameters.diagnostics = []; %if you want to plot the histogram of linking distances up to certain frames, indicate their numbers; 0 or empty otherwise. Does not work for the first or last frame of a movie.
-
-            costMatrices(1).parameters = parameters;
-            clear parameters
+        % fix_amp_scaling_bug 
+        function obj = fix_amp_scaling_bug(obj)
             
-            %function name
-            costMatrices(2).funcName = 'costMatRandomDirectedSwitchingMotionCloseGaps';
-
-            %parameters
-
-            %needed all the time
-            parameters.linearMotion = 0; %use linear motion Kalman filter.
-
-            parameters.minSearchRadius = 6; %minimum allowed search radius.
-            parameters.maxSearchRadius = 6; %maximum allowed search radius.
-            parameters.brownStdMult = 3*ones(gapCloseParam.timeWindow,1); %multiplication factor to calculate Brownian search radius from standard deviation.
-
-            parameters.brownScaling = [0.25 0.01]; %power for scaling the Brownian search radius with time, before and after timeReachConfB (next parameter).
-            % parameters.timeReachConfB = 3; %before timeReachConfB, the search radius grows with time with the power in brownScaling(1); after timeReachConfB it grows with the power in brownScaling(2).
-            parameters.timeReachConfB = gapCloseParam.timeWindow; %before timeReachConfB, the search radius grows with time with the power in brownScaling(1); after timeReachConfB it grows with the power in brownScaling(2).
-
-            parameters.ampRatioLimit = []; %for merging and splitting. Minimum and maximum ratios between the intensity of a feature after merging/before splitting and the sum of the intensities of the 2 features that merge/split.
-
-            parameters.lenForClassify = 3; %minimum track segment length to classify it as linear or random.
-
-            parameters.useLocalDensity = 0; %1 if you want to expand the search radius of isolated features in the gap closing and merging/splitting step.
-            parameters.nnWindow = gapCloseParam.timeWindow; %number of frames before/after the current one where you want to look for a track's nearest neighbor at its end/start (in the gap closing step).
-
-            parameters.linStdMult = 3*ones(gapCloseParam.timeWindow,1); %multiplication factor to calculate linear search radius from standard deviation.
-
-            parameters.linScaling = [1 0.01]; %power for scaling the linear search radius with time (similar to brownScaling).
-            % parameters.timeReachConfL = 4; %similar to timeReachConfB, but for the linear part of the motion.
-            parameters.timeReachConfL = gapCloseParam.timeWindow; %similar to timeReachConfB, but for the linear part of the motion.
-
-            parameters.maxAngleVV = 30; %maximum angle between the directions of motion of two tracks that allows linking them (and thus closing a gap). Think of it as the equivalent of a searchRadius but for angles.
-
-            %optional; if not input, 1 will be used (i.e. no penalty)
-            parameters.gapPenalty = 1.5; %penalty for increasing temporary disappearance time (disappearing for n frames gets a penalty of gapPenalty^(n-1)).
-
-            %optional; to calculate MS search radius
-            %if not input, MS search radius will be the same as gap closing search radius
-            parameters.resLimit = []; %resolution limit, which is generally equal to 3 * point spread function sigma.
-
-            %NEW PARAMETER
-            parameters.gapExcludeMS = 1; %flag to allow gaps to exclude merges and splits
-
-            %NEW PARAMETER
-            parameters.strategyBD = -1; %strategy to calculate birth and death cost
-
-            costMatrices(2).parameters = parameters;
-            clear parameters
+            function new = scale_this_amp(old, oldMax,oldMin, newMax,newMin)
+                new = (old-oldMin)*(newMax-newMin)/(oldMax-oldMin) + newMin;
+            end
+            function new = scale_this_amp_err(old, oldMax,oldMin, newMax,newMin)
+                new = old*(newMax-newMin)/(oldMax-oldMin);
+            end
+            % Define path to search for amplitude file
+            path_search = '~/Documents/Projects/ImageAnalysis/FY Datasets/Paper/Monopolar';
             
-            kalmanFunctions.reserveMem  = 'kalmanResMemLM';
-            kalmanFunctions.initialize  = 'kalmanInitLinearMotion';
-            kalmanFunctions.calcGain    = 'kalmanGainLinearMotion';
-            kalmanFunctions.timeReverse = 'kalmanReverseLinearMotion';
+            % current cell name, try to find it.
+            c_name = obj.folderName(14:end);
+            afil = dir([path_search,filesep,'*/',c_name,'_amp.mat']);
 
-            %% additional input
+            % load amplitude file if found
+            if isempty(afil)
+                fprintf('amp file not found\n')
+            else
+                adata = load([afil.folder,filesep,afil.name]);
+                % Determine amplitude scaling
+                % We have the true max/min as has been loaded
+                % We will measure the current max/min from the images in
+                % features
+                nT = length(obj.times);
+                maxAmp = adata.maxAmp;
+                minAmp = adata.minAmp;
+                maxAmp_c = zeros( size(maxAmp));
+                minAmp_c = maxAmp_c;
+                for jt = 1 : nT
+                    img = obj.data{1}.features{jt}.image;
+                    msk = obj.data{1}.features{jt}.mask;
+                    vals = img( find(msk(:)) );
+                    maxAmp_c(jt) = max( vals);
+                    minAmp_c(jt) = min( vals);
+                end
+                % Data is for uint16, so we can say that:
+                % 1 <-> 2^16 -1 = 65535
+                % 0 <-> 0
+                new_upper = maxAmp/65535;
+                new_lower = minAmp/65535;
+                for jt = 1 : nT
+                    
+                    imOld = obj.data{1}.features{jt}.image;
+                    % scale image
+                    imNew = obj.data{1}.features{jt}.mask.* scale_this_amp(imOld, maxAmp_c(jt),minAmp_c(jt), new_upper(jt), new_lower(jt) );
+                    obj.data{1}.features{jt}.image = imNew;
+                end
+                % Scale all amplitudes, and backgrounds                
+                for jt = 1 : nT
+                    
+                    % Main feature at current time
+                    mf = obj.data{1}.features{jt};
+                    
+                    if isprop( mf, 'background')
+                        mf.background = scale_this_amp(mf.background, maxAmp_c(jt),minAmp_c(jt), new_upper(jt), new_lower(jt) );
+                    end
+                        
+                    for j1 = 1 : mf.numFeatures
+                        
+                        f1 = mf.featureList{j1};
+                        
+                        % Change amplitude, background
+                        if isprop( f1, 'amplitude')
+                            f1.amplitude = scale_this_amp(f1.amplitude, maxAmp_c(jt),minAmp_c(jt), new_upper(jt), new_lower(jt) );
+                            f1.err_amplitude = scale_this_amp_err(f1.err_amplitude, maxAmp_c(jt),minAmp_c(jt), new_upper(jt), new_lower(jt) );
+                        end
+                        if isprop( f1, 'background')
+                            f1.background = scale_this_amp(f1.background, maxAmp_c(jt),minAmp_c(jt), new_upper(jt), new_lower(jt) );
+                        end
+                        
+                        % Should we go deeper into object
+                        if ~isprop( f1, 'numFeatures')
+                            continue;
+                        end
+                        
+                        % Go deeper
+                        for j2 = 1 : f1.numFeatures
+                        
+                            f2 = f1.featureList{j2};
+                            
+                            % Change amplitude, background
+                            if isprop( f2, 'amplitude')
+                                f2.amplitude = scale_this_amp(f2.amplitude, maxAmp_c(jt),minAmp_c(jt), new_upper(jt), new_lower(jt) );
+                                f2.err_amplitude = scale_this_amp_err(f2.err_amplitude, maxAmp_c(jt),minAmp_c(jt), new_upper(jt), new_lower(jt) );
+                            end
+                            if isprop( f2, 'background')
+                                f2.background = scale_this_amp(f2.background, maxAmp_c(jt),minAmp_c(jt), new_upper(jt), new_lower(jt) );
+                            end
 
-            %saveResults
-            saveResults.dir = '~/Documents/Projects/ImageAnalysis/SingleCell'; %directory where to save input and output
-            saveResults.filename = 'tracksTest.mat'; %name of file where input and output are saved
-            % saveResults = 0; %don't save results
+                            % Should we go deeper into object
+                            if ~isprop( f2, 'numFeatures')
+                                continue;
+                            end
+                            
+                            % Go deeper
+                            for j3 = 1 : f2.numFeatures
 
-            %verbose state
-            verbose = 1;
+                                f3 = f2.featureList{j3};
 
-            %problem dimension
-            probDim = 3;
-
-            %% tracking function call
-
-            [tracksFinal,kalmanInfoLink,errFlag] = trackCloseGapsKalmanSparse(movieInfo,...
-                costMatrices,gapCloseParam,kalmanFunctions,probDim,saveResults,verbose);
-            
+                                % Change amplitude, background
+                                if isprop( f3, 'amplitude')
+                                    f3.amplitude = scale_this_amp(f3.amplitude, maxAmp_c(jt),minAmp_c(jt), new_upper(jt), new_lower(jt) );
+                                    f3.err_amplitude = scale_this_amp_err(f3.err_amplitude, maxAmp_c(jt),minAmp_c(jt), new_upper(jt), new_lower(jt) );
+                                end
+                                if isprop( f3, 'background')
+                                    f3.background = scale_this_amp(f3.background, maxAmp_c(jt),minAmp_c(jt), new_upper(jt), new_lower(jt) );
+                                end
+                            end
+                        end 
+                        
+                    end
+                end
+                
+                
+            end
         end
-        % }}}
         
     end
 
@@ -1043,7 +1085,7 @@ classdef AnalysisSingleCell < handle
             % for each cell we'll run an AnalyzeSingle function
             for jCell = 1 : numCells
                 addpath( genpath( folds{jCell} ) );
-                if exist([params.pathParent, filesep, folds{jCell}, filesep, 'dydata.mat'], 'file') ~=2
+                if exist([params.pathParent, filesep, folds{jCell}, filesep, 'dydata2.mat'], 'file') ~=2
                     anaCells{jCell} = AnalysisSingleCell.AnalyzeSingle( folds{ jCell}, params ); 
                 end
             end

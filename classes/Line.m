@@ -664,10 +664,14 @@ classdef Line < BasicElement
             end
 
             obj = Line( S.startPosition, S.endPosition, S.amplitude, S.sigma, S.dim, S.props2Fit, S.display);
-            obj.err_startPosition = S.err_startPosition;
-            obj.err_endPosition = S.err_endPosition;
-            obj.err_amplitude = S.err_amplitude;
-            obj.err_sigma = S.err_sigma;
+            try
+                obj.err_startPosition = S.err_startPosition;
+                obj.err_endPosition = S.err_endPosition;
+                obj.err_amplitude = S.err_amplitude;
+                obj.err_sigma = S.err_sigma;
+            catch
+                warning('errors not present')
+            end
         end
         % }}}
         

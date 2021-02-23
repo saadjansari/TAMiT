@@ -3,6 +3,7 @@ classdef FitEngine
 
     properties (Access = private)
         image
+        image_uint
         feature
         parameters
     end
@@ -13,6 +14,7 @@ classdef FitEngine
         function obj = FitEngine( image, feature, parameters)
             % Initialize fit Engine with parameters
 
+            obj.image_uint = image;
             obj.image = im2double(image);
             obj.feature = feature;
             obj.parameters = parameters;
@@ -88,11 +90,15 @@ classdef FitEngine
             % Remove z-padding
             [obj,fitInfo] = obj.zpadding_off( fitInfo);
             
+            % Scale amplitudes
+%             [obj, fitInfo] = obj.scale_amplitude( fitInfo);
+%             fitInfo.featureMain.image = obj.image_uint;
+            
             obj.feature.finalizeAddedFeatures();
             if obj.parameters.display
                 Cell.displayFinalFit( obj.image, obj.feature, fitInfo);
             end
-            Cell.saveFinalFit( obj.image, obj.feature, fitInfo);
+            Cell.saveFinalFit( obj.image_uint, obj.feature, fitInfo);
 
 
         end
@@ -585,7 +591,7 @@ classdef FitEngine
 
             % Scale the parameters to vary the speed of exploration in the parameter space
             if obj.parameters.fitExploreSpeed
-                speedVec = obj.getExplorationSpeedVector( fitLabels{ jFeature});
+                speedVec = obj.getExplorationSpeedVector( fitLabels{ jFeature}, obj.feature.type);
                 fitVecs.vec = fitVecs.vec ./ speedVec;
                 fitVecs.ub = fitVecs.ub ./ speedVec;
                 fitVecs.lb = fitVecs.lb ./ speedVec;
@@ -680,7 +686,7 @@ classdef FitEngine
             
             % Scale the parameters to vary the speed of exploration in the parameter space
             if obj.parameters.fitExploreSpeed
-                speedVec = obj.getExplorationSpeedVector( fitLabels);
+                speedVec = obj.getExplorationSpeedVector( fitLabels, obj.feature.type);
                 fitVecs.vec = fitVecs.vec ./ speedVec;
                 fitVecs.ub = fitVecs.ub ./ speedVec;
                 fitVecs.lb = fitVecs.lb ./ speedVec;
@@ -749,7 +755,7 @@ classdef FitEngine
 
             % Scale the parameters to vary the speed of exploration in the parameter space
             if obj.parameters.fitExploreSpeed
-                speedVec = obj.getExplorationSpeedVector( fitLabels);
+                speedVec = obj.getExplorationSpeedVector( fitLabels, obj.feature.type);
                 fitVecs.vec = fitVecs.vec ./ speedVec;
                 fitVecs.ub = fitVecs.ub ./ speedVec;
                 fitVecs.lb = fitVecs.lb ./ speedVec;
@@ -958,6 +964,35 @@ classdef FitEngine
 
         end
         
+        function [obj, fitInfo] = scale_amplitude( obj, fitInfo)
+            
+            imraw = obj.image_uint;
+            img = fitInfo.featureMain.image;
+            
+            scale_factor = max(imraw(:)) / max(img(:));
+            
+            switch fitInfo.featureMain.type
+                case 'MonopolarAster'
+                    f1 = fitInfo.featureMain.featureList{1};
+                    for j1 = 1 : length( f1.featureList)
+                        f1.featureList{j1}.amplitude = scale_factor * f1.featureList{j1}.amplitude;
+                        f1.featureList{j1}.err_amplitude = scale_factor * f1.featureList{j1}.err_amplitude;
+                    end                    
+                case 'Mitosis'
+                    error('not set up')
+                    f1 = fitInfo.featureMain.featureList{1};
+                    f2 = fitInfo.featureMain.featureList{2};
+                    f3 = fitInfo.featureMain.featureList{3};
+                    for j1 = 1 : length( f1.featureList)
+                        f1.featureList{j1}.amplitude = scale_factor * f1.featureList{j1}.amplitude;
+                        f1.featureList{j1}.err_amplitude = scale_factor * f1.featureList{j1}.err_amplitude;
+                    end  
+                    
+                case 'MitosisBud'
+                    
+            end
+            
+        end
         
     end
 
@@ -1181,63 +1216,83 @@ classdef FitEngine
         % }}}
         
         % getExplorationSpeedVector {{{
-        function speedVec = getExplorationSpeedVector( vecLabels)
+        function scaleVec = getExplorationSpeedVector( vecLabels, featType)
             % Creates a weighing vector to allow a user to assign different importance to different kinds of parameters. This will infact allow the fitting optimization engine to explore the parameters space at different speeds
-            % The smaller, the faster
+            % The parameters are divided by this vector
             % Exlporation Speed : unassigned speeds are kept at 1.0
-            speedAmp = 0.01;
-            speedBkg = 10;
-            speedSigma = 0.1;
-            speedPos = 0.1;
-            speedCXYZ = 10;
-            speedT = 10;
-            speedL = 100;
-            speedNormal = 0.1;
-            speedEF = 100;
-            speedVec = ones( size(vecLabels) );
-
-            % Find the index of these speeds
-            % Amplitude
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'amplitude') ) );
-            speedVec( idxAmp) = speedAmp;
-
-            % Background 
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'background') ) );
-            speedVec( idxAmp) = speedBkg;
-
-            % Sigma 
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'sigma') ) );
-            speedVec( idxAmp) = speedSigma;
             
-            % Position
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'startPosition') ) );
-            speedVec( idxAmp) = speedPos;
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'endPosition') ) );
-            speedVec( idxAmp) = speedPos;
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'position') ) );
-            speedVec( idxAmp) = speedPos;
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'cX') ) );
-            speedVec( idxAmp) = speedCXYZ;
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'cY') ) );
-            speedVec( idxAmp) = speedCXYZ;
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, 'cZ') ) );
-            speedVec( idxAmp) = speedCXYZ;
+            % NOTE NOTE NOTE!!!
+            % This should probably be output directly from the main
+            % feature.
+            
+            scaleVec = ones( size(vecLabels) );
+
+            % function to find indices of matching substrings
+            find_str = @(x) find( ~cellfun( @isempty, strfind( vecLabels, x) ) );
+            
+            % Common Scalings
+            scale.amplitude = 0.01;
+            scale.background = 0.1;
+            scale.sigma = 0.01;
+            scale.position = 0.1;
+            
+            scaleVec( find_str('amplitude') ) = scale.amplitude;
+            scaleVec( find_str('background') ) = scale.background;
+            scaleVec( find_str('sigma') ) = scale.sigma;
+            scaleVec( find_str('position') ) = scale.position;
+            scaleVec( find_str('startPosition') ) = scale.position;
+            scaleVec( find_str('endPosition') ) = scale.position;
+            
+            
+            
+            switch featType
+                case 'MonopolarAster'
+                    scale.theta = 0.1;
+                    scale.length = 1;
+                    scaleVec( find_str('theta') ) = scale.theta;
+                    scaleVec( find_str('length') ) = scale.length;
+                    
+                case 'Spindle'
+                    scale.theta = 0.1;
+                    scale.length = 1;
+                    scaleVec( find_str('theta') ) = scale.theta;
+                    scaleVec( find_str('length') ) = scale.length;
+                    
+                case 'SpindleNew'
+                    scale.normal_vec = 0.0001;
+                    scale.theta = 0.01;
+                    scale.length = 1;
+                    scaleVec( find_str('thetaInit') ) = scale.theta;
+                    scaleVec( find_str('L') ) = scale.length;
+                    scaleVec( find_str('normalVec') ) = scale.normal_vec;
+                    scaleVec( find_str('origin') ) = scale.position;
+                otherwise
+                    error('unknown feature type')
+                    
+            end
+
             
             % T
-            idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, '_origin') ) );speedVec( idxAmp) = speedPos;
-            idxT = find( ~cellfun( @isempty, strfind( vecLabels, '_T') ) );speedVec( idxT) = speedT;
-            idx = find( ~cellfun( @isempty, strfind( vecLabels, '_L') ) );speedVec( idx) = speedT;
-            idx = find( ~cellfun( @isempty, strfind( vecLabels, 'normalVec') ) ); speedVec( idx) = speedNormal;
-            idx = find( ~cellfun( @isempty, strfind( vecLabels, 'thetaInit') ) ); speedVec( idx) = speedNormal;
-            idx = find( ~cellfun( @isempty, strfind( vecLabels, '_ef') ) ); speedVec( idx) = speedEF;
+%             speedCXYZ = 10;
+%             speedT = 10;
+%             speedL = 1;
+%             speedNormal = 0.01;
+%             speedTheta = 0.01;
+%             speedEF = 100;
+%             idxAmp = find( ~cellfun( @isempty, strfind( vecLabels, '_origin') ) );scaleVec( idxAmp) = speedPos;
+%             idxT = find( ~cellfun( @isempty, strfind( vecLabels, '_T') ) );scaleVec( idxT) = speedT;
+%             idxL = find( ~cellfun( @isempty, strfind( vecLabels, '_L') ) );scaleVec( idxL) = speedL;
+%             idxN = find( ~cellfun( @isempty, strfind( vecLabels, 'normalVec') ) ); scaleVec( idxN) = speedNormal;
+%             idxTheta = find( ~cellfun( @isempty, strfind( vecLabels, 'thetaInit') ) ); scaleVec( idxTheta) = speedTheta;
+%             idxEF = find( ~cellfun( @isempty, strfind( vecLabels, '_ef') ) ); scaleVec( idxEF) = speedEF;
             
-            % Monopolar Aster
-            % Length
-            idx = find( ~cellfun( @isempty, strfind( vecLabels, '_length') ) );speedVec( idx) = speedL;
-            % Theta
-            idx = find( ~cellfun( @isempty, strfind( vecLabels, '_theta') ) );speedVec( idx) = 10;
-            % Phi
-            idx = find( ~cellfun( @isempty, strfind( vecLabels, '_phi') ) );speedVec( idx) = 10;
+%             % Monopolar Aster
+%             % Length
+%             idx = find( ~cellfun( @isempty, strfind( vecLabels, '_length') ) );scaleVec( idx) = speedL;
+%             % Theta
+%             idx = find( ~cellfun( @isempty, strfind( vecLabels, '_theta') ) );scaleVec( idx) = 10;
+%             % Phi
+%             idx = find( ~cellfun( @isempty, strfind( vecLabels, '_phi') ) );scaleVec( idx) = 10;
             %speedVec = ones( size(speedVec));
         end
         % }}}

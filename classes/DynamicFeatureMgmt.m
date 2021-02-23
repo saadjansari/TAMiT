@@ -45,7 +45,32 @@ classdef DynamicFeatureMgmt
            tau = obj.getLifetimes();
            [lens,lens_err, times] = obj.getLengths();
            [amp,amp_err, ~] = obj.getAmplitudes();
-           save([path, filesep,'dydata.mat'],'tau','lens', 'lens_err', 'amp', 'amp_err', 'times');
+           save([path, filesep,'dydata.mat'],'tau','lens', 'lens_err', 'amp', 'amp_err', 'times', '-v7');
+       end
+       
+       % save data to file
+       function saveCSV(obj, path)
+           
+           % Create a matrix of size nFeat x nTime
+           nFeat = length(obj.features);
+           % Find nTime
+           ts = 1;
+           te = [];
+           for jf = 1 : nFeat
+               te = [ te, obj.features{jf}.time_end];
+           end
+           te = max(te);
+           nT = te-ts+1;
+           dmat = nan(nFeat, nT);
+           
+           % fill out length values
+           for jf = 1 : nFeat
+               % get lengths
+               [lens,~,times] = obj.features{jf}.getLength();
+               dmat(jf,times) = lens;
+           end
+           
+           writematrix(dmat,[path, filesep,'dydata.csv'])
        end
       
        

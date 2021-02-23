@@ -54,8 +54,12 @@ classdef Aster < Organizer
         % }}}
 
         % absorbVec {{{
-        function obj = absorbVec( obj, vec, vecLabels)
-
+        function obj = absorbVec( obj, vec, vecLabels, errBoolean)
+            
+            if nargin < 4
+                errBoolean = 0;
+            end
+            
             % Take the vector and find the indexes associated with the SPB parameters
             idxSPB = find( ~cellfun( @isempty, strfind( vecLabels, 'SPB_') ) );
             idxSPBPosition = find( ~cellfun( @isempty, strfind( vecLabels, 'SPB_position') ) );
@@ -69,11 +73,11 @@ classdef Aster < Organizer
                 idxMT = find( ~cellfun( @isempty, strfind( vecLabels, strMT ) ) );
                 vecMT = vec( idxMT );
                 vecLabelsMT = erase( vecLabels( idxMT), strMT );
-                obj.featureList{ jmt} = absorbVec( obj.featureList{ jmt}, vecMT, vecLabelsMT);
+                obj.featureList{ jmt} = absorbVec( obj.featureList{ jmt}, vecMT, vecLabelsMT, errBoolean);
             end
             
             p0 = obj.featureList{ 1}.position;
-            obj.featureList{ 1} = absorbVec( obj.featureList{ 1}, vecSPB, vecLabelsSPB );
+            obj.featureList{ 1} = absorbVec( obj.featureList{ 1}, vecSPB, vecLabelsSPB, errBoolean );
             p1 = obj.featureList{ 1}.position;
             
             for jmt = 2 : obj.numFeatures

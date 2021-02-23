@@ -33,7 +33,7 @@ classdef TrackFeatures
             
         end
         
-        function obj = parseTracksFinal( obj)
+        function obj = parseTracksFinal( obj, feats)
             % Parse tracking results and create dynamic features
             
             
@@ -166,15 +166,186 @@ classdef TrackFeatures
             end
             obj.features(idxRm) = [];
             
+            % Assign feature objects from detection process, to tracked
+            % features. This enables filling in parameters that werent used
+            % in the tracking process, and helps with things like
+            % displaying figures and making movies
+            obj = obj.matchFeatures( feats);
+            
         end
         
+        function obj = matchFeatures( obj, feats)
+            % Matches features from detection to features from tracking
+            
+            for jf = 1 : length( obj.features)
+                cf = obj.features{jf};
+                obj.features{jf} = cf.matchFeatures( feats(cf.time_start : cf.time_end) );
+            end
+                
+        end
+        
+        function drawMatchedFeature( obj, ax, jtime)
+            % Draw matched detected feature
+            
+            for jf = 1 : length(obj.features)
+            
+                if obj.features{jf}.existAtTime(jtime)
+                    obj.features{jf}.matched_feats{ 1+ jtime - obj.features{jf}.time_start}.displayFeature( ax);
+                end
+            end
+            
+        end
+        
+        function [lbls, cols] = drawMatchedFeature_withlabel( obj, ax, jtime, lbls, cols, offset)
+            % Draw matched detected feature along with its label
+
+            for jf = 1 : length(obj.features)
+            
+                if obj.features{jf}.existAtTime(jtime)
+                    cf = obj.features{jf}.matched_feats{ 1+ jtime - obj.features{jf}.time_start};
+                    if ~isempty( cf)
+                        cf.displayFeature( ax);
+                        % feature label and color
+                        lbls = { lbls{:}, num2str(jf+offset) };
+                        cols = [ cols ; cf.display{2} ];
+                    end
+                    
+                end
+            end
+            
+        end
+        
+    end
+    
+    methods( Access = public, Static = true)
+       
+        function makeMovie( type, img, times, feats, movpath)
+            % Make a tracking movie
+            
+            do_save_movie = 1;
+            draw_feat_label = 1;
+            
+            if do_save_movie
+                mov = cell(1,length(times) );
+            end
+            
+            
+            % Make a figure
+            f = figure(); f.Color = 'white';
+            h = tight_subplot(1,2, 0.001, 0.125,0.11);
+            
+            for jt = 1 : length(times)
+                
+                if jt ~= 1
+                    cla( h(1) ); % clear axes if not first frame
+                    cla( h(2) ); % clear axes if not first frame
+                    legend off
+                end
+                
+                jax = 1;
+                set(f, 'currentaxes', h(jax) );
+                % Display image
+                imagesc( img(:,:,jt) ); colormap gray; axis equal; 
+                xlim( [1 size(img,2) ]); ylim( [1 size(img,1) ]); 
+                set( h(jax), 'Xtick', [], 'Ytick', []); hold on;
+                
+                jax = 2;
+                set(f, 'currentaxes', h(jax) );
+                % Display image
+                imagesc( img(:,:,jt) ); colormap gray; axis equal; 
+                xlim( [1 size(img,2) ]); ylim( [1 size(img,1) ]); 
+                set( h(jax), 'Xtick', [], 'Ytick', []); hold on;
+
+                % Display features
+                switch type
+                    case 'MitosisBud'
+
+                        % Display the spindles
+                        spindles = feats{1};
+                        spindles{jt}.displayFeature( h(jax));
+                        
+                        bud1 = feats{2};
+                        bud2 = feats{3};
+                        
+                        if draw_feat_label
+                            % Display features at each SPB
+                            [lbl, cols] = bud1.drawMatchedFeature_withlabel( h(jax), jt, {}, [], 0);                            
+                            [lbl, cols] = bud2.drawMatchedFeature_withlabel( h(jax), jt, lbl, cols, length( bud1.features) );
+                            % draw feat labels
+                            if ~isempty(lbl)
+                                clear p
+                                for ii = 1:size(cols,1)
+                                    p(ii) = patch(NaN, NaN, cols(ii,:));
+                                end
+                                try
+                                legend(p, lbl);
+                                catch
+                                    stopph=1;
+                                end
+                            end
+                        else
+                            % Display features at each SPB
+                            bud1.drawMatchedFeature( h(jax), jt);                            
+                            bud2.drawMatchedFeature( h(jax), jt);
+                        end
+                        
+
+                    case 'Mitosis'
+                        error('not set up yet')
+                        % Display the spindles
+                        spindles = feats{1};
+                        spindles{jt}.displayFeature( h(jax))
+
+                    case 'Monopolar'
+                        
+                        % Display the SPBs
+                        spbs = feats{1};
+                        spbs{jt}.displayFeature( h(jax));
+                        
+                        % Display features at 1st SPB
+                        lines = feats{2};
+                        lines.drawMatchedFeature( h(jax), jt);
+                        
+
+                end
+                title(['Time = ', num2str( times(jt))]);
+                drawnow;
+                pause(0.1);
+                
+                if do_save_movie
+                    mov{ jt} = getframe(f);
+                end
+            end
+            
+            if do_save_movie
+                mname = 'tracks';
+                writerObj = VideoWriter([movpath, filesep, mname],'MPEG-4');
+                writerObj.FrameRate = 5;
+                writerObj.Quality = 100;
+
+                % open the video writer
+                open(writerObj);
+
+                % write the frames to the video
+                for frame = 1 : length( mov)
+                    % convert the image to a frame
+                    writeVideo( writerObj, mov{frame} );
+                end
+
+                % close the writer object
+                close(writerObj);
+            end
+            close(f);
+            
+        end
         
     end
     
     methods (Abstract = true)
         
+        % Converts data from matrices to dynamic feature objects
         obj = mat2dyfeats( obj, xC, yC, zC)
-
+        
     end
     
     

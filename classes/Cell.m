@@ -149,6 +149,8 @@ classdef Cell < handle & matlab.mixin.Copyable
         function FindFeaturesFrame( obj, Image, parameters)
             % Find and fit features for a single CT frame
             
+            plot_estimate_and_skip = 1;
+            
             % Decide if fit should be performed. Skip otherwise
             [obj, status] = DecideToFit( obj, Image, parameters);
             if ~status
@@ -165,24 +167,25 @@ classdef Cell < handle & matlab.mixin.Copyable
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
             
-%             stop=1;
-%             nX = size( Image2Fit, 2); nY = size( Image2Fit, 1); nZ = size( Image2Fit, 3); dim = length( size(Image2Fit) );
-%             image2D = max( Image2Fit, [], 3); intMin = min( Image2Fit(:) ); intMax = max( Image2Fit(:) );
-%             imageSets = 'colormap gray; axis equal; axis ij; set( gca, ''xlim'', [1 nX], ''ylim'', [1 nY], ''XTick'', [], ''YTick'', [], ''CLim'', [intMin intMax], ''FontSize'', 14)';
-%             
-%             figure;
-%             ax = tight_subplot(1, 2, 0.05);
-%             axes( ax(1) );
-%             img = imagesc( image2D ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Original');
-%             axes( ax(2) );
-%             img = imagesc( image2D ); eval( imageSets); hold on;
-%             mainFeature.displayFeature(gca); set( get(gca, 'title'), 'String', 'Features');
-%             suptitle( num2str(parameters.time))
-%             drawnow; pause(1);
+            if plot_estimate_and_skip
+                nX = size( Image2Fit, 2); nY = size( Image2Fit, 1); nZ = size( Image2Fit, 3); dim = length( size(Image2Fit) );
+                image2D = max( Image2Fit, [], 3); intMin = min( Image2Fit(:) ); intMax = max( Image2Fit(:) );
+                imageSets = 'colormap gray; axis equal; axis ij; set( gca, ''xlim'', [1 nX], ''ylim'', [1 nY], ''XTick'', [], ''YTick'', [], ''CLim'', [intMin intMax], ''FontSize'', 14)';
+
+                figure;
+                ax = tight_subplot(1, 2, 0.05);
+                axes( ax(1) );
+                img = imagesc( image2D ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Original');
+                axes( ax(2) );
+                img = imagesc( image2D ); eval( imageSets); hold on;
+                mainFeature.displayFeature(gca); set( get(gca, 'title'), 'String', 'Features');
+                suptitle( num2str(parameters.time))
+                drawnow; pause(1);close all;
+                return
+            end
             
             % Pre-fit adjustments
             mainFeature.preOptimize();
-            
             
             % Prepare fit params
             params = obj.params.fit;
