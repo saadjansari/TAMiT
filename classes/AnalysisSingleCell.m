@@ -290,9 +290,7 @@ classdef AnalysisSingleCell < handle
             scale_bars = 1;
             custom_xy = 1;
             for jTime = 1 : length( obj.times)
-                if jTime==87
-                    pausehere=1;
-                end
+                
                 % get feature
                 feat = obj.data{jChannel}.features{jTime};
                 feat.ID = COUNTER;
@@ -303,51 +301,51 @@ classdef AnalysisSingleCell < handle
                 im2 = max(img,[],3);
                 
                 % Get budding yeast mask
-                if strcmp(obj.cellType, 'MitosisBud')
-                    % Get a smoothed 2D image of the budding yeast cell. Smoothing allows
-                    % values inside the cytoplasm to become similar.
-                    im22 = imgaussfilt( max(img,[],3), 3);
-                    % Threshold into 4 levels (bkg, cyto, mts, spindle)
-                    tt = multithresh( im22, 3);
-                    % Binarize the image, and fill all the holes
-                    bw = imbinarize( im22, tt(1) );
-                    se = strel('disk', 2,6);
-                    bw = imerode( imdilate( bw, se), se);
-                    bw = imfill(bw, 'holes');
-
-                    % Smooth out the boundaries of this mask using convolution
-                    windowSize = 11;
-                    kernel = ones(windowSize) / windowSize ^ 2;
-                    blurryImage = conv2(single(bw), kernel, 'same');
-                    binaryImage = blurryImage > 0.5;
-
-                    % Pick the biggest connected component
-                    [labeledImage, numberOfBlobs] = bwlabel(binaryImage);
-                    blobMeasurements = regionprops(labeledImage, 'area');
-                    % Get all the areas
-                    allAreas = [blobMeasurements.Area];
-                    % Sort in order of largest to smallest.
-                    [sortedAreas, sortIndexes] = sort(allAreas, 'descend');
-                    % Extract the largest blob using ismember().
-                    biggestBlob = ismember(labeledImage, sortIndexes(1));
-                    % Convert from integer labeled image into binary (logical) image.
-                    binaryImage = biggestBlob > 0;
-                    imMask = binaryImage;
-                    imMask = ones( size(im2));
-                    im2 = im2.*imMask;
-                end
+%                 if strcmp(obj.cellType, 'MitosisBud')
+%                     % Get a smoothed 2D image of the budding yeast cell. Smoothing allows
+%                     % values inside the cytoplasm to become similar.
+%                     im22 = imgaussfilt( max(img,[],3), 3);
+%                     % Threshold into 4 levels (bkg, cyto, mts, spindle)
+%                     tt = multithresh( im22, 3);
+%                     % Binarize the image, and fill all the holes
+%                     bw = imbinarize( im22, tt(1) );
+%                     se = strel('disk', 2,6);
+%                     bw = imerode( imdilate( bw, se), se);
+%                     bw = imfill(bw, 'holes');
+% 
+%                     % Smooth out the boundaries of this mask using convolution
+%                     windowSize = 11;
+%                     kernel = ones(windowSize) / windowSize ^ 2;
+%                     blurryImage = conv2(single(bw), kernel, 'same');
+%                     binaryImage = blurryImage > 0.5;
+% 
+%                     % Pick the biggest connected component
+%                     [labeledImage, numberOfBlobs] = bwlabel(binaryImage);
+%                     blobMeasurements = regionprops(labeledImage, 'area');
+%                     % Get all the areas
+%                     allAreas = [blobMeasurements.Area];
+%                     % Sort in order of largest to smallest.
+%                     [sortedAreas, sortIndexes] = sort(allAreas, 'descend');
+%                     % Extract the largest blob using ismember().
+%                     biggestBlob = ismember(labeledImage, sortIndexes(1));
+%                     % Convert from integer labeled image into binary (logical) image.
+%                     binaryImage = biggestBlob > 0;
+%                     imMask = binaryImage;
+%                     imMask = ones( size(im2));
+%                     im2 = im2.*imMask;
+%                 end
                 % Get xand y ranges for non-mask pixels
 %                 xrange = find( any(im2,1)); yrange = find( any(im2,2));
-                xrange = 1: size(im2,1); yrange = 1:size(im2,2);
-                if custom_xy
-                    if strcmp(obj.cellType, 'MitosisBud')
-                        yrange = 1:size(im2,2); xrange = 1:123;
-                    elseif strcmp(obj.cellType, 'Mitosis')
-                        yrange = 38:113; xrange = 38:113;
-                    elseif strcmp(obj.cellType, 'Monopolar')
-                        yrange = 38:113; xrange = 38:113;
-                    end
-                end
+                xrange = 1: size(im2,2); yrange = 1:size(im2,1);
+%                 if custom_xy
+%                     if strcmp(obj.cellType, 'MitosisBud')
+%                         yrange = 1:size(im2,2); xrange = 1:123;
+%                     elseif strcmp(obj.cellType, 'Mitosis')
+%                         yrange = 38:113; xrange = 38:113;
+%                     elseif strcmp(obj.cellType, 'Monopolar')
+%                         yrange = 38:113; xrange = 38:113;
+%                     end
+%                 end
                 
                 fs = 12;
                 % make figure
@@ -387,7 +385,7 @@ classdef AnalysisSingleCell < handle
                 % Axes (2,1): Simulated Image
                 set(f, 'currentaxes', h(2) );
                 if strcmp(obj.cellType, 'MitosisBud')
-                    imagesc( h(2), imMask.*max( feat.simulateAll( img, feat.ID) , [], 3) ),
+                    imagesc( h(2), max( feat.simulateAll( img, feat.ID) , [], 3) ),
                 else
                     imagesc( h(2), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
                 end

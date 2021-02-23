@@ -172,7 +172,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                 image2D = max( Image2Fit, [], 3); intMin = min( Image2Fit(:) ); intMax = max( Image2Fit(:) );
                 imageSets = 'colormap gray; axis equal; axis ij; set( gca, ''xlim'', [1 nX], ''ylim'', [1 nY], ''XTick'', [], ''YTick'', [], ''CLim'', [intMin intMax], ''FontSize'', 14)';
 
-                figure;
+                hh = figure;
                 ax = tight_subplot(1, 2, 0.05);
                 axes( ax(1) );
                 img = imagesc( image2D ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Original');
@@ -180,7 +180,13 @@ classdef Cell < handle & matlab.mixin.Copyable
                 img = imagesc( image2D ); eval( imageSets); hold on;
                 mainFeature.displayFeature(gca); set( get(gca, 'title'), 'String', 'Features');
                 suptitle( num2str(parameters.time))
-                drawnow; pause(1);close all;
+                drawnow; 
+                
+                % save png for estimate movie
+                [status,~,~] = mkdir( obj.params.saveDirectory, 'mov_estimate');
+                tdir = [obj.params.saveDirectory, filesep, 'mov_estimate'];
+                saveas( hh, [tdir, filesep, sprintf('T%04d.png', parameters.time)])
+                pause(1);close all;
                 return
             end
             
@@ -563,7 +569,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                     
                     % line Intensity along the line
                     lineInt = interp2( im2double( imageIn), X1, Y1, 'linear');
-                    phiIntensity( jPhi) = mean( lineInt);
+                    phiIntensity( jPhi) = median( lineInt);
                     
                 end
             % }}}

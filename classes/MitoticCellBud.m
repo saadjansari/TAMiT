@@ -361,16 +361,21 @@ classdef MitoticCellBud < Cell
             % Now lets obtain the two SPB points. 
             indSpindle = find( IntSpindle > spindleMinIntensity);
             if length( indSpindle) == 1
-                ind1 = indD-1; ind2 = indD+1;
-            else
-                ind1 = indSpindle(1); ind2 = indSpindle(end); end
+                error('spindle found is not long enough. spindle min intensity is possibly too high. ');
+            end
+            ind1 = indSpindle(1); ind2 = indSpindle(end);
+            
             if length(indSpindle) > 7
-                ind1 = ind1+3;
-                ind2 = ind2-3;
+                ind1 = ind1+1;
+                ind2 = ind2-1;
             end
 
             % Here X is the horizontal coordinate.
             [AstersY, AstersX] = ind2sub( size(imPlane), idxMaxPix( [ind1, ind2] ) );
+            
+            if AstersX(1) == AstersX(2) && AstersY(1) == AstersY(2)
+                error('only one point found for spindle')
+            end
 
             if brightestPixelAsSPB
 
@@ -461,21 +466,26 @@ classdef MitoticCellBud < Cell
             % create a mask to apply to steerable image
             mask = imgaussfilt3(imageIn, 1);
             st = Methods.GetImageStats(mask,0);
-            mask( mask < st.Median+2*st.Sigma) = 0; mask(mask ~=0) = 1;
+            % mask( mask < st.Median+2*st.Sigma) = 0; mask(mask ~=0) = 1;
+            mask( mask < 2*st.Median) = 0; mask(mask ~=0) = 1;
+
             % figure; imshow3D( imc);
             % figure; imagesc( sum(nms3,3).*max(mask,[],3));
             
             % Do a sweep radial sweep and look for peaks corresponding to
             % rods.
+            
             im2 = max(imageIn,[],3); [~,~,nms,~] = steerableDetector(im2, 4, 2);
-            [phiIntensity, phiValues] = Cell.radIntegrate2D( im2, startPoint, 5, 25);
+            im2g = imgaussfilt(im2, 1);
+            [phiIntensity, phiValues] = Cell.radIntegrate2D( im2g, startPoint, 5, 15);
             
             % find peaks in Phi Intensity
-            imVals = im2( im2 ~= 0);
+            imVals = im2g( im2g ~= 0);
             mtBkg = median( imVals );
-            thr = multithresh( imageIn(:),2);
-            minPkHeight = 2*thr(1) + 0*std( imVals );
-%             minPkHeight = mtBkg + 1*std( imVals );
+            % thr = multithresh( imageIn(:),2);
+            % minPkHeight = 2*thr + 0*std( imVals );
+            minPkHeight = 1.5*mtBkg + 0*std( imVals );
+
             warning('off', 'signal:findpeaks:largeMinPeakHeight' )
             [ peakIntensity, peakPhi ] = findpeaks( phiIntensity, phiValues, 'MinPeakHeight', minPkHeight );
             peakPhi = mod( peakPhi, 2*pi);
