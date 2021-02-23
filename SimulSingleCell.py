@@ -63,7 +63,7 @@ class SimulSingleCell( object):
         self.slurm= {
                 'routine' : 'multicore', # singlecore or multicore
                 'account' : 'ucb-summit-smr',
-                'time' : '00:20:00',
+                'time' : '16:00:00',
                 'qos' : 'condo',
                 'partition' : 'shas',
                 'jobname' : 'SingleCell',
@@ -203,13 +203,13 @@ class SimulSingleCell( object):
 #SBATCH --error=fit.err
 #SBATCH --time={4}
 #SBATCH --nodes={5}
-#SBATCH --cpus-per-task={6}
+#SBATCH --ntasks={6}
+
+export SCRATCH=/scratch/summit/saan8193
+mkdir -p $SCRATCH/$SLURM_JOB_ID
 
 module purge
-module load intel
-module load impi 
-module load python 
-module load matlab
+module load matlab/R2018b
 
 """
         # Loop over seeds and make job strings to launch
@@ -220,7 +220,7 @@ module load matlab
                 nCpuPerTask = 1
                 nNodes = int( np.ceil(nTasks/(float(self.slurm['coresPerNode'])/nCpuPerTask)) )
             elif self.slurm['routine'] == 'multicore':
-                nCpuPerTask = 12 
+                nCpuPerTask = 24 
                 nNodes = int( np.ceil(nTasks/(float(self.slurm['coresPerNode'])/nCpuPerTask)) )
 
             # Jobname : SimName_SeedNumber
@@ -229,7 +229,8 @@ module load matlab
             # Write jobString 
             jobString = jobStringDef.format( self.slurm['jobname'], self.slurm['qos'], self.slurm['partition'], self.slurm['account'], self.slurm['time'], nNodes, nCpuPerTask) 
 
-            jobString = jobString + 'matlab -nodesktop -r "clear all; cd {0}; addpath({1}); singleCell({2})"\n'.format( repr('/projects/saan8193/ImageAnalysis/SingleCell'), repr('classes'), repr(spath))
+            jobString = jobString + 'matlab -nodesktop -r "clear all; setenv({3},{4}); cd {0}; addpath({1}); singleCell({2})"\n'.format( repr('/projects/saan8193/ImageAnalysis/SingleCell'), repr('classes'), repr(spath), repr('TZ'), repr('America/Denver'))
+            jobString = jobString + '\nrm -rf $SCRATCH/$SLURM_JOB_ID\n'
             jobStrings += [jobString]
 
         return jobStrings

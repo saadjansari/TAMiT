@@ -177,7 +177,7 @@ classdef CurvedMT < BasicElement
             end
 
             % Simulate curve
-            [imSim, err_code, err] = DrawGaussian( obj.sigma, imageOut, ftype, 'Coord', obj.GetCoords(), graphVars{:});
+            [imSim, ec, err] = DrawGaussian( obj.sigma, imageOut, ftype, 'Coord', obj.GetCoords(), graphVars{:});
             imageOut = obj.amplitude*mat2gray(imSim);
             
             % What to do if there is an error in Z?
