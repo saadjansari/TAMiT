@@ -135,7 +135,7 @@ classdef Aster < Organizer
             mtBkg = bkg2-bkg1;
             minPkHeight = mtBkg + bkg1;
             warning('off', 'signal:findpeaks:largeMinPeakHeight' )
-            [ peakIntensity, peakPhi ] = findpeaks( phiIntensity, phiValues, 'MinPeakHeight', minPkHeight );
+            [ peakIntensity, peakPhi] = findpeaks( phiIntensity, phiValues, 'MinPeakHeight', minPkHeight );
             peakPhi = mod( peakPhi, 2*pi);
             warning('on', 'signal:findpeaks:largeMinPeakHeight' )
             
@@ -186,7 +186,7 @@ classdef Aster < Organizer
             end
             
             % create a mask to apply to steerable image
-            mask = imgaussfilt3(imOrg, 1);
+            mask = imgaussfilt(Image2Find2D, 1);
             st = Methods.GetImageStats(mask,0);
             mask( mask < st.Median+2*st.Sigma) = 0; mask(mask ~=0) = 1;
             

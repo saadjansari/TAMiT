@@ -152,7 +152,25 @@ classdef CurvedMT < BasicElement
             end
             obj.sigma(1) = mean( obj.sigma(1:2));
             obj.sigma(2) = obj.sigma(1);
-
+            
+            % Check if any property is very close but below or above bound,
+            % then set it equal to bound
+            for jProp = 1 : length( props2find)
+                propCurr = props2find{ jProp};
+                pc = obj.( propCurr );
+                pcu = obj.bounds.ub.(propCurr);
+                pcl = obj.bounds.lb.(propCurr);
+                for jv = 1: length(pc)
+                    if pc(jv) > pcu(jv) && pc(jv) - pcu(jv) < 1e-8
+                        pc(jv) = pcu(jv);
+                    end
+                    if pc(jv) < pcl(jv) && pcl(jv) - pc(jv) < 1e-8
+                        pc(jv) = pcl(jv);
+                    end
+                end
+                obj.( propCurr ) = pc;
+            end
+            
         end
         % }}}
         

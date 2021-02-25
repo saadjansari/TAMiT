@@ -1293,7 +1293,8 @@ classdef Methods
             end
             
             % If point is outside the image bounds, exit
-            if any( [round(y1), round(x1)] > size(helperImage) )
+            
+            if any( [round(y1), round(x1)] > size(helperImage) ) || any( [round(y1), round(x1)] < [1,1] )
                 coordNew = [NaN, NaN];
                 success = 0; return
             end

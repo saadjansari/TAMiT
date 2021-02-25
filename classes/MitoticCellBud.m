@@ -464,10 +464,10 @@ classdef MitoticCellBud < Cell
             end
             
             % create a mask to apply to steerable image
-            mask = imgaussfilt3(imageIn, 1);
+            mask = imgaussfilt3(imageIn, 2);
             st = Methods.GetImageStats(mask,0);
             % mask( mask < st.Median+2*st.Sigma) = 0; mask(mask ~=0) = 1;
-            mask( mask < 2*st.Median) = 0; mask(mask ~=0) = 1;
+            mask( mask < 1.3*st.Median) = 0; mask(mask ~=0) = 1;
 
             % figure; imshow3D( imc);
             % figure; imagesc( sum(nms3,3).*max(mask,[],3));
