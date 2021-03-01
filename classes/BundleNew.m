@@ -639,8 +639,12 @@ classdef BundleNew < BasicElement
                 c2(:, 1+(jr-1)*size(coords,2):(jr)*size(coords,2)) = round( coords(1:2,:)+ rads(jr)*nVec);
             end
             % Add half circle near endpoints
+            try
             imt = zeros(sizeImage(1:2)); 
             imt(round(coords(2,1)),round(coords(1,1)))=1; imt(round(coords(2,end)),round(coords(1,end)))=1; 
+            catch
+                stoph=1;
+            end
             imt = imdilate( imt, strel('disk',2*rad)); idxEnd = find(imt);
             [ye, xe] = ind2sub( sizeImage(1:2), idxEnd);
             c2 = [c2 , [xe';ye']];

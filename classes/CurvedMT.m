@@ -320,7 +320,11 @@ classdef CurvedMT < BasicElement
             acc = obj.normalVec(1) + obj.normalVec(2)*t;
 
             % initialization
-            xx = zeros( obj.dim, length(t) ); xx(:,1) = obj.origin;
+            try
+            xx = zeros( obj.dim, length(t) ); xx(:,1) = obj.origin';
+            catch
+                stoph=1; 
+            end
             vv = zeros( 2, length(t) ); vv(:,1) = tanVec(1:2);
 
             % iterate

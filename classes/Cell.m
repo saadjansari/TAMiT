@@ -149,7 +149,7 @@ classdef Cell < handle & matlab.mixin.Copyable
         function FindFeaturesFrame( obj, Image, parameters)
             % Find and fit features for a single CT frame
             
-            plot_estimate_and_skip = 0;
+            plot_estimate_and_skip = 0;            
             
             % Decide if fit should be performed. Skip otherwise
             [obj, status] = DecideToFit( obj, Image, parameters);
@@ -1108,13 +1108,21 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Initial Simulated Image
 %             subplot(232)
             axes( ax(2) );
-            imageSimI = FitEngine.SimulateImage( fitInfo.fitVecOld, fitInfo.fitInfoOld);
+            try
+                imageSimI = fitInfo.imageSimI;
+            catch
+                imageSimI = FitEngine.SimulateImage( fitInfo.fitVecOld, fitInfo.fitInfoOld);
+            end
             img = imagesc( max(imageSimI, [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Simulated Init'); set( img, 'Tag', 'imgSimI');
 
             % Final Simulated Image
 %             subplot(233)
             axes( ax(3) );
-            imageSimF = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
+            try
+                imageSimF = fitInfo.imageSimF;
+            catch
+                imageSimF = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
+            end
             img = imagesc( max(imageSimF, [], 3) ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Simulated Final'); set( img, 'Tag', 'imgSimF');
 
             % Features
@@ -1153,8 +1161,8 @@ classdef Cell < handle & matlab.mixin.Copyable
 
             % Images Simulated
             try
-                imageSimI = fitInfo.imageSimI;
-                imageSimF = fitInfo.imageSimF;
+                imageSimI = im2uint16( fitInfo.imageSimI);
+                imageSimF = im2unit16( fitInfo.imageSimF);
             catch
                 imageSimI = [];
                 imageSimF = [];

@@ -54,7 +54,12 @@ classdef FitEngine
             % Optimization of the feature parameters
 
             disp('        Optimization')
-
+            
+            pad_xy = 5;
+            pad_z = 1;
+            % Add z-padding
+            [obj,~] = obj.zpadding_on( [], pad_xy, pad_z);
+            
             fitInfo = [];
             if obj.parameters.fit2DFirst == 1
                 [obj,fitInfo] = obj.OptimizeProjection2D();
@@ -66,14 +71,11 @@ classdef FitEngine
             % Local Optimization
             fitInfo = obj.OptimizeLocal(fitInfo);
             
-            % Add z-padding
-            [obj,fitInfo] = obj.zpadding_on( fitInfo);
-            
             % Global Optimization
             fitInfo = obj.OptimizeGlobal(fitInfo);
             
             % Hyper Parameters Optimization
-            fitInfo = obj.OptimizeHyperParameters( fitInfo);
+%             fitInfo = obj.OptimizeHyperParameters( fitInfo);
             
             % Save final optimized data
             fitInfo.fitScope = 'final';
@@ -81,14 +83,12 @@ classdef FitEngine
             
             % initial/final images
             imageSimI = FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo);
-            imageSimI = im2uint16( imageSimI(:,:,2:end-1) );
             imageSimF = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
-            imageSimF = im2uint16( imageSimF(:,:,2:end-1) );
             fitInfo.imageSimI = imageSimI;
             fitInfo.imageSimF = imageSimF;
             
             % Remove z-padding
-            [obj,fitInfo] = obj.zpadding_off( fitInfo);
+            [obj,fitInfo] = obj.zpadding_off( fitInfo, pad_xy, pad_z);
             
             % Scale amplitudes
 %             [obj, fitInfo] = obj.scale_amplitude( fitInfo);
@@ -870,12 +870,12 @@ classdef FitEngine
         end
         % }}}
         
-        function [obj,fitInfo] = zpadding_on( obj, fitInfo)
+        function [obj,fitInfo] = zpadding_on( obj, fitInfo, pad_xy, pad_z)
            
             % Pad image
             img0 = obj.image;
-            img1 = zeros( size(img0, 1), size(img0,2), size(img0,3)+2, class(img0) );
-            img1(:,:,2:end-1) = img0;
+            img1 = zeros( 2*pad_xy+size(img0, 1), 2*pad_xy+size(img0,2), 2*pad_z+size(img0,3), class(img0) );
+            img1( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z) = img0;
             obj.image = img1;
             
             % Pad features
@@ -883,77 +883,194 @@ classdef FitEngine
             obj.feature.image = img1;
             mask0 = obj.feature.mask;
             mask1 = zeros( size(img1,1), size(img1,2), size(img1,3), class(mask0) );
-            mask1(:,:,2:end-1) = mask0;
-            mask1(:,:,1) = mask0(:,:,1);
-            mask1(:,:,end) = mask0(:,:,end);
+            mask1( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z) = mask0;
+            mask1(1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1) = mask0(:,:,1);
+            mask1(1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, end) = mask0(:,:,end);
             obj.feature.mask = mask1;
-            sim0 = obj.feature.imageSim;
-            sim1 = zeros( size(img1,1), size(img1,2), size(img1,3), class(sim0) );
-            sim1(:,:,2:end-1) = sim0;
-            obj.feature.imageSim = sim1;
+%             sim0 = obj.feature.imageSim;
+%             sim1 = zeros( size(img1,1), size(img1,2), size(img1,3), class(sim0) );
+%             sim1( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z ) = sim0;
+%             obj.feature.imageSim = sim1;
             
             switch obj.feature.type
                 case 'MonopolarAster'
                     faster = obj.feature.featureList{1};
                     sim0 = faster.imageSim;
                     sim1 = zeros( size(img1,1), size(img1,2), size(img1,3), class(sim0) );
-                    sim1(:,:,2:end-1) = sim0;
+                    sim1( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z) = sim0;
                     faster.imageSim = sim1;
                     
                     for jf = 1 : faster.numFeatures
                         
                         if strcmp( faster.featureList{jf}.type, 'Spot')
-                            faster.featureList{jf}.position(3) = faster.featureList{jf}.position(3)+1;
-                            faster.featureList{jf}.bounds.ub.position(3) = faster.featureList{jf}.bounds.ub.position(3) + 2;
+%                             faster.featureList{jf}.position(3) = faster.featureList{jf}.position(3)+1;
+%                             faster.featureList{jf}.bounds.ub.position(3) = faster.featureList{jf}.bounds.ub.position(3) + 2;
+                            faster.featureList{jf}.position = faster.featureList{jf}.position + [pad_xy,pad_xy,pad_z];
+                            faster.featureList{jf}.bounds.ub.position = faster.featureList{jf}.bounds.ub.position + 2*[pad_xy,pad_xy,pad_z];
                         elseif strcmp( faster.featureList{jf}.type, 'Line')
-                            faster.featureList{jf}.startPosition(3) = faster.featureList{jf}.startPosition(3)+1;
-                            faster.featureList{jf}.endPosition(3) = faster.featureList{jf}.endPosition(3)+1;
-                            faster.featureList{jf}.bounds.ub.startPosition(3) = faster.featureList{jf}.bounds.ub.startPosition(3) + 2;
-                            faster.featureList{jf}.bounds.ub.endPosition(3) = faster.featureList{jf}.bounds.ub.endPosition(3) + 2;
+%                             faster.featureList{jf}.startPosition(3) = faster.featureList{jf}.startPosition(3)+1;
+%                             faster.featureList{jf}.endPosition(3) = faster.featureList{jf}.endPosition(3)+1;
+%                             faster.featureList{jf}.bounds.ub.startPosition(3) = faster.featureList{jf}.bounds.ub.startPosition(3) + 2;
+%                             faster.featureList{jf}.bounds.ub.endPosition(3) = faster.featureList{jf}.bounds.ub.endPosition(3) + 2;
+                            faster.featureList{jf}.startPosition = faster.featureList{jf}.startPosition + [pad_xy,pad_xy,pad_z];
+                            faster.featureList{jf}.endPosition = faster.featureList{jf}.endPosition + [pad_xy,pad_xy,pad_z];
+                            faster.featureList{jf}.bounds.ub.startPosition = faster.featureList{jf}.bounds.ub.startPosition + 2*[pad_xy,pad_xy,pad_z];
+                            faster.featureList{jf}.bounds.ub.endPosition = faster.featureList{jf}.bounds.ub.endPosition + 2*[pad_xy,pad_xy,pad_z];
                         else
                             error('unknown feature type')
                         end
                         faster.featureList{jf}.fillParams( size(img1) );
                     end
+                    
                 case 'Mitosis'
+                    
+                    fspindle = obj.feature.featureList{1};
+                    fspindle.startPosition = fspindle.startPosition + [pad_xy,pad_xy,pad_z];
+                    fspindle.endPosition = fspindle.endPosition + [pad_xy,pad_xy,pad_z];
+                    fspindle.bounds.ub.startPosition = fspindle.bounds.ub.startPosition + 2*[pad_xy,pad_xy,pad_z];
+                    fspindle.bounds.ub.endPosition = fspindle.bounds.ub.endPosition + 2*[pad_xy,pad_xy,pad_z];
+                    
+                    for ja = 2 : length( obj.feature.featureList)
+                        faster =  obj.feature.featureList{ja};
+                        for jf = 1 : faster.numFeatures
+
+                            if strcmp( faster.featureList{jf}.type, 'Spot')
+                                faster.featureList{jf}.position = faster.featureList{jf}.position + [pad_xy,pad_xy,pad_z];
+                                faster.featureList{jf}.bounds.ub.position = faster.featureList{jf}.bounds.ub.position + 2*[pad_xy,pad_xy,pad_z];
+                            elseif strcmp( faster.featureList{jf}.type, 'Line')
+    %                             faster.featureList{jf}.startPosition(3) = faster.featureList{jf}.startPosition(3)+1;
+    %                             faster.featureList{jf}.endPosition(3) = faster.featureList{jf}.endPosition(3)+1;
+    %                             faster.featureList{jf}.bounds.ub.startPosition(3) = faster.featureList{jf}.bounds.ub.startPosition(3) + 2;
+    %                             faster.featureList{jf}.bounds.ub.endPosition(3) = faster.featureList{jf}.bounds.ub.endPosition(3) + 2;
+                                faster.featureList{jf}.startPosition = faster.featureList{jf}.startPosition + [pad_xy,pad_xy,pad_z];
+                                faster.featureList{jf}.endPosition = faster.featureList{jf}.endPosition + [pad_xy,pad_xy,pad_z];
+                                faster.featureList{jf}.bounds.ub.startPosition = faster.featureList{jf}.bounds.ub.startPosition + 2*[pad_xy,pad_xy,pad_z];
+                                faster.featureList{jf}.bounds.ub.endPosition = faster.featureList{jf}.bounds.ub.endPosition + 2*[pad_xy,pad_xy,pad_z];
+                            else
+                                error('unknown feature type')
+                            end
+                            faster.featureList{jf}.fillParams( size(img1) );
+                        end
+                    end
+                    
                 case 'MitosisBud'
+                    
+                    fspindle = obj.feature.featureList{1};
+                    fspindle.startPosition = fspindle.startPosition + [pad_xy,pad_xy,pad_z];
+                    fspindle.endPosition = fspindle.endPosition + [pad_xy,pad_xy,pad_z];
+                    fspindle.bounds.ub.startPosition = fspindle.bounds.ub.startPosition + 2*[pad_xy,pad_xy,pad_z];
+                    fspindle.bounds.ub.endPosition = fspindle.bounds.ub.endPosition + 2*[pad_xy,pad_xy,pad_z];
+                    
+                    for ja = 2 : length( obj.feature.featureList)
+                        faster =  obj.feature.featureList{ja};
+                        for jf = 1 : faster.numFeatures
+
+                            if strcmp( faster.featureList{jf}.type, 'Spot')
+                                faster.featureList{jf}.position = faster.featureList{jf}.position + [pad_xy,pad_xy,pad_z];
+                                faster.featureList{jf}.bounds.ub.position = faster.featureList{jf}.bounds.ub.position + 2*[pad_xy,pad_xy,pad_z];
+                            elseif strcmp( faster.featureList{jf}.type, 'CurvedMT')
+                                faster.featureList{jf}.origin = faster.featureList{jf}.origin + [pad_xy,pad_xy,pad_z];
+                                faster.featureList{jf}.bounds.ub.origin = faster.featureList{jf}.bounds.ub.origin + 2*[pad_xy,pad_xy,pad_z];
+                            else
+                                error('unknown feature type')
+                            end
+                            faster.featureList{jf}.fillParams( size(img1) );
+                        end
+                    end
+                    
             end
         end
         
-        function [obj,fitInfo] = zpadding_off( obj, fitInfo)
+        function [obj,fitInfo] = zpadding_off( obj, fitInfo, pad_xy, pad_z)
            
             % unPad image
-            obj.image = obj.image(:,:,2:end-1);
+            obj.image = obj.image( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
             
             % unPad features
             obj.feature = fitInfo.featureMain;
             % Main organizer
-            obj.feature.image = obj.feature.image(:,:,2:end-1);
-            obj.feature.mask = obj.feature.mask(:,:,2:end-1);
-            obj.feature.imageSim = obj.feature.imageSim(:,:,2:end-1);
+            obj.feature.image = obj.feature.image( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
+            obj.feature.mask = obj.feature.mask( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
+            obj.feature.imageSim = obj.feature.imageSim( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
             
+            %fitInfo
+            fitInfo.imageSimI = fitInfo.imageSimI( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
+            fitInfo.imageSimF = fitInfo.imageSimF( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
+            
+            pad_arr = [pad_xy, pad_xy, pad_z];
             switch obj.feature.type
                 case 'MonopolarAster'
                     faster = obj.feature.featureList{1};
-                    faster.imageSim = faster.imageSim(:,:,2:end-1);
+                    faster.imageSim = faster.imageSim( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
                     
                     for jf = 1 : faster.numFeatures
                         if strcmp( faster.featureList{jf}.type, 'Spot')
-                            faster.featureList{jf}.position(3) = faster.featureList{jf}.position(3)-1;
-                            faster.featureList{jf}.bounds.ub.position(3) = faster.featureList{jf}.bounds.ub.position(3) - 2;
+                            faster.featureList{jf}.position = faster.featureList{jf}.position - pad_arr;
+                            faster.featureList{jf}.bounds.ub.position = faster.featureList{jf}.bounds.ub.position - 2*pad_arr;
                             
                         elseif strcmp( faster.featureList{jf}.type, 'Line')
-                            faster.featureList{jf}.startPosition(3) = faster.featureList{jf}.startPosition(3)-1;
-                            faster.featureList{jf}.endPosition(3) = faster.featureList{jf}.endPosition(3)-1;
-                            faster.featureList{jf}.bounds.ub.startPosition(3) = faster.featureList{jf}.bounds.ub.startPosition(3) - 2;
-                            faster.featureList{jf}.bounds.ub.endPosition(3) = faster.featureList{jf}.bounds.ub.endPosition(3) - 2;
+                            faster.featureList{jf}.startPosition = faster.featureList{jf}.startPosition - pad_arr;
+                            faster.featureList{jf}.endPosition = faster.featureList{jf}.endPosition - pad_arr;
+                            faster.featureList{jf}.bounds.ub.startPosition = faster.featureList{jf}.bounds.ub.startPosition - 2*pad_arr;
+                            faster.featureList{jf}.bounds.ub.endPosition = faster.featureList{jf}.bounds.ub.endPosition - 2*pad_arr;
                         else
                             error('unknown feature type')
                         end
                         faster.featureList{jf}.fillParams( size(obj.image) );
                     end
-                case 'Mitosis'
-                case 'MitosisBud'
+                    
+                case 'Spindle'
+                    
+                    fspindle = obj.feature.featureList{1};
+                    fspindle.startPosition = fspindle.startPosition - pad_arr;
+                    fspindle.endPosition = fspindle.endPosition - pad_arr;
+                    fspindle.bounds.ub.startPosition = fspindle.bounds.ub.startPosition - 2*pad_arr;
+                    fspindle.bounds.ub.endPosition = fspindle.bounds.ub.endPosition - 2*pad_arr;
+                    
+                    for ja = 2 : length( obj.feature.featureList)
+                        faster =  obj.feature.featureList{ja};
+                        for jf = 1 : faster.numFeatures
+
+                            if strcmp( faster.featureList{jf}.type, 'Spot')
+                                faster.featureList{jf}.position = faster.featureList{jf}.position - pad_arr;
+                                    faster.featureList{jf}.bounds.ub.position = faster.featureList{jf}.bounds.ub.position  - 2*pad_arr;
+                            elseif strcmp( faster.featureList{jf}.type, 'Line')
+                                faster.featureList{jf}.startPosition = faster.featureList{jf}.startPosition - pad_arr;
+                                faster.featureList{jf}.endPosition = faster.featureList{jf}.endPosition - pad_arr;
+                                faster.featureList{jf}.bounds.ub.startPosition = faster.featureList{jf}.bounds.ub.startPosition - 2*pad_arr;
+                                faster.featureList{jf}.bounds.ub.endPosition = faster.featureList{jf}.bounds.ub.endPosition - 2*pad_arr;
+                            else
+                                error('unknown feature type')
+                            end
+                            faster.featureList{jf}.fillParams( size(obj.image) );
+                        end
+                    end
+                    
+                    
+                case 'SpindleNew'
+                    
+                    fspindle = obj.feature.featureList{1};
+                    fspindle.startPosition = fspindle.startPosition - pad_arr;
+                    fspindle.endPosition = fspindle.endPosition - pad_arr;
+                    fspindle.bounds.ub.startPosition = fspindle.bounds.ub.startPosition - 2*pad_arr;
+                    fspindle.bounds.ub.endPosition = fspindle.bounds.ub.endPosition - 2*pad_arr;
+                    
+                    for ja = 2 : length( obj.feature.featureList)
+                        faster =  obj.feature.featureList{ja};
+                        for jf = 1 : faster.numFeatures
+
+                            if strcmp( faster.featureList{jf}.type, 'Spot')
+                                faster.featureList{jf}.position = faster.featureList{jf}.position - pad_arr;
+                                faster.featureList{jf}.bounds.ub.position = faster.featureList{jf}.bounds.ub.position  - 2*pad_arr;
+                            elseif strcmp( faster.featureList{jf}.type, 'CurvedMT')
+                                faster.featureList{jf}.origin = faster.featureList{jf}.origin  - pad_arr;
+                                faster.featureList{jf}.bounds.ub.origin = faster.featureList{jf}.bounds.ub.origin  - 2*pad_arr;
+                            else
+                                error('unknown feature type')
+                            end
+                            faster.featureList{jf}.fillParams( size(obj.image) );
+                        end
+                    end
             end
             
             % Alter fitInfo

@@ -87,7 +87,7 @@ classdef MitoticCellBud < Cell
             imageIn = im2double( imageIn);
             spindleExclusionRange = deg2rad(45);
 
-            if dim==3, sigma=[1.2 1.2 1.0]; elseif dim==2, sigma=[1.2 1.2]; end
+            if dim==3, sigma=[2 2 1.2]; elseif dim==2, sigma=[2 2]; end
             bkg = median( imageIn( imageIn(:) > 0) );
 
             % Spindle
@@ -132,7 +132,7 @@ classdef MitoticCellBud < Cell
 
                 % Get start position of astrals (3-5 pixels away from the
                 % spb opposite to the direction of spindle.
-                rr = 3;
+                rr = 2;
                 sp{1} = spindleMT.startPosition + rr*[cos(spindleAngle(1)+pi), sin(spindleAngle(1)+pi), 0];
                 sp{2} = spindleMT.endPosition + rr*[cos(spindleAngle(2)+pi), sin(spindleAngle(2)+pi), 0];
                 
@@ -147,6 +147,7 @@ classdef MitoticCellBud < Cell
                     for jb = 1 : length( curvedMTs )
                         
                         coords = AMT{jAster}{jb};
+                        
                         % Get length
                         L = sum( sqrt( diff( coords(1,:)).^2 + diff( coords(2,:)).^2 + diff( coords(3,:)).^2 ) );
                         nInt1 = round( L/ length( coords(1,:) ) );
@@ -189,11 +190,17 @@ classdef MitoticCellBud < Cell
                         end
 
                         % Create
-                        curvedMTs{jb} = CurvedMT( origin, thetaInit, nV, L, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
+                        curvedMTs{jb} = CurvedMT( origin', thetaInit, nV, L, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
                     end
                     curvedMTs( idxRm) = [];
                     
-                    if ~isempty( curvedMTs )
+                    if ~isempty(curvedMTs)
+                        % ensure mts are within the image region
+                        curvedMTs = restrict_curvedMT_inside_image( imageIn, curvedMTs);
+
+                        % reduce mt length based on image intensity
+                        curvedMTs = threhold_mt_length_using_image( imageIn, curvedMTs);
+                        
                         AsterObjects{jAster} = { AsterObjects{jAster}{:}, curvedMTs{:} };
                     end
 
@@ -202,7 +209,6 @@ classdef MitoticCellBud < Cell
             end
 
             % Store basic objects in object Hierarchy
-            
             % Aster objects stored in a class object: SPBs + Curved MTs stored in an Aster
             Asters = cell(1,2);
             for jAster = 1 : 2
@@ -210,25 +216,84 @@ classdef MitoticCellBud < Cell
             end
 
             % Spindle Feature
-            % SpindleMT + 2 Asters stored in a Spindle
-%             if isempty( AsterObjects)
-%                 spindleObj = SpindleNew( dim, imageIn, {spindleMT}, props);
-%             else
-                spindleObj = SpindleNew( dim, imageIn, {spindleMT, Asters{:} }, props);
-%             end
-
-            if displayFlag
-%                 fName = 'estimate_spindle';
-%                 f = figure( 'NumberTitle', 'off', 'Name', fName); 
-%                 ax = axes;
-%                 imagesc( ax, max(imageIn, [], 3) ); colormap gray; axis equal; hold on;
-%                 spindleObj.displayFeature(ax)
-
-                %sName = [fitInfo.saveDirectory, filesep, sName];
-                %export_fig( sName, '-png', '-nocrop', '-a1') 
-            end
+            spindleObj = SpindleNew( dim, imageIn, {spindleMT, Asters{:} }, props);
             spindleObj.findEnvironmentalConditions();
             
+            function curvedMTs = restrict_curvedMT_inside_image( frame, curvedMTs)
+        
+                nvx = size(frame,2);
+                nvy = size(frame,1);
+                nvz = size(frame,3);
+                % restrict mts within the image region
+                for jf = 1 : length(curvedMTs)
+
+                    outside = 0;
+                    % GetCoords
+                    cc = curvedMTs{jf}.GetCoords();
+
+                    % Identify coords that exceed the size of the image, and remove them
+                    rmIdx_x = find( cc(1,:) < 1 | cc(1,:) > nvx);
+                    rmIdx_y = find( cc(2,:) < 1 | cc(2,:) > nvy);
+                    rmIdx_z = find( cc(3,:) < 1 | cc(3,:) > nvz);
+                    rmIdx = union( union( rmIdx_x , rmIdx_y ), rmIdx_z);
+                    if ~isempty(rmIdx)
+                        outside = 1;
+                        disp('This line estimate exceeds the image region. Restricting it inside')
+                    end
+                    cnt = 0;
+                    while outside && cnt < 20
+                        cnt = cnt+1;
+                        curvedMTs{jf}.L = 0.95*curvedMTs{jf}.L;
+                        cc = curvedMTs{jf}.GetCoords();
+                        rmIdx_x = find( cc(1,:) < 1 | cc(1,:) > nvx);
+                        rmIdx_y = find( cc(2,:) < 1 | cc(2,:) > nvy);
+                        rmIdx_z = find( cc(3,:) < 1 | cc(3,:) > nvz);
+                        outside = ~isempty( union( union( rmIdx_x , rmIdx_y ), rmIdx_z) );
+                    end
+
+                end
+
+            end
+            
+            function curvedMTs = threhold_mt_length_using_image( frame, curvedMTs)
+                % restrict mts within the image region
+
+                frame = mat2gray(frame);
+                %mask = create_astral_mask( frame);
+                img = imgaussfilt(frame,1);
+                %med = median( img( :) );
+
+                threshold_factor = 1.1;
+
+                %f = figure;
+                %ha = tight_subplot( 1, length(curvedMTs), 0.01, 0.01,0.01);
+
+                % For each curved mt, gets its coords
+                for jf = 1 : length(curvedMTs)
+
+                    % GetCoords
+                    cc = curvedMTs{jf}.GetCoords();
+
+                    % Get intensity at these coordiantes
+                    int = Cell.findAmplitudeAlongCurveCoords( img, round( cc) );
+                    tt = 1 : length(int);
+
+                    % Find a mask for this specific feature by usign its simulated
+                    % image, then binarizing it, dilating it.
+                    mask = curvedMTs{jf}.simulateFeature( size(frame) );
+                    mask = imbinarize( mask, 0.005);
+                    mask = imdilate( mask, strel('disk',8,6) );
+                    %mask3 = repmat( mask, [1,1, size(frame,3)]);
+                    med = median( img( find( mask(:) ) ) );
+                    threshold = threshold_factor*med;
+
+                    idxEnd = length(int);
+                    if any( int < threshold)
+                        idxEnd = 1+length(int) - find( flip(int)> threshold, 1, 'first');
+                    end
+                    curvedMTs{jf}.L = (idxEnd/length(int) ) *curvedMTs{jf}.L;
+                end
+            end
         end
         % }}}
         
@@ -243,8 +308,8 @@ classdef MitoticCellBud < Cell
 
             % Params
             spindleDeterminationSensitivity = 0.4;
-            spindleMinIntensity = 0.5;
-            linewidth = 3;
+            spindleMinIntensity = 0.65;
+            linewidth = 2;
             brightestPixelAsSPB = 0;
             imMask3D = imageIn > 0;
 
@@ -262,9 +327,10 @@ classdef MitoticCellBud < Cell
             imPlaneStrong = imPlane;
             imPlaneStrong( imPlaneStrong < threshOtsu) = 0;
 
-            imMask = imextendedmax( imPlaneStrong, spindleDeterminationSensitivity);
+            %imMask = imextendedmax( imPlaneStrong, spindleDeterminationSensitivity);
             imPlaneStrongBool = imPlaneStrong;
             imPlaneStrongBool( imPlaneStrongBool > 0 ) = 1;
+            imMask = imPlaneStrongBool;
 
             % }}}
 
@@ -279,8 +345,7 @@ classdef MitoticCellBud < Cell
             if spindleInt < 0.5
                 error( 'The mean spindle intensity is less than 50% of the maximum intensity in the image');
             else
-%                 disp('Success! A spindle was found')
-                disp( sprintf( '               Success: Spindle Mean Intensity = %.2f', spindleInt) )
+                fprintf('\t Success: Spindle Mean Intensity = %.2f\n', spindleInt)
             end
 
             % Now we can obtain the shape parameters of the spindle
@@ -318,19 +383,8 @@ classdef MitoticCellBud < Cell
 
             % remove any column in coords whose either entry is less than or equal
             % to 0. or greater than or equal to numVoxelsX or numVoxelsY
-            rmCol = [];
-            for jCol = 1 : length(coords)
-                
-                if any( find( coords( :, jCol) < 1) )
-                    rmCol = [ rmCol, jCol];
-                elseif coords(1, jCol) > numVoxelsY
-                    rmCol = [ rmCol, jCol];
-                elseif coords(2, jCol) > numVoxelsX
-                    rmCol = [ rmCol, jCol];
-                end
-                
-            end
-            % remove bad columns
+            rmCol = union( find( coords(1, :) < 1 | coords(1, :) > numVoxelsX), ...
+                find( coords(2, :) < 1 | coords(2, :) > numVoxelsY) );
             coords( :, rmCol) = [];
 
             % }}}
@@ -466,34 +520,30 @@ classdef MitoticCellBud < Cell
             % create a mask to apply to steerable image
             mask = imgaussfilt3(imageIn, 2);
             st = Methods.GetImageStats(mask,0);
-            % mask( mask < st.Median+2*st.Sigma) = 0; mask(mask ~=0) = 1;
-            mask( mask < 1.3*st.Median) = 0; mask(mask ~=0) = 1;
-
-            % figure; imshow3D( imc);
-            % figure; imagesc( sum(nms3,3).*max(mask,[],3));
+            mask( mask < 1.0*st.Median) = 0; mask(mask ~=0) = 1;
             
             % Do a sweep radial sweep and look for peaks corresponding to
             % rods.
             
-            im2 = max(imageIn,[],3); [~,~,nms,~] = steerableDetector(im2, 4, 2);
+            im2 = max(imageIn,[],3);
             im2g = imgaussfilt(im2, 1);
             [phiIntensity, phiValues] = Cell.radIntegrate2D( im2g, startPoint, 5, 15);
             
             % find peaks in Phi Intensity
             imVals = im2g( im2g ~= 0);
-            mtBkg = median( imVals );
-            % thr = multithresh( imageIn(:),2);
-            % minPkHeight = 2*thr + 0*std( imVals );
-            minPkHeight = 1.5*mtBkg + 0*std( imVals );
+            minPkHeight = 1.0*median( imVals );
 
             warning('off', 'signal:findpeaks:largeMinPeakHeight' )
-            [ peakIntensity, peakPhi ] = findpeaks( phiIntensity, phiValues, 'MinPeakHeight', minPkHeight );
+            [ peakIntensity, peakPhi ] = findpeaks( phiIntensity, phiValues, ...
+                'MinPeakHeight', minPkHeight, 'MinPeakProminence', 0.25*median( imVals ));
             peakPhi = mod( peakPhi, 2*pi);
             warning('on', 'signal:findpeaks:largeMinPeakHeight' )
             
             % remove angle belonging to spindle.
             spindleAngle = mod( spindleAngle, 2*pi);
-            idxRm = find( abs(peakPhi-spindleAngle) < spindleExclusionRange | abs(peakPhi-spindleAngle+2*pi) < spindleExclusionRange | abs(peakPhi-spindleAngle-2*pi) < spindleExclusionRange);
+            idxRm = find( abs(peakPhi-spindleAngle) < spindleExclusionRange | ...
+                abs(peakPhi-spindleAngle+2*pi) < spindleExclusionRange | ...
+                abs(peakPhi-spindleAngle-2*pi) < spindleExclusionRange);
             peakPhi( idxRm)=[];
             
             % Default Values
@@ -503,7 +553,6 @@ classdef MitoticCellBud < Cell
             minLength = 10;
             
             AstralMicrotubules = {};
-            
             
             for pp = 1 : length(peakPhi)
                                
@@ -517,14 +566,22 @@ classdef MitoticCellBud < Cell
                     rng = 1; alist = []; idlist = [];
                     for j1 = -rng : rng
                         for j2 = -rng : rng
-                            alist = [ alist, a2D( round(cc(2,jj))+j1, round(cc(1,jj))+j2)];
-                            idlist = [ idlist, i2d( round(cc(2,jj))+j1, round(cc(1,jj))+j2)];
+                            
+                            if round(cc(2,jj))+j1 > 1 && round(cc(2,jj))+j1 < size(mask,1) && ...
+                                    round(cc(1,jj))+j2 > 1 && round(cc(1,jj))+j2 < size(mask,2)
+                                alist = [ alist, a2D( round(cc(2,jj))+j1, round(cc(1,jj))+j2)];
+                                idlist = [ idlist, i2d( round(cc(2,jj))+j1, round(cc(1,jj))+j2)];
+                            end
+                            
                         end
                     end
                     [~, idd] = max( alist); c3( jj) = idlist(idd);
                 end
                 
                 c3(1: ceil(length(c3)/2) ) = c3(1);
+                
+                try; c3(end) = mean( c3(end-2:end-1));end
+                
                 c3(ceil(length(c3)/2) : end) = mean( c3(ceil(2*length(c3)/3):end) );
                 pz = polyfit( linspace(0,1, length(c3)), c3, 1);
                 zz = polyval( pz, linspace(0,1, length(c3)));

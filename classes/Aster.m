@@ -81,7 +81,7 @@ classdef Aster < Organizer
             p1 = obj.featureList{ 1}.position;
             
             for jmt = 2 : obj.numFeatures
-                obj.featureList{jmt}.origin = obj.featureList{jmt}.origin + (p1-p0)';
+                obj.featureList{jmt}.origin = obj.featureList{jmt}.origin + (p1-p0);
             end
 
         end
@@ -104,7 +104,7 @@ classdef Aster < Organizer
 
             props = {'origin', 'thetaInit', 'normalVec','L', 'amplitude', 'sigma'};
             display = {'Color', [1 0 0], 'LineWidth', 3};
-            if obj.dim==3, sigma=[1.2 1.2 1.0]; elseif obj.dim==2, sigma=[1.2 1.2]; end
+            if obj.dim==3, sigma=[2 2 1.2]; elseif obj.dim==2, sigma=[2 2]; end
             Image2Find( Image2Find < 0) = 0; 
             
             bkg = median( Image2Find( Image2Find(:) > 0) );
@@ -294,7 +294,7 @@ classdef Aster < Organizer
                 end
 
                 % Create
-                curvedMTs{jb} = CurvedMT( origin, thetaInit, nV, L, amp, sigma, obj.dim, props, display);
+                curvedMTs{jb} = CurvedMT( origin', thetaInit, nV, L, amp, sigma, obj.dim, props, display);
             end
             curvedMTs(idxRm) = [];
                 

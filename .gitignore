@@ -3,7 +3,8 @@
 /PaperFigures/*
 /PaperMeth/*
 /Tests/*
-/makeSettings.m
+/scripts_temp/*
+/validation/*
 /init*
 /simul_single_cell_*
 /.DS_Store
