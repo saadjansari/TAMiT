@@ -554,7 +554,17 @@ classdef AnalysisSingleCell < handle
                     if ~isempty(trackBud2.tracksFinal)
                         trackBud2 = trackBud2.parseTracksFinal( feats2);
                     end
-                    dymgmt = DynamicFeatureMgmt( { trackBud1.features{:}, trackBud2.features{:} } );
+                    
+                    if ~isempty( trackBud1.features) && ~isempty( trackBud2.features)
+                        dymgmt = DynamicFeatureMgmt( { trackBud1.features{:}, trackBud2.features{:} } );
+                    elseif ~isempty( trackBud1.features) && isempty( trackBud2.features)
+                        dymgmt = DynamicFeatureMgmt( trackBud1.features);
+                    elseif isempty( trackBud1.features) && ~isempty( trackBud2.features)
+                        dymgmt = DynamicFeatureMgmt( trackBud2.features);
+                    else
+                        disp('No trackable features found. Returning out of tracking call.')
+                        return
+                    end
                     dymgmt.saveMat( obj.path)
                     dymgmt.saveCSV( obj.path)
                     

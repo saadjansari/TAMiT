@@ -1376,9 +1376,9 @@ classdef FitEngine
                     scaleVec( find_str('length') ) = scale.length;
                     
                 case 'SpindleNew'
-                    scale.normal_vec = 0.0001;
-                    scale.theta = 0.01;
-                    scale.length = 1;
+                    scale.normal_vec = 0.001;
+                    scale.theta = 0.1;
+                    scale.length = 100;
                     scaleVec( find_str('thetaInit') ) = scale.theta;
                     scaleVec( find_str('L') ) = scale.length;
                     scaleVec( find_str('normalVec') ) = scale.normal_vec;
