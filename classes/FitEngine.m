@@ -922,7 +922,7 @@ classdef FitEngine
                         faster.featureList{jf}.fillParams( size(img1) );
                     end
                     
-                case 'Mitosis'
+                case 'Spindle'
                     
                     fspindle = obj.feature.featureList{1};
                     fspindle.startPosition = fspindle.startPosition + [pad_xy,pad_xy,pad_z];
@@ -953,7 +953,7 @@ classdef FitEngine
                         end
                     end
                     
-                case 'MitosisBud'
+                case 'SpindleNew'
                     
                     fspindle = obj.feature.featureList{1};
                     fspindle.startPosition = fspindle.startPosition + [pad_xy,pad_xy,pad_z];
