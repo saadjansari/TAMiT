@@ -1183,15 +1183,28 @@ classdef Methods
 
                 % Find the coordinates of the extreme points on the arc length
                 % of this pizza slice.
-                X1 = x0 + ( visibility * cos( [ phi1, phi2]) );
-                Y1 = y0 + ( visibility * sin( [ phi1, phi2]) ); % -ve because matlab orientation is reversed( origin is at top left)
-
-                % find minimum points at distance rmin away
-                X2 = x0 + ( rmin * cos( [ phi1, phi2]) );
-                Y2 = y0 + ( rmin * sin( [ phi1, phi2]) ); 
-
-                xx = [ X1, X2];
-                yy = [ Y1, Y2];
+%                 X1 = x0 + ( visibility * cos( [ phi1, phi2]) );
+%                 Y1 = y0 + ( visibility * sin( [ phi1, phi2]) ); % -ve because matlab orientation is reversed( origin is at top left)
+% 
+%                 % find minimum points at distance rmin away
+%                 X2 = x0 + ( rmin * cos( [ phi1, phi2]) );
+%                 Y2 = y0 + ( rmin * sin( [ phi1, phi2]) ); 
+%                 
+%                 xx = [ X1, X2];
+%                 yy = [ Y1, Y2];
+                
+                % Find points all along this arc in two lines
+                xx = x0 + ( [rmin:1:visibility]' * cos( [ phi1, phi2]) );
+                yy = y0 + ( [rmin:1:visibility]' * sin( [ phi1, phi2]) );
+                
+                % Remove points outside image region
+                idxRm = union( find( xx < 1 | xx > size(helperImage,2) ), find( yy < 1 | yy > size(helperImage,1) ) );
+                xx(idxRm) = [];
+                yy(idxRm) = [];
+                
+                if length(xx) < 3
+                    success = 0; phiFinal = NaN; coordNew = [NaN; NaN];
+                end
 
                 xRd = []; yRd = [];
                 for jPt = 1 : length(xx)
