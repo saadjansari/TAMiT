@@ -590,8 +590,9 @@ classdef CurvedMT < BasicElement
             [~, idx] = min( res); 
             obj.L = l1(idx);
             
-            thr = multithresh(imOrg(:),2);
-            par.amplitude.lb = thr(1)*2;
+            %thr = multithresh(imOrg(:),2);
+            %par.amplitude.lb = thr(1)*2;
+            par.amplitude.lb = median( imOrg(:) );
             par.amplitude.ub = max( imOrg(:));
             obj.SetBounds(par);
             
