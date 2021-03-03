@@ -895,11 +895,6 @@ classdef FitEngine
             switch obj.feature.type
                 case 'MonopolarAster'
                     faster = obj.feature.featureList{1};
-                    sim0 = faster.imageSim;
-                    sim1 = zeros( size(img1,1), size(img1,2), size(img1,3), class(sim0) );
-                    sim1( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z) = sim0;
-                    faster.imageSim = sim1;
-                    
                     for jf = 1 : faster.numFeatures
                         
                         if strcmp( faster.featureList{jf}.type, 'Spot')
@@ -1001,7 +996,7 @@ classdef FitEngine
             switch obj.feature.type
                 case 'MonopolarAster'
                     faster = obj.feature.featureList{1};
-                    faster.imageSim = faster.imageSim( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
+                    %faster.imageSim = faster.imageSim( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
                     
                     for jf = 1 : faster.numFeatures
                         if strcmp( faster.featureList{jf}.type, 'Spot')
