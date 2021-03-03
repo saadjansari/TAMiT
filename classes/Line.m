@@ -508,6 +508,10 @@ classdef Line < BasicElement
                 ub.theta = [pi];
                 lb.theta = [-pi];
             end
+            if nargin == 2
+                ub.startPosition = pars.position.ub;
+                ub.endPosition = pars.position.ub;
+            end
             
             % length
             ub.length = 300;
@@ -588,6 +592,7 @@ classdef Line < BasicElement
             med = median( imOrg( imOrg ~=0));
             par.amplitude.lb = 0.5*med;
             par.amplitude.ub = max( imOrg(:));
+            par.position.ub = size(imOrg);
             obj.SetBounds(par);
             
         end
@@ -629,11 +634,12 @@ classdef Line < BasicElement
             
             obj.endPosition = endP;
             obj.theta = atan2( obj.endPosition(2)-obj.startPosition(2),obj.endPosition(1)-obj.startPosition(1) );
+            obj.length = norm( obj.startPosition - obj.endPosition);
             if obj.dim == 3
                 phi = acos( (obj.endPosition(3)-obj.startPosition(3))/obj.length );
                 obj.theta = [obj.theta, phi];
             end
-            obj.length = norm( obj.startPosition - obj.endPosition);
+            %obj.length = norm( obj.startPosition - obj.endPosition);
             
         end
         function SetStartPosition(obj, startP)
@@ -644,11 +650,12 @@ classdef Line < BasicElement
             
             obj.startPosition = startP;
             obj.theta = atan2( obj.endPosition(2)-obj.startPosition(2),obj.endPosition(1)-obj.startPosition(1) );
+            obj.length = norm( obj.startPosition - obj.endPosition);
             if obj.dim == 3
                 phi = acos( (obj.endPosition(3)-obj.startPosition(3))/obj.length );
                 obj.theta = [obj.theta, phi];
             end
-            obj.length = norm( obj.startPosition - obj.endPosition);
+            
             
         end
         

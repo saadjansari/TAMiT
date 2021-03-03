@@ -57,16 +57,17 @@ classdef FitEngine
             
             pad_xy = 5;
             pad_z = 1;
+            
+            % Environment Optimization
+            fitInfo = obj.OptimizeEnvironment([]); fitInfo = [];
+            
             % Add z-padding
             [obj,~] = obj.zpadding_on( [], pad_xy, pad_z);
             
             fitInfo = [];
             if obj.parameters.fit2DFirst == 1
                 [obj,fitInfo] = obj.OptimizeProjection2D();
-            end
-
-            % Environment Optimization
-            fitInfo = obj.OptimizeEnvironment(fitInfo); fitInfo = [];
+            end            
             
             % Local Optimization
             fitInfo = obj.OptimizeLocal(fitInfo);
@@ -75,7 +76,7 @@ classdef FitEngine
             fitInfo = obj.OptimizeGlobal(fitInfo);
             
             % Hyper Parameters Optimization
-%             fitInfo = obj.OptimizeHyperParameters( fitInfo);
+            fitInfo = obj.OptimizeHyperParameters( fitInfo);
             
             % Save final optimized data
             fitInfo.fitScope = 'final';
@@ -205,20 +206,6 @@ classdef FitEngine
             [~, idx] = min( res);
             obj.feature.background = blist(idx);
             fprintf('  Final = %.4f\n', obj.feature.background)
-            
-%             % Prepare for the Fit
-%             obj.feature.forceInsideMask();
-%             [ fitProblem, fitInfo] = obj.PrepareOptimizeEnvironment();
-%             if isempty(obj.feature.featureList)
-%                 fprintf('Skipping fitting for %s\n', obj.feature.type);  
-%                 return
-%             end
-% 
-%             % Solve Optimization Problem
-%             fitInfo.fitResults = obj.SolveOptimizationProblem( fitProblem );
-%             obj.feature.absorbVecEnvironment( fitInfo.fitResults.vfit.*fitInfo.speedVec, fitInfo.fitVecs.labels);
-%             fitInfo.fitInfoOld = fitInfo;
-%             fitInfo.fitVecOld = fitInfo.fitVecs.vec;
 
         end
         % }}}
@@ -521,12 +508,6 @@ classdef FitEngine
             % Fit global 2D projection of feature
             fitInfo = fitEngine2.OptimizeGlobal();
             obj.parameters.runLocalOptimization = 0;
-            
-%             if params.runFeatureNumberOptimization
-%                 fitInfo = fitEngine2.OptimizeHyperParameters(fitInfo);
-% %                 obj.feature = fitEngine2.feature;
-%                 obj.parameters.runFeatureNumberOptimization = 0;
-%             end
             
             % Update 3D features using fitted 2D information
             obj.feature.Update3DFrom2D(fitInfo.featureCurrent);
