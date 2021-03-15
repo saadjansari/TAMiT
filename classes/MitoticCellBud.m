@@ -57,7 +57,7 @@ classdef MitoticCellBud < Cell
 
             switch currentFeature
                 case 'Microtubule'
-                    feature = MitoticCellBud.findFeaturesDeNovo_MT( image, obj.params.estimate.spindle, obj.featureProps.spindle);
+                    feature = MitoticCellBud.findFeaturesDeNovo_MT( image, obj.params.estimate.spindle, obj.featureProps.spindle_bud);
 
                 case 'Kinetochore'
                     feature = MitoticCellBud.findFeaturesDeNovo_KC( image, obj.params.estimate.kcbank);
@@ -87,8 +87,19 @@ classdef MitoticCellBud < Cell
             imageIn = im2double( imageIn);
             spindleExclusionRange = deg2rad(45);
 
-            if dim==3, sigma=[2 2 1.2]; elseif dim==2, sigma=[2 2]; end
-            bkg = median( imageIn( imageIn(:) > 0) );
+            % Get background and nuclear background
+            % Nuclear mask
+            mask = BY_find_nuclear_mask( imageIn);
+            bkg_nuc = median( imageIn( find(mask(:) ) ) );
+
+            % new background first
+            bkg = median( imageIn( find(mask(:)==0 ) ) );
+            
+            if dim==2
+                sigma = [2.5,2.5];
+            else
+                sigma = [2.5,2.5,1.2];
+            end
 
             % Spindle
             % Find the Spindle. 
@@ -97,7 +108,7 @@ classdef MitoticCellBud < Cell
             % Create the Spindle MT
             if params.spindleMT
                 lineAmpList = Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition );
-                spindleAmp = median(lineAmpList) - bkg;
+                spindleAmp = median(lineAmpList) - bkg_nuc;
                 spindleMT = Line( spindle.MT.startPosition, spindle.MT.endPosition, spindleAmp, sigma, dim, props.fit{dim}.line, props.graphics.line);
                 spindleMT.label = 'spindle'; spindleMT.SetBounds();
             else
@@ -109,8 +120,8 @@ classdef MitoticCellBud < Cell
             AsterObjects{2} = {};
             if params.spindlePoles
                 % Create the SpindlePoleBody objects
-                spbAmp(1) = imageIn( spindleMT.startPosition(2), spindleMT.startPosition(1), spindleMT.startPosition(3) ) - bkg - spindleAmp;
-                spbAmp(2) = imageIn( spindleMT.endPosition(2), spindleMT.endPosition(1), spindleMT.endPosition(3) )-bkg-spindleAmp;
+                spbAmp(1) = imageIn( spindleMT.startPosition(2), spindleMT.startPosition(1), spindleMT.startPosition(3) ) - spindleAmp;
+                spbAmp(2) = imageIn( spindleMT.endPosition(2), spindleMT.endPosition(1), spindleMT.endPosition(3) ) - spindleAmp;
                 if any(spbAmp < 0)
                     spbAmp( spbAmp < 0) = bkg;
                     warning( 'findFeaturesMT_deNovo : forcing SPBAmp to be > 0')
@@ -132,7 +143,7 @@ classdef MitoticCellBud < Cell
 
                 % Get start position of astrals (3-5 pixels away from the
                 % spb opposite to the direction of spindle.
-                rr = 2;
+                rr = 3;
                 sp{1} = spindleMT.startPosition + rr*[cos(spindleAngle(1)+pi), sin(spindleAngle(1)+pi), 0];
                 sp{2} = spindleMT.endPosition + rr*[cos(spindleAngle(2)+pi), sin(spindleAngle(2)+pi), 0];
                 
@@ -174,8 +185,8 @@ classdef MitoticCellBud < Cell
                             6*(cf1{1}(3)*cf1{2}(1) - cf1{1}(1)*cf1{2}(3))];
 
                         % Get amplitude along each bundle
-                        A1 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX1;cY1]) ) - bkg);
-                        A1( A1 < bkg) = bkg; amp = median(A1);
+                        A1 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX1;cY1]) ) - bkg_nuc);
+                        A1( A1 < 0) = 0; amp = median(A1);
 
                         % Ensure coefficients are within the image region
                         if dim == 3

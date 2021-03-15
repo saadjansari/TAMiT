@@ -262,6 +262,38 @@ classdef SpindleNew < OrganizerMaster
         end
         % }}}
         
+        % findEnvironmentalConditions {{{
+        function obj = findEnvironmentalConditions( obj)
+            % Finds the cytoplasmic and the nucleoplasmic backgrounds
+
+            env = obj.props2Fit.fit{obj.dim}.Environment;
+
+            % Check which environmental conditions exist
+            isBkg = any( cellfun( @(x) strcmp(x,'background'), env ));
+            isBkgNuc = any( cellfun( @(x) strcmp(x,'backgroundNuclear'), env ) );
+
+            % Background
+            if isBkg
+                imVals = obj.image( obj.image(:) > 0);
+                obj.background = median( imVals);
+            end
+
+            % Nuclear Background
+            if isBkgNuc
+                
+                % Nuclear mask
+                mask = BY_find_nuclear_mask( obj.image);
+                bkg_nuc = median( obj.image( find(mask(:) ) ) );
+                
+                % new background first
+                obj.background = median( obj.image( find(mask(:)==0 ) ) );
+                obj.backgroundNuclear = bkg_nuc - obj.background;
+                obj.maskNuclear = mask;
+            end
+
+        end
+        % }}}
+        
     end
 
     methods( Static = true )

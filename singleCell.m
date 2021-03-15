@@ -8,6 +8,7 @@ function features = singleCell( paramsPath)
     addpath( pwd);
     addpath( genpath( [pwd, filesep, 'functions'] ) );
     addpath( [pwd, filesep, 'classes'] );
+    addpath( [pwd, filesep, 'classes/accessory'] );
 
     % Load the params
     load( paramsPath); 

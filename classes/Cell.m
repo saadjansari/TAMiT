@@ -1265,8 +1265,10 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Curve
             curve.fit{2} = {'startPosition','cX','cY','amplitude','sigma'};
             curve.fit{3} = {'startPosition', 'cX','cY','cZ', 'amplitude', 'sigma'};
-            curveMT.fit{2} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L','sigma'};
-            curveMT.fit{3} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L','sigma'};
+%             curveMT.fit{2} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L','sigma'};
+%             curveMT.fit{3} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L','sigma'};
+            curveMT.fit{2} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L'};
+            curveMT.fit{3} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L'};
             curve.graphics.magenta = {'Color', [0.7 0 0.7] , 'LineWidth', 2};
             curve.graphics.green = {'Color', [0 1 0] , 'LineWidth', 2};
             curve.graphics.blue = {'Color', [0 0 1] , 'LineWidth', 2};
@@ -1326,6 +1328,26 @@ classdef Cell < handle & matlab.mixin.Copyable
             spindle.fit{3}.spot = spot.fit{3};
             spindle.graphics.spot = spot.graphics.purple;
             props.spindle = spindle;
+            
+            % Spindle Budding Yeast
+            spindle_bud.fit{2}.line = line.fit{2};
+            spindle_bud.fit{2}.curve = curveMT.fit{2};
+            spindle_bud.fit{2}.aster = asterLine.fit{2};
+            spindle_bud.fit{2}.aster.spot(1) = [];
+            spindle_bud.fit{2}.Environment = env2;
+            spindle_bud.fit{3}.line = line.fit{3};
+            spindle_bud.fit{3}.curve = curveMT.fit{3};
+            spindle_bud.fit{3}.aster = asterLine.fit{3};
+            spindle_bud.fit{3}.aster.spot(1) = [];
+            spindle_bud.fit{3}.Environment = env2;
+            spindle_bud.graphics.line = line.graphics.greenWide;
+            spindle_bud.graphics.curve = curve.graphics.red;
+            spindle_bud.graphics.aster.spot = spot.graphics.purple;
+            spindle_bud.graphics.aster.line = line.graphics.green;
+            spindle_bud.fit{2}.spot = spot.fit{2};
+            spindle_bud.fit{3}.spot = spot.fit{3};
+            spindle_bud.graphics.spot = spot.graphics.purple;
+            props.spindle_bud = spindle_bud;
 
             % Monopolar Aster
             monopolarAster.fit{2}.aster = asterLine.fit{2};

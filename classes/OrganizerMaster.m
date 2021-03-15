@@ -65,7 +65,7 @@ classdef OrganizerMaster < Organizer
             end
 
             % Nuclear Background
-            if isBkgNuc 
+            if isBkgNuc
                 warning( [obj.type, ': background nuclear search not set up yet.'])
             end
 
@@ -293,7 +293,9 @@ classdef OrganizerMaster < Organizer
            try
                obj.mask = min( obj.mask, [], 3);  
            end
-           
+           try
+               obj.maskNuclear = max( obj.maskNuclear, [], 3);
+           end
         end
         % }}}
 

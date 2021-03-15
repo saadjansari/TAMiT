@@ -1093,7 +1093,7 @@ classdef AnalysisSingleCell < handle
             % for each cell we'll run an AnalyzeSingle function
             for jCell = 1 : numCells
                 addpath( genpath( folds{jCell} ) );
-                if exist([params.pathParent, filesep, folds{jCell}, filesep, 'dydata2.mat'], 'file') ~=2
+                if exist([params.pathParent, filesep, folds{jCell}, filesep, 'dydata.mat'], 'file') ~=2
                     anaCells{jCell} = AnalysisSingleCell.AnalyzeSingle( folds{ jCell}, params ); 
                 end
             end

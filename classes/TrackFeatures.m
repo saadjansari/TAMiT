@@ -189,7 +189,8 @@ classdef TrackFeatures
             
             for jf = 1 : length(obj.features)
             
-                if obj.features{jf}.existAtTime(jtime)
+                if obj.features{jf}.existAtTime(jtime) && ...
+                        ~isempty( obj.features{jf}.matched_feats{ 1+ jtime - obj.features{jf}.time_start} )
                     obj.features{jf}.matched_feats{ 1+ jtime - obj.features{jf}.time_start}.displayFeature( ax);
                 end
             end

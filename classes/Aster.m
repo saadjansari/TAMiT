@@ -102,9 +102,10 @@ classdef Aster < Organizer
         % findMissingFeature {{{
         function [mt, success, resid] = findMissingFeature( obj, imOrg, Image2Find, xAngle, xRange, featType)
 
+%             props = {'origin', 'thetaInit', 'normalVec','L', 'amplitude', 'sigma'};
             props = {'origin', 'thetaInit', 'normalVec','L', 'amplitude', 'sigma'};
             display = {'Color', [1 0 0], 'LineWidth', 3};
-            if obj.dim==3, sigma=[2 2 1.2]; elseif obj.dim==2, sigma=[2 2]; end
+            if obj.dim==3, sigma=[2 2 1]; elseif obj.dim==2, sigma=[2 2]; end
             Image2Find( Image2Find < 0) = 0; 
             
             bkg = median( Image2Find( Image2Find(:) > 0) );
