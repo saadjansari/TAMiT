@@ -61,11 +61,12 @@ function params = initConfiguration( opts)
     fit.runLocalOptimization = runLocalFit;
     fit.runGlobalOptimization = runGlobalFit;
     fit.runFeatureNumberOptimization = runFeatureNumberFit;
-    fit.useParallel = true; 
+    fit.useParallel = false; 
     fit.state = opts.CFG;
     fit.display = display;
     fit.alpha = 0.1;
-    fit.fitExploreSpeed = 1;
+    fit.fitExploreSpeed = 0;
+    fit.scaleParameters = 1;
     fit.fit2DFirst = 1;
     % }}}
 

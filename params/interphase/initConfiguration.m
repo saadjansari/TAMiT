@@ -3,7 +3,7 @@ function params = initConfiguration( opts)
 
     % reverse time
     params.timeReversal = 0;
-    params.newEstimateEveryT = 0;
+    params.newEstimateEveryT = 1;
 
     runFit = 1;
     runTracking = 1;
@@ -11,7 +11,7 @@ function params = initConfiguration( opts)
     
     switch opts.CFG
         case 'RELEASE'
-            runLocalFit = 1;
+            runLocalFit = 0;
             runGlobalFit = 1;
             runFeatureNumberFit = 1;
             display = 0;
@@ -61,12 +61,13 @@ function params = initConfiguration( opts)
     fit.runLocalOptimization = runLocalFit;
     fit.runGlobalOptimization = runGlobalFit;
     fit.runFeatureNumberOptimization = runFeatureNumberFit;
-    fit.useParallel = true;
+    fit.useParallel = false; 
     fit.state = opts.CFG;
     fit.display = display;
-    fit.alpha = 0.4;
-    fit.fitExploreSpeed = 1;
-    fit.fit2DFirst = 0;
+    fit.alpha = 0.1;
+    fit.fitExploreSpeed = 0;
+    fit.scaleParameters = 1;
+    fit.fit2DFirst = 1;
     % }}}
 
     % Analysis Parameters

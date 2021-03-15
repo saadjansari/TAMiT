@@ -5,6 +5,7 @@
 /Tests/*
 /scripts_temp/*
 /validation/*
-/init*
+/initCellInfo.m
+/initConfiguration.m
 /simul_single_cell_*
 /.DS_Store
