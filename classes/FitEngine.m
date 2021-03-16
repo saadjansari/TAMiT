@@ -191,6 +191,8 @@ classdef FitEngine
             end
             
             disp('Environment Optimization...')
+            
+            iSim_def = obj.feature.simulateFeature( size(obj.feature.image));
             binit = obj.feature.background;
             if ~isempty(obj.feature.backgroundNuclear)
                 bninit = obj.feature.backgroundNuclear;
@@ -203,7 +205,7 @@ classdef FitEngine
                     for ibn = 1 : length(bnlist)
                         obj.feature.background = blist(ib);
                         obj.feature.backgroundNuclear = bnlist(ibn);
-                        iSim = obj.feature.simulateAll( 0*obj.feature.image, obj.feature.ID);
+                        iSim = iSim_def + blist(ib)*obj.feature.mask + bnlist(ibn).*obj.feature.maskNuclear;
                         res(ib,ibn) = sum( (obj.feature.image(:) - iSim(:)).^2 );
                     end
                 end
@@ -218,7 +220,7 @@ classdef FitEngine
                 res = zeros( size(blist));
                 for ib = 1 : length(blist)
                     obj.feature.background = blist(ib);
-                    iSim = obj.feature.simulateAll( 0*obj.feature.image, obj.feature.ID);
+                    iSim = iSim_def + blist(ib)*obj.feature.mask;
                     res(ib) = sum( (obj.feature.image(:) - iSim(:)).^2 );
                 end
                 [~, idx] = min( res);
@@ -326,9 +328,19 @@ classdef FitEngine
                         vec = vec .* fitInfo.speedVec;
                         vecErr = vecErr .* fitInfo.speedVec;
                     end
-                    featureNew.absorbVec(vec, labels);
-                    featureNew.absorbVec(vecErr, labels, 1);
-
+                    % Unscale parameters
+                    if isfield( fitInfo.fitVecs, 'scaleParameters')
+                        if fitInfo.fitVecs.scaleParameters == 1
+                            vec_unscaled = FitEngine.unscale_parameters( vec, fitInfo.fitVecs.ub, fitInfo.fitVecs.lb, fitInfo.fitVecs.ub_unscaled, fitInfo.fitVecs.lb_unscaled);
+                            vecErr_unscaled = FitEngine.unscale_parameters_err( vecErr, fitInfo.fitVecs.ub, fitInfo.fitVecs.lb, fitInfo.fitVecs.ub_unscaled, fitInfo.fitVecs.lb_unscaled);
+                            featureNew.absorbVec( vec_unscaled, fitInfo.fitVecs.labels);
+                            featureNew.absorbVec( vecErr_unscaled, fitInfo.fitVecs.labels,1);
+                        end
+                    else
+                        featureNew.absorbVec(vec, labels);
+                        featureNew.absorbVec(vecErr, labels, 1);
+                    end
+                    
                     % Check if added feature was worth it
                     im1_raw = feature.simulateFeature( size(obj.image));
                     im2_raw = featureNew.simulateFeature( size(obj.image));
@@ -417,8 +429,18 @@ classdef FitEngine
                         vec = vec .* fitInfo.speedVec;
                         vecErr = vecErr .* fitInfo.speedVec;
                     end
-                    featureNew.absorbVec(vec, labels);
-                    featureNew.absorbVec(vecErr, labels, 1);
+                    % Unscale parameters
+                    if isfield( fitInfo.fitVecs, 'scaleParameters')
+                        if fitInfo.fitVecs.scaleParameters == 1
+                            vec_unscaled = FitEngine.unscale_parameters( vec, fitInfo.fitVecs.ub, fitInfo.fitVecs.lb, fitInfo.fitVecs.ub_unscaled, fitInfo.fitVecs.lb_unscaled);
+                            vecErr_unscaled = FitEngine.unscale_parameters_err( vecErr, fitInfo.fitVecs.ub, fitInfo.fitVecs.lb, fitInfo.fitVecs.ub_unscaled, fitInfo.fitVecs.lb_unscaled);
+                            featureNew.absorbVec( vec_unscaled, fitInfo.fitVecs.labels);
+                            featureNew.absorbVec( vecErr_unscaled, fitInfo.fitVecs.labels,1);
+                        end
+                    else
+                        featureNew.absorbVec(vec, labels);
+                        featureNew.absorbVec(vecErr, labels, 1);
+                    end
                     
                     % Check if added feature was worth it
                     im1_raw = feature.imageSim;
@@ -483,7 +505,7 @@ classdef FitEngine
             % fprintf('Determinant = %.3e\n',det(B))
 
             lastwarn(''); %Clear warning memory
-            alpha = 0.05; %significance level
+            alpha = 0.9; %significance level
             df = length(residual) - numel(estParams); %degrees of freedom
             crit = tinv(1-alpha/2,df);       %critical value
             % covm = inv(jacobian'*jacobian) * var(residual); %covariance matrix
@@ -524,13 +546,24 @@ classdef FitEngine
             params.runGlobalOptimization = 1;
             params.runFeatureNumberOptimization = 1;
             fitEngine2 = FitEngine( Image2D, feature2D, params);
-            
+                        
             % Fit global 2D projection of feature
             fitInfo = fitEngine2.OptimizeGlobal();
-            obj.parameters.runLocalOptimization = 0;
             
             % Update 3D features using fitted 2D information
-            obj.feature.Update3DFrom2D(fitInfo.featureCurrent);
+            % Unscale parameters and absorb
+            if isfield( fitInfo.fitVecs, 'scaleParameters')
+                if fitInfo.fitVecs.scaleParameters == 1
+                    vec_unscaled = FitEngine.unscale_parameters( fitInfo.fitResults.vfit, fitInfo.fitVecs.ub, fitInfo.fitVecs.lb, fitInfo.fitVecs.ub_unscaled, fitInfo.fitVecs.lb_unscaled);
+                    fitInfo.featureCurrent.absorbVec( vec_unscaled, fitInfo.fitVecs.labels);
+                end
+            end
+            % TEST: MultiStart
+            fitEngine2.feature = fitInfo.featureCurrent;
+            fitEngine2.SetFeature( fitInfo.featureCurrent );
+            fitEngine2.OptimizeMultiStartProps()
+            
+            obj.feature.Update3DFrom2D(fitEngine2.feature);
             obj.feature.syncFeatures();
             
             obj.feature.fit = 'zonly';
@@ -581,7 +614,127 @@ classdef FitEngine
             
         end
         % }}}
+        function [obj, fitInfo] = OptimizeMultiStartProps( obj)
+           
+            props = {'_L', '_length', '_amplitude'};
+            
+            obj.feature.forceInsideMask();
+            
+             % If no features are present to be fitted, assign the essentials and return out
+            if isempty( obj.feature.featureList)
+                fitInfo.channel = obj.parameters.channel;
+                fitInfo.time = obj.parameters.time;
+                fitInfo.saveDirectory = obj.parameters.saveDirectory;
+                fitInfo.featureMain = obj.feature;
+                fitInfo.fitScope = 'global';
+                fitProblem = [];
+                return
+            end
         
+            % Set Optimization Options
+            opts = FitEngine.SetOptimOptions( obj.parameters);
+            opts = optimoptions( opts, 'OutputFcn', @fillParams );
+            opts = optimoptions( opts, 'display', 'off');
+
+            % Obtain the features to fit, their fit vector and labels 
+            % Get bounds of parameters to restrict the parameter space
+            [ fitVec, fitLabels, ub, lb] = getVec( obj.feature);
+            fitVecs = FitEngine.GetVectorBounds(obj, fitVec,fitLabels, ub, lb);
+            
+            % Filter props
+            % function to find indices of matching substrings
+            find_str = @(x) find( ~cellfun( @isempty, strfind( fitVecs.labels, x) ) );
+            idxKeep = [];
+            for jp = 1 : length(props)
+                idxAdd = find_str( props{jp} );
+                if ~isempty(idxAdd)
+                    idxKeep = [ idxKeep, idxAdd];
+                end
+            end
+            fitVecs.vec = fitVecs.vec( idxKeep);
+            fitVecs.ub = fitVecs.ub( idxKeep);
+            fitVecs.lb = fitVecs.lb( idxKeep);
+            fitVecs.labels = fitVecs.labels( idxKeep);
+            
+            fitObj = obj.feature; cFeature = 1; 
+            fitInfo.Nnew = obj.feature.getSubFeatureNumber();            
+
+            % Scale the parameters to vary the speed of exploration in the parameter space
+%             if obj.parameters.fitExploreSpeed
+%                 speedVec = obj.getExplorationSpeedVector( fitLabels, obj.feature.type);
+%                 fitVecs.vec = fitVecs.vec ./ speedVec;
+%                 fitVecs.ub = fitVecs.ub ./ speedVec;
+%                 fitVecs.lb = fitVecs.lb ./ speedVec;
+%                 fitInfo.speedVec = speedVec;
+%             end
+            if obj.parameters.scaleParameters
+                fitVecs.scaleParameters = 1;
+                [vec_scaled, ub_scaled, lb_scaled] = FitEngine.scale_parameters( fitVecs.vec, fitVecs.ub, fitVecs.lb);
+                fitVecs.vec_unscaled = fitVecs.vec;
+                fitVecs.ub_unscaled = fitVecs.ub;
+                fitVecs.lb_unscaled = fitVecs.lb;
+                fitVecs.vec = vec_scaled;
+                fitVecs.ub = ub_scaled;
+                fitVecs.lb = lb_scaled;
+            end
+            
+            % Create a parameter tracker
+            p_tracker = fitVecs.vec;
+            
+            % Set up parameters for fit
+            fitInfo.featureMain = obj.feature;
+            fitInfo.featureIndex = 1;
+            fitInfo.fitVecs = fitVecs;
+            fitInfo.mask = logical( obj.image);
+            fitInfo.image = obj.image;
+            fitInfo.numVoxels = size( obj.image);
+            fitInfo.channel = obj.parameters.channel;
+            fitInfo.time = obj.parameters.time;
+            fitInfo.saveDirectory = obj.parameters.saveDirectory;
+            fitInfo.alpha = 0.05;
+            fitInfo.featureCurrent = fitObj;
+            fitInfo.fitScope = 'global';
+            fitInfo.featureCurrent.fillParams( size( fitInfo.image));
+            fitInfo.timeReversal = obj.parameters.timeReversal;
+            fitInfo.param_tracker = p_tracker;
+            
+            % Make the error function for optimization 
+            f = obj.MakeOptimizationFcn( obj.image, fitInfo );
+
+            % Create Optimization Problem
+            fitProblem = createOptimProblem( 'lsqnonlin', ...
+                'objective', f, ...
+                'x0', fitVecs.vec, ...
+                'ub', fitVecs.ub, ...
+                'lb', fitVecs.lb, ...
+                'options', opts);
+            
+            ms = MultiStart('StartPointsToRun','bounds', 'Display', 'iter');
+%             ms = MultiStart('PlotFcns',@gsplotbestf, 'StartPointsToRun','bounds', 'Display', 'iter');
+            [xmulti,errormulti] = run(ms,fitProblem,40);
+            
+            if isfield( fitInfo.fitVecs, 'scaleParameters')
+                if fitInfo.fitVecs.scaleParameters == 1
+                    v_absorb = FitEngine.unscale_parameters( xmulti, fitInfo.fitVecs.ub, fitInfo.fitVecs.lb, fitInfo.fitVecs.ub_unscaled, fitInfo.fitVecs.lb_unscaled);
+                end
+            else
+                v_absorb = xmulti;
+            end
+            fitInfo.featureCurrent.absorbVec( v_absorb, fitInfo.fitVecs.labels);
+            obj.feature = fitInfo.featureCurrent;
+            obj.SetFeature( fitInfo.featureCurrent );
+            
+            function stop = fillParams( x, optimV, state)
+                FillParams(fitInfo);
+                stop = false;
+                function FillParams(fitInfo)
+                    fitInfo.featureCurrent.fillParams( size( fitInfo.image));
+                end
+                % track parameters
+                fitInfo.param_tracker = [fitInfo.param_tracker ; x];
+            end
+            
+        end
         % }}}
         
         % Methods : Prepare Optimization {{{
@@ -1411,6 +1564,14 @@ classdef FitEngine
                                     
             % Scale vector
             vec_unscaled = lb_unscaled + (vec_scaled-lb_scaled)./(ub_scaled-lb_scaled) .* (ub_unscaled-lb_unscaled);
+            
+        end
+        
+        % Unscale parameters error for fitting
+        function vecErr_unscaled = unscale_parameters_err( vecErr_scaled, ub_scaled, lb_scaled, ub_unscaled, lb_unscaled)
+                                    
+            % Scale vector
+            vecErr_unscaled = vecErr_scaled./(ub_scaled-lb_scaled) .* (ub_unscaled-lb_unscaled);
             
         end
         % }}}
