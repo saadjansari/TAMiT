@@ -1265,10 +1265,8 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Curve
             curve.fit{2} = {'startPosition','cX','cY','amplitude','sigma'};
             curve.fit{3} = {'startPosition', 'cX','cY','cZ', 'amplitude', 'sigma'};
-%             curveMT.fit{2} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L','sigma'};
-%             curveMT.fit{3} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L','sigma'};
-            curveMT.fit{2} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L'};
-            curveMT.fit{3} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L'};
+            curveMT.fit{2} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L','sigma'};
+            curveMT.fit{3} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L','sigma'};
             curve.graphics.magenta = {'Color', [0.7 0 0.7] , 'LineWidth', 2};
             curve.graphics.green = {'Color', [0 1 0] , 'LineWidth', 2};
             curve.graphics.blue = {'Color', [0 0 1] , 'LineWidth', 2};

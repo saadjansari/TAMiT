@@ -293,6 +293,10 @@ classdef Aster < Organizer
                         thetaInit(1,2) = pi/2 + 0.03;
                     end
                 end
+                % Ensure curvatures are reasonable
+                if abs(nV(1)) > 0.02 ||  abs(nV(2)) > 0.0003
+                    idxRm = [idxRm; jb];
+                end
 
                 % Create
                 curvedMTs{jb} = CurvedMT( origin', thetaInit, nV, L, amp, sigma, obj.dim, props, display);

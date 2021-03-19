@@ -196,7 +196,8 @@ classdef MitoticCellBud < Cell
                                 thetaInit(1,2) = pi/2 + 0.03;
                             end
                         end
-                        if sign(nV(1)) == sign(nV(2)) && (abs(nV(1)) > 0.01 && abs(nV(2)) > 0.005)
+                        % Ensure curvatures are reasonable
+                        if abs(nV(1)) > 0.02 ||  abs(nV(2)) > 0.0003
                             idxRm = [idxRm; jb];
                         end
 
