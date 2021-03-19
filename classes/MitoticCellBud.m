@@ -164,7 +164,7 @@ classdef MitoticCellBud < Cell
                         nInt1 = round( L/ length( coords(1,:) ) );
                         [cX1,cY1,cZ1] = Methods.InterpolateCoords3( coords(1,:), coords(2,:), coords(3,:), nInt1 );
                         % Get Coeff
-                        cf1 = Bundle.estimatePolyCoefficients( [cX1;cY1;cZ1], [3 3 1], linspace(0,L,length(cX1 )));
+                        cf1 = CurvedMT.estimatePolyCoefficients( [cX1;cY1;cZ1], [3 3 1], linspace(0,L,length(cX1 )));
                         % Get coordinates from coeffs
                         t1 = linspace(0,L,length(cX1 ));
                         x1 = polyval( cf1{1}, t1); y1 = polyval( cf1{2}, t1);
@@ -197,7 +197,7 @@ classdef MitoticCellBud < Cell
                             end
                         end
                         % Ensure curvatures are reasonable
-                        if abs(nV(1)) > 0.02 ||  abs(nV(2)) > 0.0003
+                        if abs(nV(1)) > 0.03 ||  abs(nV(2)) > 0.0003
                             idxRm = [idxRm; jb];
                         end
 
@@ -526,7 +526,7 @@ classdef MitoticCellBud < Cell
             
             nms3 = 0*imageIn;
             for jZ = 1 : size(imageIn,3)
-                [~, ~, nms3(:,:,jZ), ~] = steerableDetector(imageIn(:,:,jZ), 4, 3);
+                [~, ~, nms3(:,:,jZ), ~] = steerableDetector( imgaussfilt(imageIn(:,:,jZ),1), 4, 3);
             end
             
             % create a mask to apply to steerable image
@@ -567,9 +567,24 @@ classdef MitoticCellBud < Cell
             AstralMicrotubules = {};
             
             for pp = 1 : length(peakPhi)
-                               
+                
+                imSearch = sum(nms3,3).*max(mask,[],3);
+                % Find the max intensity start point in close neighborhood
+                sx = startPoint(1); sy = startPoint(2); sp = [sx,sy];
+                maxInt = imSearch( round(sy), round(sx));
+                for jx = sx+[-1,0,1]
+                    for jy = sy+[-1,0,1]
+                        int = imSearch( round(jy), round(jx));
+                        if int > maxInt
+                            maxInt = int;
+                            sp = [jx,jy];
+                        end
+                    end
+                end
+
                 % Set the two opposite angles for search
-                cc = Methods.estimateCurveCoords( startPoint(1:2)', peakPhi(pp), sum(nms3,3).*max(mask,[],3), defaultStepSize, defaultVisibility, defaultFieldOfView, 1);
+                cc = Methods.estimateCurveCoords( sp', peakPhi(pp), imSearch, defaultStepSize, defaultVisibility, defaultFieldOfView, 1);
+                cc(1:2,1) = startPoint(1:2)';
                 
                 % figure out z-coordinates
                 [a2D, i2d] = max( imageIn, [], 3);

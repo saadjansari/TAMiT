@@ -673,23 +673,34 @@ classdef CurvedMT < BasicElement
             % along curve)
             % order: This is the order of the polynomial: positive integer
             
-            if length(order) ~= length(size(coords,1))
+            if length(order) ~= size(coords,1)
                 error('dimensionality does not match')
             end
 
             % interpolate for better accuracy
-            xi = coords(1,:);
-            yi = coords(2,:);
             t = linspace( 0, max(t), size(coords,2));
             
-            % fit polynomial of order polyOrder
-            if size(coords,1) == 2
-                coeffs = { polyfit( t, xi, order(1) ), polyfit( t, yi, order(2) ) };
-            elseif size(coords,1) == 3
-                zi = coords(3,:);
-                coeffs = { polyfit( t, xi, order(1) ), polyfit( t, yi, order(2) ) , polyfit( t, zi, order(3) ) };
-            end
+            coeffs = {};
+            for jc = 1 : size(coords,1)
 
+                yd = coords(jc,:);
+                % Regular poly fit
+                if jc ~= 3
+                    pf = polyfit( t, yd, 3);
+                    polyFunc = @(a,b,c,x) c*(a*x.^3 + b*x.^2) + pf(end-1)*x + yd(1);
+                    p0 = [pf(1), 0, +1];  % It pays to have a realistic initial guess
+                    ub = [0.1, 0.1, +1];  % It pays to have a realistic initial guess
+                    lb = [0, 0, -1];  % It pays to have a realistic initial guess
+                    f = fit( t(:), yd(:), polyFunc, 'StartPoint', p0, 'Lower',lb,'Upper',ub , 'Robust', 'LAR');
+                    fy = coeffvalues(f);
+                    pf = [ fy(3)*fy(1), fy(3)*fy(2), pf(end-1), yd(1)];
+                    coeffs = { coeffs{:}, pf};
+                else
+                    pf = polyfit( t, yd , 1 );
+                    coeffs = { coeffs{:}, pf};
+                end
+            end
+            
         end
         % }}}
 

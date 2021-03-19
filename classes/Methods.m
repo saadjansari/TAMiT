@@ -1106,7 +1106,11 @@ classdef Methods
             % iteratively propagate along microtubule
             while success && iter< max_iter
                 
-                if iter <= 2, fov = 1.5*fieldOfVision; else, fov = fieldOfVision; end
+                if iter <= 2
+                    fov = 1.5*fieldOfVision; 
+                else
+                    fov = fieldOfVision;
+                end
 
                 [coordNext, success, orientationNext] = Methods.estimateNextCurveCoord( coordCurr, orientationOld, stepSize, visibility, fov, imageMT, bkg_thresholding, plotflags);
                 if ~success % try again for a limited number of times with smaller steps
@@ -1251,13 +1255,15 @@ classdef Methods
                 imMask = logical(0*helperImage);
                 for jY = 1 : size(helperImage, 1)
                     for jX = 1 : size(helperImage, 2)
-                        if ( norm( [x0, y0] - [jX, jY] ) < visibility ) && ( norm( [x0, y0] - [jX, jY] ) > rmin )
-                            imMask( jY, jX) = 1;
+                        if ( norm( [x0, y0] - [jX, jY] ) < 2*visibility ) && ( norm( [x0, y0] - [jX, jY] ) > rmin )
+                            try
+                                imMask( jY, jX) = 1;
+                            end
                         end
                     end
                 end
                 imBkg = helperImage(imMask);
-                T = multithresh( imBkg, 1 );
+                T = median( helperImage(:) );
                 imSmooth( imSmooth < mean(imBkg) ) = mean(imBkg);
                 minHeight = mean(imBkg); 
             
@@ -1277,7 +1283,7 @@ classdef Methods
             % Find Peaks Properties
             halfwidth = asin( 1/ stepSize);
             if ~isreal(halfwidth); halfwidth=asin(1.5/2); end;
-            minProm = 0.0001;
+            minProm = 0.00001;
             props = {'SortStr', 'descend', 'MinPeakProminence', minProm, 'MinPeakWidth', halfwidth, 'MinPeakHeight', minHeight};
 
             % Find the angle corresponding to the peaks in this region

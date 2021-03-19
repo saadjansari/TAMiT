@@ -258,7 +258,7 @@ classdef Aster < Organizer
                 nInt1 = round( L/ length( coords(1,:) ) );
                 [cX1,cY1,cZ1] = Methods.InterpolateCoords3( coords(1,:), coords(2,:), coords(3,:), nInt1 );
                 % Get Coeff
-                cf1 = Bundle.estimatePolyCoefficients( [cX1;cY1;cZ1], [3 3 1], linspace(0,L,length(cX1 )));
+                cf1 = CurvedMT.estimatePolyCoefficients( [cX1;cY1;cZ1], [3 3 1], linspace(0,L,length(cX1 )));
                 % Get coordinates from coeffs
                 t1 = linspace(0,L(1),length(cX1 ));
                 x1 = polyval( cf1{1}, t1); y1 = polyval( cf1{2}, t1);
