@@ -317,23 +317,30 @@ classdef CurvedMT < BasicElement
             t = linspace(0, tmax, ceil(10*tmax));  [~,idxStart] = min( abs(t-tmin));
 
             % Acceleration function discretized in time
-            acc = obj.normalVec(1) + obj.normalVec(2)*t;
-
+            if length( obj.normalVec) == 1
+                acc = obj.normalVec(1)*ones(size(t));
+            elseif length( obj.normalVec) == 2
+                acc = obj.normalVec(1) + obj.normalVec(2)*t;
+            else
+                acc = obj.normalVec(1) + obj.normalVec(2)*t + obj.normalVec(3)*(t.*t);
+            end
             % initialization
             try
             xx = zeros( obj.dim, length(t) ); xx(:,1) = obj.origin';
             catch
-                stoph=1; 
+                stoph=1;
             end
             vv = zeros( 2, length(t) ); vv(:,1) = tanVec(1:2);
 
             % iterate
             for jt = 2 : length(t)
-                vv(:,jt) = vv(:,jt-1) + acc( jt)*0.1*Rot* vv(:,jt-1) / norm( vv(:,jt-1));
+                dt = t(jt)-t(jt-1);
+                vv(:,jt) = vv(:,jt-1) + acc( jt)*dt*Rot* vv(:,jt-1) / norm( vv(:,jt-1));
                 v_mean = 1/2 * ( vv(:,jt) + vv(:,jt-1) );
-                xx(1:2,jt) = xx(1:2,jt-1) + 0.1*v_mean/norm(v_mean);
+                % v_mean = vv(:,jt-1);
+                xx(1:2,jt) = xx(1:2,jt-1) + dt*v_mean/norm(v_mean);
                 if obj.dim == 3
-                    xx(3,jt) = xx(3,jt-1) + tanVec(3)*0.1;
+                    xx(3,jt) = xx(3,jt-1) + tanVec(3)*dt;
                 end
             end
             cc = xx(:,idxStart:end);
@@ -497,8 +504,8 @@ classdef CurvedMT < BasicElement
             end
             
             % L 
-            ub.L = min( [obj.L+60, 100]);
-            lb.L = min( [0.5*obj.L, 5]);
+            ub.L = obj.L+20;
+            lb.L = min( [6, obj.L-10]);
 
             % thetaInit
             if obj.dim == 3
@@ -508,9 +515,18 @@ classdef CurvedMT < BasicElement
                 ub.thetaInit = obj.thetaInit + [0.3];
                 lb.thetaInit = obj.thetaInit - [0.3];
             end
-            % normalVec 
-            ub.normalVec = [0.0201, 0.000301];
-            lb.normalVec = -[0.0201, 0.000301];
+            % normalVec
+            if length(obj.normalVec) == 1
+                ub.normalVec = obj.normalVec + [0.005];
+                lb.normalVec = obj.normalVec - [0.005];
+            elseif length(obj.normalVec) == 2
+                ub.normalVec = obj.normalVec + [0.005, 0.0001];
+                lb.normalVec = obj.normalVec - [0.005, 0.0001];
+            elseif length(obj.normalVec) == 3
+%                 ub.normalVec = obj.normalVec + [0.005, 0.0001];
+%                 lb.normalVec = obj.normalVec - [0.005, 0.0001];
+                error('not set up')
+            end
             
             obj.bounds.lb = lb;
             obj.bounds.ub = ub;
@@ -678,27 +694,40 @@ classdef CurvedMT < BasicElement
             end
 
             % interpolate for better accuracy
-            t = linspace( 0, max(t), size(coords,2));
+            if nargin < 3
+                t = linspace( 0, 1, size(coords,2));
+            end
+%             
+%             xi = coords(1,:);
+%             yi = coords(2,:);
             
-            coeffs = {};
-            for jc = 1 : size(coords,1)
+            % fit polynomial of order polyOrder
+%             if size(coords,1) == 2
+%                 cc = [xi; yi];
+%                 coeffs = { polyfit( t, xi, order(1) ), polyfit( t, yi, order(2) ) };
+%             elseif size(coords,1) == 3
+%                 cc = [xi;yi;zi];
+%                 zi = interp1( linspace(0,1, size(coords,2) ), coords(3,:), t, 'linear', 'extrap');
+%                 coeffs = { polyfit( t, xi, order(1) ), polyfit( t, yi, order(2) ) , polyfit( t, zi, order(3) ) };
+%             end
+            
+            coeffs = {}; cc=coords;
+            for jc = 1 : size(cc,1)
 
-                yd = coords(jc,:);
-                % Regular poly fit
-                if jc ~= 3
-                    pf = polyfit( t, yd, 3);
-                    polyFunc = @(a,b,c,x) c*(a*x.^3 + b*x.^2) + pf(end-1)*x + yd(1);
-                    p0 = [pf(1), 0, +1];  % It pays to have a realistic initial guess
-                    ub = [0.1, 0.1, +1];  % It pays to have a realistic initial guess
-                    lb = [0, 0, -1];  % It pays to have a realistic initial guess
-                    f = fit( t(:), yd(:), polyFunc, 'StartPoint', p0, 'Lower',lb,'Upper',ub , 'Robust', 'LAR');
-                    fy = coeffvalues(f);
-                    pf = [ fy(3)*fy(1), fy(3)*fy(2), pf(end-1), yd(1)];
-                    coeffs = { coeffs{:}, pf};
-                else
-                    pf = polyfit( t, yd , 1 );
-                    coeffs = { coeffs{:}, pf};
+                % fit using polyfit
+                cf1 = polyfit(t, cc(jc,:), order(jc) );
+
+                if order(jc) == 3
+                    fitfunc = @(a,b,c,x) a.*(x.*x.*x) + b.*x.*x + c.*x + cc(jc,1);
+                elseif order(jc) == 2
+                    fitfunc = @(a,b,x) a.*(x.*x) + b.*x + cc(jc,1);
+                elseif order(jc) == 1
+                    fitfunc = @(a,x) a.*x + cc(jc,1);
                 end
+                ff = fit(t(:),cc(jc,:)', fitfunc, 'StartPoint',cf1(1:end-1) );
+                cf2 = [ coeffvalues(ff), cc(jc,1) ];
+                coeffs = {coeffs{:}, cf2};
+
             end
             
         end

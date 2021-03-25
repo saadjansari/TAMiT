@@ -258,44 +258,46 @@ classdef Aster < Organizer
                 nInt1 = round( L/ length( coords(1,:) ) );
                 [cX1,cY1,cZ1] = Methods.InterpolateCoords3( coords(1,:), coords(2,:), coords(3,:), nInt1 );
                 % Get Coeff
-                cf1 = CurvedMT.estimatePolyCoefficients( [cX1;cY1;cZ1], [3 3 1], linspace(0,L,length(cX1 )));
+                cf1 = CurvedMT.estimatePolyCoefficients( [cX1;cY1;cZ1], [2 2 1], linspace(0,L,length(cX1 )));
                 % Get coordinates from coeffs
-                t1 = linspace(0,L(1),length(cX1 ));
+                t1 = linspace(0,L,length(cX1 ));
                 x1 = polyval( cf1{1}, t1); y1 = polyval( cf1{2}, t1);
+
+                L = sum( sqrt( diff( coords(1,:)).^2 + diff( coords(2,:)).^2 + diff( coords(3,:)).^2 ) );
+                nInt1 = ceil( L/ length( coords(1,:) ) );
+                [cX1,cY1,cZ1] = Methods.InterpolateCoords3( coords(1,:), coords(2,:), coords(3,:), nInt1 );
+                % Get Coeff
+                % t1 = linspace(0,L,length(cX1 )); 
+                t2 = cumsum( [0, sqrt( diff( cX1).^2 + diff( cY1).^2 + diff( cZ1).^2 )]);
+                cf1 = CurvedMT.estimatePolyCoefficients( [cX1;cY1;cZ1], [2 2 1], t2);
+                % Get coordinates from coeffs
+
+                x1 = polyval( cf1{1}, t2); y1 = polyval( cf1{2}, t2);
 
                 % Get origin
 %                         origin = [cf1{1}(end), cf1{2}(end),cf1{3}(end)];
                 origin = coords(:,1);
-                if origin(3) >= size( Image2Find,3)
-                    origin(3) = size(Image2Find,3)-0.2;
+                if origin(3) >= size( imageIn,3)
+                    origin(3) = size(imageIn,3)-0.2;
                 elseif origin(3) <= 1
                     origin(3) = 1.2;
                 end
                 % Get initial tangent vector and theta vector
-                tanInit{1} = [cf1{1}(3), cf1{2}(3), cf1{3}(1)];
+                tanInit{1} = [cf1{1}(end-1), cf1{2}(end-1), cf1{3}(end-1)];
                 thetaInit = [atan2( tanInit{1}(2), tanInit{1}(1) ), pi/2];
                 % Normal Magnitude Coefficients
-                nV = [ 2*(cf1{1}(3)*cf1{2}(2) - cf1{1}(2)*cf1{2}(3)), ...
-                    6*(cf1{1}(3)*cf1{2}(1) - cf1{1}(1)*cf1{2}(3))];
-
+                nV = 2*(cf1{1}(end-1)*cf1{2}(end-2) - cf1{1}(end-2)*cf1{2}(end-1));
                 % Get amplitude along each bundle
-                A1 = Cell.findAmplitudeAlongCurveCoords( max(Image2Find,[],3), round([cX1;cY1]) ) - bkg1;
-                amp = median(A1( floor( length(A1)/2):end ));
-                if amp < 1.5*bkg2-bkg1 || ( sign(nV(1)) == sign(nV(2)) && (abs(nV(1)) > 0.01 && abs(nV(2)) > 0.005) )
-                    idxRm = [idxRm, jb];
-                end
+                A1 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX1;cY1]) ) - bkg_nuc);
+                A1( A1 < 0) = 0; amp = median(A1);
 
                 % Ensure coefficients are within the image region
-                if obj.dim == 3
+                if dim == 3
                     if origin(3) == 1
                         thetaInit(1,2) = pi/2 - 0.03;
-                    elseif origin(3) == size(Image2Find, 3)
+                    elseif origin(3) == size(imageIn, 3)
                         thetaInit(1,2) = pi/2 + 0.03;
                     end
-                end
-                % Ensure curvatures are reasonable
-                if abs(nV(1)) > 0.02 ||  abs(nV(2)) > 0.0003
-                    idxRm = [idxRm; jb];
                 end
 
                 % Create

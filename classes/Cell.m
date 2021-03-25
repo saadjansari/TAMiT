@@ -149,7 +149,7 @@ classdef Cell < handle & matlab.mixin.Copyable
         function FindFeaturesFrame( obj, Image, parameters)
             % Find and fit features for a single CT frame
             
-            plot_estimate_and_skip = 0;            
+            plot_estimate_and_skip = 0;
             
             % Decide if fit should be performed. Skip otherwise
             [obj, status] = DecideToFit( obj, Image, parameters);

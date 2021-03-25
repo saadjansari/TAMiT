@@ -1101,20 +1101,21 @@ classdef Methods
             coordCurr = startPt;
             coordsMT = coordCurr; 
             orientBank = [orientationOld];
-%             totalImprovedCones = 2;
-            currImproveCones = 0;
+            step = stepSize;
             % iteratively propagate along microtubule
             while success && iter< max_iter
                 
                 if iter <= 2
-                    fov = 1.5*fieldOfVision; 
+                    fov = 1.5*fieldOfVision;
+                    step = 2*stepSize;
                 else
                     fov = fieldOfVision;
+                    step = stepSize;
                 end
 
-                [coordNext, success, orientationNext] = Methods.estimateNextCurveCoord( coordCurr, orientationOld, stepSize, visibility, fov, imageMT, bkg_thresholding, plotflags);
+                [coordNext, success, orientationNext] = Methods.estimateNextCurveCoord( coordCurr, orientationOld, step, visibility, fov, imageMT, bkg_thresholding, plotflags);
                 if ~success % try again for a limited number of times with smaller steps
-                    [coordNext, success, orientationNext] = Methods.estimateNextCurveCoord( coordCurr, orientationOld, stepSize, visibility/2, fov, imageMT, bkg_thresholding, plotflags);
+                    [coordNext, success, orientationNext] = Methods.estimateNextCurveCoord( coordCurr, orientationOld, step, visibility/2, fov, imageMT, bkg_thresholding, plotflags);
 %                     currImproveCones = currImproveCones+1;
                 end
 
@@ -1171,7 +1172,7 @@ classdef Methods
 
             % Define the step sizes to use for the angular sweep in phi. We
             % start at 90 degrees to the proposed orientation of the tube
-            PhiStep = deg2rad ( 5 ); % 2.5 degrees
+            PhiStep = deg2rad ( 2.5 ); % 2.5 degrees
             PhiVec = orientation - angRange : PhiStep : orientation + angRange;
 
             % Pre-allocate array for storing intensity data with varying phi.
@@ -1184,18 +1185,6 @@ classdef Methods
                 % Extract the relevant angles for drawing a non-zero angle
                 phi1 = PhiVec( jPhi) - PhiStep;
                 phi2 = PhiVec( jPhi) + PhiStep;
-
-                % Find the coordinates of the extreme points on the arc length
-                % of this pizza slice.
-%                 X1 = x0 + ( visibility * cos( [ phi1, phi2]) );
-%                 Y1 = y0 + ( visibility * sin( [ phi1, phi2]) ); % -ve because matlab orientation is reversed( origin is at top left)
-% 
-%                 % find minimum points at distance rmin away
-%                 X2 = x0 + ( rmin * cos( [ phi1, phi2]) );
-%                 Y2 = y0 + ( rmin * sin( [ phi1, phi2]) ); 
-%                 
-%                 xx = [ X1, X2];
-%                 yy = [ Y1, Y2];
                 
                 % Find points all along this arc in two lines
                 xx = x0 + ( [rmin:1:visibility]' * cos( [ phi1, phi2]) );
@@ -1212,8 +1201,8 @@ classdef Methods
 
                 xRd = []; yRd = [];
                 for jPt = 1 : length(xx)
-                    [~, xidx] = min( abs( xVecNew - round( xx(jPt), 1) ) );
-                    [~, yidx] = min( abs( xVecNew - round( yy(jPt), 1) ) );
+                    [~, xidx] = min( abs( xVecNew - xx(jPt) ) );
+                    [~, yidx] = min( abs( yVecNew - yy(jPt) ) );
                     xRd = [ xRd, xidx ];
                     yRd = [ yRd, yidx ];
                 end
@@ -1418,29 +1407,29 @@ classdef Methods
         %  }}}
         
         % InterpolateCoords {{{
-        function [coordsNewX, coordsNewY] = InterpolateCoords( coordX, coordY, numIntervals)
+        function [cX, cY] = InterpolateCoords( coordX, coordY, numIntervals)
 
             if any( size(coordX) ~= size(coordY) ), error( 'input size of coords is different'), end
 
             nC = length( coordX);
 
-            coordsNewX = [];
-            coordsNewY = [];
+            cX = [];
+            cY = [];
 
             for jC = 1 : nC-1
-                cX = linspace( coordX(jC), coordX(jC+1), numIntervals);
-                cY = linspace( coordY(jC), coordY(jC+1), numIntervals);
-                coordsNewX = [ coordsNewX, cX(1:end-1)];
-                coordsNewY = [ coordsNewY, cY(1:end-1)];
+                cXX = linspace( coordX(jC), coordX(jC+1), numIntervals);
+                cYY = linspace( coordY(jC), coordY(jC+1), numIntervals);
+                cX = [ cX, cXX(1:end-1)];
+                cY = [ cY, cYY(1:end-1)];
                 if jC == nC-1
-                    coordsNewX = [coordsNewX, cX(end)]; coordsNewY = [coordsNewY, cY(end)];
+                    cX = [cX, cXX(end)]; cY = [cY, cYY(end)];
                 end
 
             end
 
-            if isempty(coordsNewX)
-                coordsNewX = coordX;
-                coordsNewY = coordY;
+            if isempty(cX)
+                cX = coordX;
+                cY = coordY;
             end
 
         end

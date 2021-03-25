@@ -164,10 +164,21 @@ classdef MitoticCellBud < Cell
                         nInt1 = round( L/ length( coords(1,:) ) );
                         [cX1,cY1,cZ1] = Methods.InterpolateCoords3( coords(1,:), coords(2,:), coords(3,:), nInt1 );
                         % Get Coeff
-                        cf1 = CurvedMT.estimatePolyCoefficients( [cX1;cY1;cZ1], [3 3 1], linspace(0,L,length(cX1 )));
+                        cf1 = CurvedMT.estimatePolyCoefficients( [cX1;cY1;cZ1], [2 2 1], linspace(0,L,length(cX1 )));
                         % Get coordinates from coeffs
                         t1 = linspace(0,L,length(cX1 ));
                         x1 = polyval( cf1{1}, t1); y1 = polyval( cf1{2}, t1);
+                        
+                        L = sum( sqrt( diff( coords(1,:)).^2 + diff( coords(2,:)).^2 + diff( coords(3,:)).^2 ) );
+                        nInt1 = ceil( L/ length( coords(1,:) ) );
+                        [cX1,cY1,cZ1] = Methods.InterpolateCoords3( coords(1,:), coords(2,:), coords(3,:), nInt1 );
+                        % Get Coeff
+                        % t1 = linspace(0,L,length(cX1 )); 
+                        t2 = cumsum( [0, sqrt( diff( cX1).^2 + diff( cY1).^2 + diff( cZ1).^2 )]);
+                        cf1 = CurvedMT.estimatePolyCoefficients( [cX1;cY1;cZ1], [2 2 1], t2);
+                        % Get coordinates from coeffs
+                        
+                        x1 = polyval( cf1{1}, t2); y1 = polyval( cf1{2}, t2);
 
                         % Get origin
 %                         origin = [cf1{1}(end), cf1{2}(end),cf1{3}(end)];
@@ -178,12 +189,16 @@ classdef MitoticCellBud < Cell
                             origin(3) = 1.2;
                         end
                         % Get initial tangent vector and theta vector
-                        tanInit{1} = [cf1{1}(3), cf1{2}(3), cf1{3}(1)];
+                        tanInit{1} = [cf1{1}(end-1), cf1{2}(end-1), cf1{3}(end-1)];
                         thetaInit = [atan2( tanInit{1}(2), tanInit{1}(1) ), pi/2];
                         % Normal Magnitude Coefficients
-                        nV = [ 2*(cf1{1}(3)*cf1{2}(2) - cf1{1}(2)*cf1{2}(3)), ...
-                            6*(cf1{1}(3)*cf1{2}(1) - cf1{1}(1)*cf1{2}(3))];
-
+%                         nV = [ 2*(cf1{1}(3)*cf1{2}(2) - cf1{1}(2)*cf1{2}(3)), ...
+%                             6*(cf1{1}(3)*cf1{2}(1) - cf1{1}(1)*cf1{2}(3))];
+%                         nV = [ 2*(cf1{1}(3)*cf1{2}(2) - cf1{1}(2)*cf1{2}(3)), ...
+%                             6*(cf1{1}(3)*cf1{2}(1) - cf1{1}(1)*cf1{2}(3)),...
+%                             6*(cf1{1}(2)*cf1{2}(1) - cf1{1}(1)*cf1{2}(2))];
+                        nV = 2*(cf1{1}(end-1)*cf1{2}(end-2) - cf1{1}(end-2)*cf1{2}(end-1));
+                        dTheta = 2*[cf1{1}(end-2), cf1{2}(end-2)];
                         % Get amplitude along each bundle
                         A1 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX1;cY1]) ) - bkg_nuc);
                         A1( A1 < 0) = 0; amp = median(A1);
@@ -196,10 +211,14 @@ classdef MitoticCellBud < Cell
                                 thetaInit(1,2) = pi/2 + 0.03;
                             end
                         end
-                        % Ensure curvatures are reasonable
-                        if abs(nV(1)) > 0.03 ||  abs(nV(2)) > 0.0003
-                            idxRm = [idxRm; jb];
-                        end
+                        % Ensure curvatures are reasonable to start with
+                        % If sign is similar, ensure they are less than
+                        % some overall value
+%                         if sign(nV(1)) == sign(nV(2))
+%                             if abs( nV(1) ) > 0.03 && abs( nV(2) ) > 0.0003
+%                                 idxRm = [idxRm; jb];
+%                             end
+%                         end
 
                         % Create
                         curvedMTs{jb} = CurvedMT( origin', thetaInit, nV, L, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
@@ -215,7 +234,15 @@ classdef MitoticCellBud < Cell
                         
                         AsterObjects{jAster} = { AsterObjects{jAster}{:}, curvedMTs{:} };
                     end
-
+                    
+                    idxRm = [];
+                    for jb = 1 : length( curvedMTs )
+                        if curvedMTs{jb}.L < 7
+                            idxRm = [idxRm; jb];
+                        end
+                    end
+                    curvedMTs( idxRm) = [];
+                    
                 end
 
             end
@@ -273,9 +300,12 @@ classdef MitoticCellBud < Cell
                 frame = mat2gray(frame);
                 %mask = create_astral_mask( frame);
                 img = imgaussfilt(frame,1);
-                %med = median( img( :) );
-
-                threshold_factor = 1.1;
+                im_mip = max( img,[],3);
+                
+                % Mask
+                mask = BY_find_nuclear_mask(frame);
+                threshold_factor = 2;
+                threshold = threshold_factor*median( img( find(mask(:) ) ) );
 
                 %f = figure;
                 %ha = tight_subplot( 1, length(curvedMTs), 0.01, 0.01,0.01);
@@ -287,21 +317,25 @@ classdef MitoticCellBud < Cell
                     cc = curvedMTs{jf}.GetCoords();
 
                     % Get intensity at these coordiantes
-                    int = Cell.findAmplitudeAlongCurveCoords( img, round( cc) );
+                    int = Cell.findAmplitudeAlongCurveCoords( im_mip, round( cc(1:2,:)) );
                     tt = 1 : length(int);
 
                     % Find a mask for this specific feature by usign its simulated
                     % image, then binarizing it, dilating it.
-                    mask = curvedMTs{jf}.simulateFeature( size(frame) );
-                    mask = imbinarize( mask, 0.005);
-                    mask = imdilate( mask, strel('disk',8,6) );
-                    %mask3 = repmat( mask, [1,1, size(frame,3)]);
-                    med = median( img( find( mask(:) ) ) );
-                    threshold = threshold_factor*med;
+%                     mask = curvedMTs{jf}.simulateFeature( size(frame) );
+%                     mask = imbinarize( mask, 0.001);
+%                     mask = imdilate( mask, strel('sphere',5) );
+%                     %mask3 = repmat( mask, [1,1, size(frame,3)]);
+%                     med = median( img( find( mask(:) ) ) );
+%                     threshold = threshold_factor*med;
 
                     idxEnd = length(int);
-                    if any( int < threshold)
-                        idxEnd = 1+length(int) - find( flip(int)> threshold, 1, 'first');
+                    if any( int > threshold)
+                        if any( int < threshold)
+                            idxEnd = 1+length(int) - find( flip(int)> threshold, 1, 'first');
+                        end
+                    else
+                        idxEnd = 1;
                     end
                     curvedMTs{jf}.L = (idxEnd/length(int) ) *curvedMTs{jf}.L;
                 end
@@ -536,7 +570,6 @@ classdef MitoticCellBud < Cell
             
             % Do a sweep radial sweep and look for peaks corresponding to
             % rods.
-            
             im2 = max(imageIn,[],3);
             im2g = imgaussfilt(im2, 1);
             [phiIntensity, phiValues] = Cell.radIntegrate2D( im2g, startPoint, 5, 15);
@@ -544,10 +577,14 @@ classdef MitoticCellBud < Cell
             % find peaks in Phi Intensity
             imVals = im2g( im2g ~= 0);
             minPkHeight = 1.0*median( imVals );
+            mask2 = BY_find_nuclear_mask(imageIn);
+            nbkg = median( imageIn( find(mask2(:) ) ) );
 
             warning('off', 'signal:findpeaks:largeMinPeakHeight' )
+%             [ peakIntensity, peakPhi ] = findpeaks( phiIntensity, phiValues, ...
+%                 'MinPeakHeight', minPkHeight, 'MinPeakProminence', 0.25*median( imVals ));
             [ peakIntensity, peakPhi ] = findpeaks( phiIntensity, phiValues, ...
-                'MinPeakHeight', minPkHeight, 'MinPeakProminence', 0.25*median( imVals ));
+                'MinPeakHeight', 1.25*nbkg, 'MinPeakProminence', 0.25*nbkg);
             peakPhi = mod( peakPhi, 2*pi);
             warning('on', 'signal:findpeaks:largeMinPeakHeight' )
             
