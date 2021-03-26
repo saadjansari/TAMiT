@@ -277,8 +277,8 @@ classdef Aster < Organizer
                 % Get origin
 %                         origin = [cf1{1}(end), cf1{2}(end),cf1{3}(end)];
                 origin = coords(:,1);
-                if origin(3) >= size( imageIn,3)
-                    origin(3) = size(imageIn,3)-0.2;
+                if origin(3) >= size( Image2Find,3)
+                    origin(3) = size(Image2Find,3)-0.2;
                 elseif origin(3) <= 1
                     origin(3) = 1.2;
                 end
@@ -288,7 +288,7 @@ classdef Aster < Organizer
                 % Normal Magnitude Coefficients
                 nV = 2*(cf1{1}(end-1)*cf1{2}(end-2) - cf1{1}(end-2)*cf1{2}(end-1));
                 % Get amplitude along each bundle
-                A1 = smooth( Cell.findAmplitudeAlongCurveCoords( max(imageIn,[],3), round([cX1;cY1]) ) - bkg_nuc);
+                A1 = smooth( Cell.findAmplitudeAlongCurveCoords( max(Image2Find,[],3), round([cX1;cY1]) ));
                 A1( A1 < 0) = 0; amp = median(A1);
 
                 % Ensure coefficients are within the image region

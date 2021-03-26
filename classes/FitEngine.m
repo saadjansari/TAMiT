@@ -711,7 +711,7 @@ classdef FitEngine
             
             ms = MultiStart('StartPointsToRun','bounds', 'Display', 'iter');
 %             ms = MultiStart('PlotFcns',@gsplotbestf, 'StartPointsToRun','bounds', 'Display', 'iter');
-            [xmulti,errormulti] = run(ms,fitProblem,40);
+            [xmulti,errormulti] = run(ms,fitProblem,15);
             
             if isfield( fitInfo.fitVecs, 'scaleParameters')
                 if fitInfo.fitVecs.scaleParameters == 1
