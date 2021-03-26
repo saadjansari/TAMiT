@@ -292,7 +292,7 @@ classdef Aster < Organizer
                 A1( A1 < 0) = 0; amp = median(A1);
 
                 % Ensure coefficients are within the image region
-                if dim == 3
+                if obj.dim == 3
                     if origin(3) == 1
                         thetaInit(1,2) = pi/2 - 0.03;
                     elseif origin(3) == size(imageIn, 3)
