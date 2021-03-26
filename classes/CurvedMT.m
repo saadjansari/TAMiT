@@ -574,44 +574,44 @@ classdef CurvedMT < BasicElement
             end
 
             % optimize sigma
-            if any( strcmp( obj.props2Fit, 'sigma') )
-                % sx
-                res = []; sx = linspace(2,3,10); sx0 = obj.sigma(1); sy0 = obj.sigma(2);
-                for ix = sx
-                    obj.sigma(1) = ix; obj.sigma(2) = ix;
-                    imSim = imBkg + obj.simulateFeature( size(imBkg));
-                    res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
-                end
-                [~, idx] = min( res); 
-                obj.sigma(1) = sx(idx);
-                obj.sigma(2) = sx(idx);
-                % sz
-                if obj.dim == 3
-                    res = []; sz = linspace(1.0,2.5,10); sz0 = obj.sigma(3);
-                    for ix = sz
-                        obj.sigma(3) = ix;
-                        imSim = imBkg + obj.simulateFeature( size(imBkg));
-                        res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
-                    end
-                    [~, idx] = min( res); obj.sigma(3) = sz(idx);
-                end
-            end
+%             if any( strcmp( obj.props2Fit, 'sigma') )
+%                 % sx
+%                 res = []; sx = linspace(2,3,10); sx0 = obj.sigma(1); sy0 = obj.sigma(2);
+%                 for ix = sx
+%                     obj.sigma(1) = ix; obj.sigma(2) = ix;
+%                     imSim = imBkg + obj.simulateFeature( size(imBkg));
+%                     res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+%                 end
+%                 [~, idx] = min( res); 
+%                 obj.sigma(1) = sx(idx);
+%                 obj.sigma(2) = sx(idx);
+%                 % sz
+%                 if obj.dim == 3
+%                     res = []; sz = linspace(1.0,2.5,10); sz0 = obj.sigma(3);
+%                     for ix = sz
+%                         obj.sigma(3) = ix;
+%                         imSim = imBkg + obj.simulateFeature( size(imBkg));
+%                         res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+%                     end
+%                     [~, idx] = min( res); obj.sigma(3) = sz(idx);
+%                 end
+%             end
             
             % optimize lengths
-            if any( strcmp( obj.props2Fit, 'L') )
-                % end 1
-                res = []; l1 = linspace(obj.L,3*obj.L,10); l10 = obj.L;
-                for ix = l1
-                    obj.L = ix;
-                    imSim = imBkg + obj.simulateFeature( size(imBkg));
-                    res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
-                end
-                [~, idx] = min( res); 
-                obj.L = l1(idx);
-            end
+%             if any( strcmp( obj.props2Fit, 'L') )
+%                 % end 1
+%                 res = []; l1 = linspace(obj.L,3*obj.L,10); l10 = obj.L;
+%                 for ix = l1
+%                     obj.L = ix;
+%                     imSim = imBkg + obj.simulateFeature( size(imBkg));
+%                     res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+%                 end
+%                 [~, idx] = min( res); 
+%                 obj.L = l1(idx);
+%             end
             %thr = multithresh(imOrg(:),2);
             %par.amplitude.lb = thr(1)*2;
-            par.amplitude.lb = 2.5*median( imOrg(:) );
+            par.amplitude.lb = 1.5*median( imOrg(:) );
             par.amplitude.ub = max( imOrg(:));
             obj.SetBounds(par);
             
