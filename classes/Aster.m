@@ -295,7 +295,7 @@ classdef Aster < Organizer
                 if obj.dim == 3
                     if origin(3) == 1
                         thetaInit(1,2) = pi/2 - 0.03;
-                    elseif origin(3) == size(imageIn, 3)
+                    elseif origin(3) == size(Image2Find, 3)
                         thetaInit(1,2) = pi/2 + 0.03;
                     end
                 end
