@@ -497,10 +497,10 @@ classdef CurvedMT < BasicElement
             % sigma 
             if obj.dim == 3
                 ub.sigma = [3.0 3.0 2.5];
-                lb.sigma = [1.5 1.5 1.0];
+                lb.sigma = [1.8 1.8 1.0];
             elseif obj.dim == 2
                 ub.sigma = [3.0 3.0];
-                lb.sigma = [1.5 1.5];
+                lb.sigma = [1.8 1.8];
             end
             
             % L 
@@ -517,8 +517,8 @@ classdef CurvedMT < BasicElement
             end
             % normalVec
             if length(obj.normalVec) == 1
-                ub.normalVec = obj.normalVec + [0.005];
-                lb.normalVec = obj.normalVec - [0.005];
+                ub.normalVec = obj.normalVec + [0.02];
+                lb.normalVec = obj.normalVec - [0.02];
             elseif length(obj.normalVec) == 2
                 ub.normalVec = obj.normalVec + [0.005, 0.0001];
                 lb.normalVec = obj.normalVec - [0.005, 0.0001];
@@ -611,7 +611,7 @@ classdef CurvedMT < BasicElement
 %             end
             %thr = multithresh(imOrg(:),2);
             %par.amplitude.lb = thr(1)*2;
-            par.amplitude.lb = 1.5*median( imOrg(:) );
+            par.amplitude.lb = 1.2*median( imOrg(:) );
             par.amplitude.ub = max( imOrg(:));
             obj.SetBounds(par);
             

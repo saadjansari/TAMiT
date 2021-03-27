@@ -105,41 +105,33 @@ classdef Aster < Organizer
 %             props = {'origin', 'thetaInit', 'normalVec','L', 'amplitude', 'sigma'};
             props = {'origin', 'thetaInit', 'normalVec','L', 'amplitude', 'sigma'};
             display = {'Color', [1 0 0], 'LineWidth', 3};
-            if obj.dim==3, sigma=[2 2 1]; elseif obj.dim==2, sigma=[2 2]; end
+            if obj.dim==3, sigma=[2.5 2.5 1]; elseif obj.dim==2, sigma=[2.5 2.5]; end
             Image2Find( Image2Find < 0) = 0; 
-            
-            bkg = median( Image2Find( Image2Find(:) > 0) );
-            
-            thr = multithresh( imOrg(:), 2);
-            bkg1 = mean( imOrg( imOrg < thr(1)));
-            bkg2 = mean( imOrg( imOrg(:) > thr(1) & imOrg(:) < thr(2)));
-            
+            im3g = imgaussfilt3(Image2Find,1);
+            im2g = max(im3g,[],3);
+                                    
             minLength = 10;
             [Image2Find2D, idxZ] = max(Image2Find, [],3);
-
-            % Remove intensity for curves
-%             mask = obj.getMaskWithoutFeatures( Image2Find);
             
             % Do a sweep radial sweep and look for peaks corresponding to
-            % rods.
-%             im2 = max( Image2Find,[],3).*min(mask,[],3);
-            im2 = max( Image2Find,[],3); 
-            [~,~,nms,~] = steerableDetector(Image2Find2D, 4, 2);
-            
+            % rods.            
             startPoint = obj.featureList{1}.position(1:2) + 3*[ cos(xAngle+pi), sin(xAngle+pi)];
-            [phiIntensity, phiValues] = Cell.radIntegrate2D( im2, startPoint, 5, 15);
+            [phiIntensity, phiValues] = Cell.radIntegrate2D( im2g, startPoint, 5, 25);
             
             % find peaks in Phi Intensity
-            imVals = im2( im2 ~= 0);
-%             mtBkg = median( imVals );
-%             minPkHeight = mtBkg + std( imVals );
-            mtBkg = bkg2-bkg1;
-            minPkHeight = mtBkg + bkg1;
+            nbkg = median(im2g(:))*2;
             warning('off', 'signal:findpeaks:largeMinPeakHeight' )
-            [ peakIntensity, peakPhi] = findpeaks( phiIntensity, phiValues, 'MinPeakHeight', minPkHeight );
+            [ peakIntensity, peakPhi ] = findpeaks( phiIntensity, phiValues, ...
+                'MinPeakHeight', 2*nbkg, 'MinPeakProminence', nbkg);
             peakPhi = mod( peakPhi, 2*pi);
             warning('on', 'signal:findpeaks:largeMinPeakHeight' )
             
+            nms3 = 0*imOrg;
+            for jZ = 1 : size(imOrg,3)
+                [~, ~, nms3(:,:,jZ), ~] = steerableDetector( imgaussfilt(imOrg(:,:,jZ),1), 4, 3);
+            end
+            
+            % find peaks in Phi Intensity
             if length(peakPhi) == 0
                 success = 0; mt = []; resid=[];
                 return
@@ -187,9 +179,9 @@ classdef Aster < Organizer
             end
             
             % create a mask to apply to steerable image
-            mask = imgaussfilt(Image2Find2D, 1);
-            st = Methods.GetImageStats(mask,0);
-            mask( mask < st.Median+2*st.Sigma) = 0; mask(mask ~=0) = 1;
+            mask = im2g;
+            st = Methods.GetImageStats(im2g,0);
+            mask( mask < 2*st.Median) = 0; mask(mask ~=0) = 1;
             
             % Find curved MT 
             missingFeatures = {};
@@ -254,15 +246,6 @@ classdef Aster < Organizer
                 coords = missingFeatures{jb};
 
                 % Get length
-                L = sum( sqrt( diff( coords(1,:)).^2 + diff( coords(2,:)).^2 + diff( coords(3,:)).^2 ) );
-                nInt1 = round( L/ length( coords(1,:) ) );
-                [cX1,cY1,cZ1] = Methods.InterpolateCoords3( coords(1,:), coords(2,:), coords(3,:), nInt1 );
-                % Get Coeff
-                cf1 = CurvedMT.estimatePolyCoefficients( [cX1;cY1;cZ1], [2 2 1], linspace(0,L,length(cX1 )));
-                % Get coordinates from coeffs
-                t1 = linspace(0,L,length(cX1 ));
-                x1 = polyval( cf1{1}, t1); y1 = polyval( cf1{2}, t1);
-
                 L = sum( sqrt( diff( coords(1,:)).^2 + diff( coords(2,:)).^2 + diff( coords(3,:)).^2 ) );
                 nInt1 = ceil( L/ length( coords(1,:) ) );
                 [cX1,cY1,cZ1] = Methods.InterpolateCoords3( coords(1,:), coords(2,:), coords(3,:), nInt1 );
