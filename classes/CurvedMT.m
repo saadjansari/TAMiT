@@ -505,7 +505,7 @@ classdef CurvedMT < BasicElement
             
             % L 
             ub.L = obj.L+20;
-            lb.L = min( [6, obj.L-10]);
+            lb.L = max( [6, obj.L-10]);
 
             % thetaInit
             if obj.dim == 3
