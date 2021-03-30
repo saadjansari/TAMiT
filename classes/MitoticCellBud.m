@@ -143,9 +143,16 @@ classdef MitoticCellBud < Cell
 
                 % Get start position of astrals (3-5 pixels away from the
                 % spb opposite to the direction of spindle.
-                rr = 3;
-                sp{1} = spindleMT.startPosition + rr*[cos(spindleAngle(1)+pi), sin(spindleAngle(1)+pi), 0];
-                sp{2} = spindleMT.endPosition + rr*[cos(spindleAngle(2)+pi), sin(spindleAngle(2)+pi), 0];
+                rr = 0.15;
+                voxSize = [0.05,0.05,0.5];
+                spos = voxSize.*spindleMT.startPosition; epos = voxSize.*spindleMT.endPosition;
+                dir = (epos-spos)/norm(epos-spos);
+                sp{1} = spindleMT.startPosition+ (rr.*-dir)./voxSize;
+                sp{2} = spindleMT.endPosition+ (rr.*dir)./voxSize;
+                
+%                 rr=3;
+%                 sp{1} = spindleMT.startPosition + rr*[cos(spindleAngle(1)+pi), sin(spindleAngle(1)+pi), 0];
+%                 sp{2} = spindleMT.endPosition + rr*[cos(spindleAngle(2)+pi), sin(spindleAngle(2)+pi), 0];
                 
                 % Find Astral Microtubules
                 AMT{1} = MitoticCellBud.findAstralMicrotubules( imageIn, sp{1}, spindleAngle(1), spindleExclusionRange);
@@ -232,16 +239,16 @@ classdef MitoticCellBud < Cell
                         % reduce mt length based on image intensity
                         curvedMTs = threhold_mt_length_using_image( imageIn, curvedMTs);
                         
+                        idxRm = [];
+                        for jb = 1 : length( curvedMTs )
+                            if curvedMTs{jb}.L < 7
+                                idxRm = [idxRm; jb];
+                            end
+                        end
+                        curvedMTs( idxRm) = [];
+                    
                         AsterObjects{jAster} = { AsterObjects{jAster}{:}, curvedMTs{:} };
                     end
-                    
-                    idxRm = [];
-                    for jb = 1 : length( curvedMTs )
-                        if curvedMTs{jb}.L < 7
-                            idxRm = [idxRm; jb];
-                        end
-                    end
-                    curvedMTs( idxRm) = [];
                     
                 end
 
@@ -572,28 +579,45 @@ classdef MitoticCellBud < Cell
             % rods.
             im2 = max(imageIn,[],3);
             im2g = imgaussfilt(im2, 1);
-            [phiIntensity, phiValues] = Cell.radIntegrate2D( im2g, startPoint, 5, 15);
             
-            % find peaks in Phi Intensity
+            % Find threshold intensity for mts
             imVals = im2g( im2g ~= 0);
             minPkHeight = 1.0*median( imVals );
             mask2 = BY_find_nuclear_mask(imageIn);
             nbkg = median( imageIn( find(mask2(:) ) ) );
-
-            warning('off', 'signal:findpeaks:largeMinPeakHeight' )
-%             [ peakIntensity, peakPhi ] = findpeaks( phiIntensity, phiValues, ...
-%                 'MinPeakHeight', minPkHeight, 'MinPeakProminence', 0.25*median( imVals ));
-            [ peakIntensity, peakPhi ] = findpeaks( phiIntensity, phiValues, ...
+            
+            % Seek Long lines
+            [phiIntensity, phiValues] = Cell.radIntegrate2D( im2g, startPoint, 15, 30);
+             warning('off', 'signal:findpeaks:largeMinPeakHeight' )
+            [ peakIntensity, peakPhi1 ] = findpeaks( phiIntensity, phiValues, ...
                 'MinPeakHeight', 1.25*nbkg, 'MinPeakProminence', 0.25*nbkg);
-            peakPhi = mod( peakPhi, 2*pi);
+            peakPhi1 = mod( peakPhi1, 2*pi);
             warning('on', 'signal:findpeaks:largeMinPeakHeight' )
             
             % remove angle belonging to spindle.
             spindleAngle = mod( spindleAngle, 2*pi);
-            idxRm = find( abs(peakPhi-spindleAngle) < spindleExclusionRange | ...
-                abs(peakPhi-spindleAngle+2*pi) < spindleExclusionRange | ...
-                abs(peakPhi-spindleAngle-2*pi) < spindleExclusionRange);
-            peakPhi( idxRm)=[];
+            idxRm = find( abs(peakPhi1-spindleAngle) < spindleExclusionRange | ...
+                abs(peakPhi1-spindleAngle+2*pi) < spindleExclusionRange | ...
+                abs(peakPhi1-spindleAngle-2*pi) < spindleExclusionRange);
+            peakPhi1( idxRm)=[];
+            
+            % Seek Short lines
+            [phiIntensity, phiValues] = Cell.radIntegrate2D( im2g, startPoint, 5, 15);
+            warning('off', 'signal:findpeaks:largeMinPeakHeight' )
+            [ peakIntensity, peakPhi2 ] = findpeaks( phiIntensity, phiValues, ...
+                'MinPeakHeight', 1.25*nbkg, 'MinPeakProminence', 0.25*nbkg);
+            peakPhi2 = mod( peakPhi2, 2*pi);
+            warning('on', 'signal:findpeaks:largeMinPeakHeight' )
+            
+            % remove angle belonging to spindle.
+            spindleAngle = mod( spindleAngle, 2*pi);
+            idxRm = find( abs(peakPhi2-spindleAngle) < spindleExclusionRange | ...
+                abs(peakPhi2-spindleAngle+2*pi) < spindleExclusionRange | ...
+                abs(peakPhi2-spindleAngle-2*pi) < spindleExclusionRange);
+            peakPhi2( idxRm)=[];
+            
+            % combine unique long and short lines 
+            peakPhi = concat_unique(peakPhi1,peakPhi2,0.2);
             
             % Default Values
             defaultVisibility = 10;
