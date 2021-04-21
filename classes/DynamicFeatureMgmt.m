@@ -61,13 +61,13 @@ classdef DynamicFeatureMgmt
            end
            te = max(te);
            nT = te-ts+1;
-           dmat = nan(nFeat, nT);
+           dmat = nan(nT,nFeat);
            
            % fill out length values
            for jf = 1 : nFeat
                % get lengths
-               [lens,~,times] = obj.features{jf}.getLength();
-               dmat(jf,times) = lens;
+               [lens,~,times] = obj.features{jf}.getLengthPixels2D();
+               dmat(times,jf) = lens;
            end
            
            writematrix(dmat,[path, filesep,'dydata.csv'])

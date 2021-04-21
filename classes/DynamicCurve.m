@@ -47,6 +47,26 @@ classdef DynamicCurve < DynamicFeature
            
             lens_err = zeros( size(obj.len) );
         end
+        
+        % get Length
+        function [lens, lens_err, times] = getLengthPixels2D(obj)
+            
+            times = obj.time_step*([obj.time_start:obj.time_end]);
+            lens = zeros( size(times) );            
+            % For each time, get matched_feature, then get its coordinates,
+            % and then compute length
+            for jf = 1 : length( obj.matched_feats)
+                cf = obj.matched_feats{jf};
+                if isempty(cf)
+                    lens(jf) = nan;
+                    continue
+                end
+                cc = cf.GetCoords(); cc = cc(1:2,:);
+                lens(jf) = sum( sqrt( sum( diff(cc,1, 2).^2,1) ) );
+            end
+           
+            lens_err = zeros( size(obj.len) );
+        end
        
         function obj = matchFeatures( obj, feats_det)
             % Match feature to detection features

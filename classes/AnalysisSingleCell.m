@@ -85,9 +85,9 @@ classdef AnalysisSingleCell < handle
                 % Make movie
                 if obj.flagMovie 
                     fprintf('   Directing movies...\n')
-                    % obj.temp_fig1( jChannel);
+                    obj.temp_fig1( jChannel);
 %                     obj.temp_fig3( jChannel);
-                    obj.makeMovie( jChannel);
+%                     obj.makeMovie( jChannel);
                     if obj.fwdreverse
 %                         obj.makeMovieFwdReverse( jChannel);
                     end
@@ -301,51 +301,18 @@ classdef AnalysisSingleCell < handle
                 im2 = max(img,[],3);
                 
                 % Get budding yeast mask
-%                 if strcmp(obj.cellType, 'MitosisBud')
-%                     % Get a smoothed 2D image of the budding yeast cell. Smoothing allows
-%                     % values inside the cytoplasm to become similar.
-%                     im22 = imgaussfilt( max(img,[],3), 3);
-%                     % Threshold into 4 levels (bkg, cyto, mts, spindle)
-%                     tt = multithresh( im22, 3);
-%                     % Binarize the image, and fill all the holes
-%                     bw = imbinarize( im22, tt(1) );
-%                     se = strel('disk', 2,6);
-%                     bw = imerode( imdilate( bw, se), se);
-%                     bw = imfill(bw, 'holes');
-% 
-%                     % Smooth out the boundaries of this mask using convolution
-%                     windowSize = 11;
-%                     kernel = ones(windowSize) / windowSize ^ 2;
-%                     blurryImage = conv2(single(bw), kernel, 'same');
-%                     binaryImage = blurryImage > 0.5;
-% 
-%                     % Pick the biggest connected component
-%                     [labeledImage, numberOfBlobs] = bwlabel(binaryImage);
-%                     blobMeasurements = regionprops(labeledImage, 'area');
-%                     % Get all the areas
-%                     allAreas = [blobMeasurements.Area];
-%                     % Sort in order of largest to smallest.
-%                     [sortedAreas, sortIndexes] = sort(allAreas, 'descend');
-%                     % Extract the largest blob using ismember().
-%                     biggestBlob = ismember(labeledImage, sortIndexes(1));
-%                     % Convert from integer labeled image into binary (logical) image.
-%                     binaryImage = biggestBlob > 0;
-%                     imMask = binaryImage;
-%                     imMask = ones( size(im2));
-%                     im2 = im2.*imMask;
-%                 end
-                % Get xand y ranges for non-mask pixels
-%                 xrange = find( any(im2,1)); yrange = find( any(im2,2));
-                xrange = 1: size(im2,2); yrange = 1:size(im2,1);
-%                 if custom_xy
-%                     if strcmp(obj.cellType, 'MitosisBud')
-%                         yrange = 1:size(im2,2); xrange = 1:123;
-%                     elseif strcmp(obj.cellType, 'Mitosis')
-%                         yrange = 38:113; xrange = 38:113;
-%                     elseif strcmp(obj.cellType, 'Monopolar')
-%                         yrange = 38:113; xrange = 38:113;
-%                     end
-%                 end
+                if strcmp(obj.cellType, 'MitosisBud')
+                   mask = BY_find_nuclear_mask( feat.image);
+                   mask = max(mask,[],3);
+                   im2 = im2.*mask;
+                end
+                %Get xand y ranges for non-mask pixels
+                xrange = find( any(im2,1)); yrange = find( any(im2,2));
+                %xrange = 1: size(im2,2); yrange = 1:size(im2,1);
+                if custom_xy
+%                     yrange = 45:105; xrange = 45:105;
+%                     yrange = 38:113; xrange = 38:113;
+                end
                 
                 fs = 12;
                 % make figure
@@ -606,6 +573,8 @@ classdef AnalysisSingleCell < handle
             global COUNTER
             COUNTER =1;
             custom_xy = 1;
+            invert = 1;
+            
             tlist = 1 : length( obj.times);
             switch obj.cellType
                 case 'Monopolar'
@@ -613,7 +582,7 @@ classdef AnalysisSingleCell < handle
                 case 'Mitosis'
                     jTime = find(obj.times==38);
                 case 'MitosisBud'
-                    jTime = find(obj.times==109);
+                    jTime = find(obj.times==111);
             end
             
             f = figure('visible', 'on');
@@ -632,11 +601,11 @@ classdef AnalysisSingleCell < handle
             xrange = 1: size(feat.image,1); yrange = 1:size(feat.image,2);
             if custom_xy
                 if strcmp(obj.cellType, 'MitosisBud')
-                    yrange = 1:size(feat.image,2); xrange = 1:123;
+                    yrange = 1:85; xrange = 1:85;
                 elseif strcmp(obj.cellType, 'Mitosis')
-                    yrange = 30:105; xrange = 33:108;
+                    yrange = 40:90; xrange = 45:95;
                 elseif strcmp(obj.cellType, 'Monopolar')
-                    yrange = 38:113; xrange = 38:113;
+                    yrange = 50:100; xrange = 50:100;
                 end
             end
                 
@@ -644,13 +613,16 @@ classdef AnalysisSingleCell < handle
             set(f, 'currentaxes', h(1) );
 
             % Smooth, contrast stretch image for display
-            J = im2;
-            mask = im2; mask( mask(:) > 0) = 1;
-            th = multithresh(J(J(:)>0),2);
-            J( J(:) > th(end)) = th(end);
-            J = imgaussfilt( J, 1).*mask;
+            imgauss = imgaussfilt(im2,1);
+            med = median(imgauss(im2(:)~=0));
+            J = imadjust(imgauss, [med, 3*med],[]);
 
-            imagesc( h(1), im2 ), pause(0.1)
+            if invert
+                imagesc( h(1), imcomplement(J) ), 
+            else
+                imagesc( h(1), J )
+            end
+            pause(0.1)
             colormap( h(1), gray); axis equal; xlim( h(1), [xrange(1) xrange(end) ]); ylim( h(1), [yrange(1) yrange(end) ]); 
             set( h(1), 'xtick', [], 'ytick', []);
             title(['Time = ' num2str( jTime)])
@@ -661,11 +633,19 @@ classdef AnalysisSingleCell < handle
             PixelSize = obj.sizeVoxels(1); Scalebar_length = 1;
             xend = xrange(end)-4; xstart = xend - Scalebar_length/PixelSize; y0 = yrange(end)-4;
             % x_location and y_location are wherever you want your scale bar to appear.
-            line([xstart, xend],[y0,y0], 'Color','w', 'LineWidth', 4)
-                
+            if invert
+                line([xstart, xend],[y0,y0], 'Color','k', 'LineWidth', 4)
+            else
+                line([xstart, xend],[y0,y0], 'Color','w', 'LineWidth', 4)
+            end
             % Axes (2,1): Simulated Image
             set(f, 'currentaxes', h(2) );
-            imagesc( h(2), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
+            if invert
+                imagesc( h(2), imcomplement(max( feat.simulateAll( img, feat.ID) , [], 3)) ), 
+            else
+                imagesc( h(2), max( feat.simulateAll( img, feat.ID) , [], 3) ),
+            end
+             
             colormap gray; axis equal; xlim( [xrange(1) xrange(end) ]); ylim( [yrange(1) yrange(end) ]); 
             set( h(2), 'xtick', [], 'ytick', []);
             %title('Fitted Image');
@@ -673,7 +653,12 @@ classdef AnalysisSingleCell < handle
             % Axes (2,2): 3D features
             % Axes 1 for image background
             set(f, 'currentaxes', h(3) );hold on
-            imagesc( h(3), im2 ), colormap(h(3), gray);hold on; h(3).Color = 'Black';
+            if invert
+                imagesc( h(3), imcomplement(J) ), 
+            else
+                imagesc( h(3), J )
+            end
+            colormap(h(3), gray);hold on; h(3).Color = 'Black';
             axis equal; axis ij; xlim( [xrange(1) xrange(end) ]); ylim( [yrange(1) yrange(end) ]); 
             set( h(3), 'xtick', [], 'ytick', []);
             %title('3D Features');
@@ -715,50 +700,62 @@ classdef AnalysisSingleCell < handle
             f.Color = 'white';
             
             % 3D FIGURE
+            if strcmp(obj.cellType, 'MitosisBud')
+                view_angle = [-50,32];
+                zlimits = [5,11];
+            elseif strcmp(obj.cellType, 'Mitosis')
+                view_angle = [-17,22];
+                zlimits = [4,7];
+            elseif strcmp(obj.cellType, 'Monopolar')
+                view_angle = [-50,32];
+                zlimits = [1,7];
+            end
             f2 = figure('visible', 'on');
-            hold on; ax = gca; axis ij; set(ax, 'View',[13.5,18]); f2.Color = 'white';
-            set(ax,'zlim',[1 size(img,3)])
+            hold on; ax = gca; axis ij;  f2.Color = 'white';
+            set(ax, 'View',[10,10]);
+            set(ax,'zlim',zlimits)
             feat.displayFeature3D( ax, size(img,3)); set(ax,'FontSize',fs)
-            %xlim([60,90]); ylim( [60,100]); zlim([5,7]);
             tcks = linspace(0,1, size(img,3)); tcks = tcks(1:2:end);
             tcks_label = 1:2: size(img,3);
             set(gca,'FontSize',20)
-            pos = get(gca, 'Position'); 
-            set(gca,'Position', [pos(1), pos(2), pos(3), pos(3)*size(img,1)/size(img,2)]);
-
+%             pos = get(gca, 'Position'); 
+%             set(gca,'Position', [pos(1), pos(2), pos(3), pos(3)*size(img,1)/size(img,2)]);
+            set(gca,'Position', [0.2, 0.2, 0.6,0.6]);
+            
             % Change z-limits if needed
-            % set(gca,'zlim',[4.5,7.5]) % bipolar
-            set(gca,'xlim',[20,80]) % byeast
-
+            xlimits = [xrange(1), xrange(end)];
+            ylimits = [yrange(1), yrange(end)];
+            
             % XY planes
-            zlim = get(gca,'zlim');
-            xlim = get(gca,'xlim');
-            ylim = get(gca,'ylim');
-            % [x, y] = meshgrid( xlim(1):1:xlim(2), ylim(1):1:ylim(2) ); % Generate x and y data
-            [x, y] = meshgrid( xlim, ylim ); % Generate x and y data
+            zlims = get(gca,'zlim');
+            [x, y] = meshgrid( xlimits, ylimits ); % Generate x and y data
             z = zeros( size(x) ); % Generate z data
             cols = 0.97*ones([size(z),3]);
             hold on
-            for zz = zlim
+            for zz = zlims
                 ztemp = z;
                 ztemp(:) = zz;
                 ss = surf(x,y,ztemp,cols, 'EdgeColor', [0.9,0.9,0.9]);
             end
-            set(gca,'xlim', xlim, 'ylim', ylim);
+            set(gca,'xlim', xlimits, 'ylim', ylimits);
             
             voxel_size = [0.1,0.1,0.5];
             ztick = get(gca,'ztick');
             ytick = get(gca,'ytick');
             xtick = get(gca,'xtick');
-            ztl = (ztick - ztick(1))*voxel_size(3);
-            ytl = (ytick - ytick(1))*voxel_size(2);
-            xtl = (xtick - xtick(1))*voxel_size(1);
+%             ztl = (ztick - ztick(1))*voxel_size(3);
+%             ytl = (ytick - ytick(1))*voxel_size(2);
+%             xtl = (xtick - xtick(1))*voxel_size(1);
+            ztl = (ztick )*voxel_size(3);
+            ytl = (ytick )*voxel_size(2);
+            xtl = (xtick )*voxel_size(1);
 
             set(gca,'xticklabels', xtl, 'yticklabels', ytl, 'zticklabels', ztl);
             xlabel = get(gca, 'xlabel'); set(xlabel, 'String', 'X (\mum)','FontWeight', 'normal')
             ylabel = get(gca, 'ylabel'); set(ylabel, 'String', 'Y (\mum)','FontWeight', 'normal')
             zlabel = get(gca, 'zlabel'); set(zlabel, 'String', 'Z (\mum)','FontWeight', 'normal')
-            set(gcf,'Position', 1.1*get(gcf,'Position'))
+            set(ax, 'View',view_angle);
+%             set(gcf,'Position', 1.0*get(gcf,'Position'))
         end
         
         % temp_fig3 {{{
@@ -768,13 +765,14 @@ classdef AnalysisSingleCell < handle
             global COUNTER
             COUNTER =1;
             custom_xy = 1;
+            invert = 1;
             
             clearvars ttt
             ttt.monopolar = [11,12,13,14,15,16];
             ttt.bipolar = [60,61,62,63,64,65];
             ttt.byeast = [101,103,105,107,109,111];
-            ttt.anaphase_elongation = [10,25,40,55,70,86];
-            ttt = ttt.anaphase_elongation;
+            ttt.anaphase_elongation = [30,55,80,105,130,155];
+            ttt = ttt.byeast;
             ttt_real = [];
             for it = ttt
                 ttt_real = [ttt_real, find(obj.times == it)];
@@ -783,7 +781,7 @@ classdef AnalysisSingleCell < handle
             ttt = ttt_real;
             
             f = figure('visible', 'on');
-            h = tight_subplot(3,length(ttt), 0.001, 0.125,0.11);
+            h = tight_subplot(3,length(ttt), [0.002,-0.025], 0.125,0.11);
             fs = 16;
             set(f,'Position', get(groot,'Screensize'))
             for jTime = 1 : length( ttt)
@@ -796,33 +794,34 @@ classdef AnalysisSingleCell < handle
                 img = im2double(feat.image);
                 im2 = max(img,[],3);
                 
+                imgauss = imgaussfilt(im2,1);
+                med = median(imgauss(im2(:)~=0));
+                J = imadjust(imgauss, [med, 4*med],[]);
+                %figure; imshowpair(im2,J,'montage');
+                
                 xrange = 1: size(feat.image,1); yrange = 1:size(feat.image,2);
                 if custom_xy
                     if strcmp(obj.cellType, 'MitosisBud')
-                        yrange = 1:size(feat.image,2); xrange = 1:123;
+                        yrange = 1:85; xrange = 1:85;
                     elseif strcmp(obj.cellType, 'Mitosis')
-                        yrange = 30:105; xrange = 33:108;
-                        yrange = 40:115; xrange = 33:108; % Anaphase
+                        yrange = 40:90; xrange = 45:95;
+                        yrange = 50:105; xrange = 50:105; % Anaphase
                     elseif strcmp(obj.cellType, 'Monopolar')
-                        yrange = 38:113; xrange = 38:113;
+                        yrange = 50:100; xrange = 50:100;
                     end
                 end
                 
                 axn = jTime; 
                 % Axes (1,1): Original
                 set(f, 'currentaxes', h(axn) );
-                
-                % Smooth, contrast stretch image for display
-                J = im2;
-                mask = im2; mask( mask(:) > 0) = 1;
-                th = multithresh(J(J(:)>0),2);
-                J( J(:) > th(end)) = th(end);
-                J = imgaussfilt( J, 1).*mask;
-
-                imagesc( h(axn), im2 ), 
+                if invert
+                    imagesc( h(axn), imcomplement(J) ),
+                else
+                    imagesc( h(axn), J ),
+                end
                 colormap( h(axn), gray); axis equal; xlim( [xrange(1) xrange(end) ]); ylim( [yrange(1) yrange(end) ]); 
                 set( h(axn), 'xtick', [], 'ytick', []);
-                title(['Time = ' num2str( ttt_old(jTime))])
+                title({['Frame = ' num2str( ttt_old(jTime))],['Time = ',num2str( (ttt(jTime)-ttt(1))*obj.timeStep),' sec']})
                 hold on;
                 %title('Original Image');
                 
@@ -831,12 +830,20 @@ classdef AnalysisSingleCell < handle
                     PixelSize = obj.sizeVoxels(1); Scalebar_length = 1;
                     xend = xrange(end)-4; xstart = xend - Scalebar_length/PixelSize; y0 = yrange(end)-4;
                     % x_location and y_location are wherever you want your scale bar to appear.
-                    line([xstart, xend],[y0,y0], 'Color','w', 'LineWidth', 4)
+                    if invert
+                        line([xstart, xend],[y0,y0], 'Color','k', 'LineWidth', 4)
+                    else
+                        line([xstart, xend],[y0,y0], 'Color','w', 'LineWidth', 4)
+                    end
                 end
                 
                 % Axes (2,1): Simulated Image
                 set(f, 'currentaxes', h(axn+1*length(ttt)) );
-                imagesc( h(axn+1*length(ttt)), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
+                if invert
+                    imagesc( h(axn+1*length(ttt)), imcomplement( max( feat.simulateAll( img, feat.ID) , [], 3)) ), 
+                else
+                    imagesc( h(axn+1*length(ttt)), max( feat.simulateAll( img, feat.ID) , [], 3) ), 
+                end
                 colormap gray; axis equal; xlim( [xrange(1) xrange(end) ]); ylim( [yrange(1) yrange(end) ]); 
                 set( h(axn+1*length(ttt)), 'xtick', [], 'ytick', []);
                 %title('Fitted Image');
@@ -844,7 +851,12 @@ classdef AnalysisSingleCell < handle
                 % Axes (2,2): 3D features
                 % Axes 1 for image background
                 set(f, 'currentaxes', h(axn+2*length(ttt)) );hold on
-                imagesc( h(axn+2*length(ttt)), im2 ), colormap(h(axn+2*length(ttt)), gray);hold on; h(axn+2*length(ttt)).Color = 'Black';
+                if invert
+                    imagesc( h(axn+2*length(ttt)), imcomplement(J) )
+                else
+                    imagesc( h(axn+2*length(ttt)), J )
+                end
+                colormap(h(axn+2*length(ttt)), gray);hold on; h(axn+2*length(ttt)).Color = 'Black';
                 axis equal; axis ij; xlim( [xrange(1) xrange(end) ]); ylim( [yrange(1) yrange(end) ]); 
                 set( h(axn+2*length(ttt)), 'xtick', [], 'ytick', []);
                 %title('3D Features');
