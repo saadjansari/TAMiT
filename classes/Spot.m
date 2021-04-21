@@ -323,11 +323,20 @@ classdef Spot < BasicElement
         % }}}
         
         % SetBounds {{{
-        function SetBounds( obj)
+        function SetBounds( obj, pars)
            
             % amplitude
-            ub.amplitude = 1;
-            lb.amplitude = 0;
+            if nargin == 2
+                ub.amplitude = pars.amplitude.ub;
+                lb.amplitude = pars.amplitude.lb;
+                if obj.amplitude < lb.amplitude
+                    obj.amplitude = 1.05*lb.amplitude;
+                    disp('forcing line amplitude above a lower threshold for monopolar')
+                end
+            else
+                ub.amplitude = 1;
+                lb.amplitude = 0;
+            end
             
             % sigma % positions
             if obj.dim == 3
@@ -358,28 +367,28 @@ classdef Spot < BasicElement
         % preOptimize {{{
         function obj = preOptimize(obj, imOrg, imBkg)
            
-            % optimize sigma
-            % sx
-            res = []; sx = linspace(1.2,2.5,15); sx0 = obj.sigma(1); sy0 = obj.sigma(2);
-            for ix = sx
-                obj.sigma(1) = ix; obj.sigma(2) = ix;
-                imSim = imBkg + obj.simulateFeature( size(imBkg));
-                res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
-            end
-            [~, idx] = min( res); 
-            obj.sigma(1) = sx(idx);
-            obj.sigma(2) = sx(idx);
+%             % optimize sigma
+%             % sx
+%             res = []; sx = linspace(1.2,2.5,15); sx0 = obj.sigma(1); sy0 = obj.sigma(2);
+%             for ix = sx
+%                 obj.sigma(1) = ix; obj.sigma(2) = ix;
+%                 imSim = imBkg + obj.simulateFeature( size(imBkg));
+%                 res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+%             end
+%             [~, idx] = min( res); 
+%             obj.sigma(1) = sx(idx);
+%             obj.sigma(2) = sx(idx);
 
-            % sz
-            if obj.dim == 3
-                res = []; sz = linspace(1.0,2.0,10); sz0 = obj.sigma(3);
-                for ix = sz
-                    obj.sigma(3) = ix;
-                    imSim = imBkg + obj.simulateFeature( size(imBkg));
-                    res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
-                end
-                [~, idx] = min( res); obj.sigma(3) = sz(idx);
-            end
+%             % sz
+%             if obj.dim == 3
+%                 res = []; sz = linspace(1.0,2.0,10); sz0 = obj.sigma(3);
+%                 for ix = sz
+%                     obj.sigma(3) = ix;
+%                     imSim = imBkg + obj.simulateFeature( size(imBkg));
+%                     res = [ res, sum( (imSim(:) - imOrg(:) ).^2 )];
+%                 end
+%                 [~, idx] = min( res); obj.sigma(3) = sz(idx);
+%             end
             %{
              {% optimize amp 
              {res = []; amps = linspace( 0, max( imOrg(:))-imBkg(1), 20); 
@@ -391,7 +400,13 @@ classdef Spot < BasicElement
              {end
              {[~,idA] = min( min(res,[],2) ); obj.amplitude = amps(idA); 
              %}
-            obj.SetBounds();
+
+            med = median( imOrg( imOrg ~=0));
+            par.amplitude.lb = 0.5*med;
+            par.amplitude.ub = max( imOrg(:));
+            par.position.ub = size(imOrg);
+            obj.SetBounds(par);
+            %obj.SetBounds();
             
         end
         % }}}

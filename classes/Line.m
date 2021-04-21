@@ -281,7 +281,7 @@ classdef Line < BasicElement
             col = 256*cm( cols, :);
             col = permute(col, [1 3 2]);
             
-            p=patch(x,y,z,col/256,'FaceColor','Flat','EdgeColor','Flat','LineWidth',10);
+            p=patch(x,y,z,col/256,'FaceColor','Flat','EdgeColor','Flat','LineWidth',8);
 
             
         end

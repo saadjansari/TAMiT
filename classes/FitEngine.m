@@ -83,11 +83,12 @@ classdef FitEngine
             obj.feature = fitInfo.featureMain;
             
             % initial/final images
-            imageSimI = FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo);
-            imageSimF = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
-            fitInfo.imageSimI = imageSimI;
-            fitInfo.imageSimF = imageSimF;
-            
+            if isfield(fitInfo,'fitVecs')
+                imageSimI = FitEngine.SimulateImage( fitInfo.fitVecs.vec, fitInfo);
+                imageSimF = FitEngine.SimulateImage( fitInfo.fitResults.vfit, fitInfo);
+                fitInfo.imageSimI = imageSimI;
+                fitInfo.imageSimF = imageSimF;
+            end
             % Remove z-padding
             [obj,fitInfo] = obj.zpadding_off( fitInfo, pad_xy, pad_z);
             
@@ -238,8 +239,9 @@ classdef FitEngine
             % Optimize Feature Number
             [obj,fitInfo] = obj.OptimizeFeatureNumber( fitInfoOld);
             fitInfo.fitInfoOld = fitInfoOld;
-            fitInfo.fitVecOld = fitInfoOld.fitResults.vfit;
-
+            if isfield(fitInfoOld, 'fitResults')
+                fitInfo.fitVecOld = fitInfoOld.fitResults.vfit;
+            end
             % Display and Save
 %             if obj.parameters.display
 %                 Cell.displayFinalFit( obj.image, obj.feature, fitInfo);
@@ -532,6 +534,11 @@ classdef FitEngine
                 return
             end
             
+            if isempty(obj.feature.featureList)
+                fprintf('Skipping fitting for %s\n', obj.feature.type); fitInfo = [];
+                return
+            end
+            
             % Get 2D image
             Image2D = max( obj.image, [], 3);
             
@@ -558,11 +565,14 @@ classdef FitEngine
                     fitInfo.featureCurrent.absorbVec( vec_unscaled, fitInfo.fitVecs.labels);
                 end
             end
+            
             % TEST: MultiStart
             fitEngine2.feature = fitInfo.featureCurrent;
             fitEngine2.SetFeature( fitInfo.featureCurrent );
-            fitEngine2.OptimizeMultiStartProps()
             
+            if ~isfield( obj.parameters, 'useMultiStart') || obj.parameters.useMultiStart==1
+                fitEngine2.OptimizeMultiStartProps()
+            end
             obj.feature.Update3DFrom2D(fitEngine2.feature);
             obj.feature.syncFeatures();
             
@@ -1100,6 +1110,17 @@ classdef FitEngine
                         end
                     end
                     
+                case 'SpotBank'
+                    for jf = 1 : obj.feature.numFeatures
+                        
+                        if strcmp( obj.feature.featureList{jf}.type, 'Spot')
+                            obj.feature.featureList{jf}.position = obj.feature.featureList{jf}.position + [pad_xy,pad_xy,pad_z];
+                            obj.feature.featureList{jf}.bounds.ub.position = obj.feature.featureList{jf}.bounds.ub.position + 2*[pad_xy,pad_xy,pad_z];
+                        else
+                            error('unknown feature type')
+                        end
+                        obj.feature.featureList{jf}.fillParams( size(img1) );
+                    end
             end
         end
         
@@ -1119,9 +1140,10 @@ classdef FitEngine
             obj.feature.imageSim = obj.feature.imageSim( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
             
             %fitInfo
-            fitInfo.imageSimI = fitInfo.imageSimI( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
-            fitInfo.imageSimF = fitInfo.imageSimF( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
-            
+            if isfield(fitInfo,'imageSimI')
+                fitInfo.imageSimI = fitInfo.imageSimI( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
+                fitInfo.imageSimF = fitInfo.imageSimF( 1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1+pad_z:end-pad_z);
+            end
             pad_arr = [pad_xy, pad_xy, pad_z];
             switch obj.feature.type
                 case 'MonopolarAster'
@@ -1195,6 +1217,18 @@ classdef FitEngine
                             end
                             faster.featureList{jf}.fillParams( size(obj.image) );
                         end
+                    end
+                    
+                case 'SpotBank'
+                    
+                    for jf = 1 : obj.feature.numFeatures
+                        if strcmp( obj.feature.featureList{jf}.type, 'Spot')
+                            obj.feature.featureList{jf}.position = obj.feature.featureList{jf}.position - pad_arr;
+                            obj.feature.featureList{jf}.bounds.ub.position = obj.feature.featureList{jf}.bounds.ub.position - 2*pad_arr;
+                        else
+                            error('unknown feature type')
+                        end
+                        obj.feature.featureList{jf}.fillParams( size(obj.image) );
                     end
             end
             

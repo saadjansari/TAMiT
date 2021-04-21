@@ -373,12 +373,6 @@ classdef AsterMT < Organizer
         end
         % }}}
         
-        % findAsterInterphase {{{
-        function findAsterInterphase()
-
-        end
-        % }}}
-        
     end
 
 end

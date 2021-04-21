@@ -186,7 +186,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                 [status,~,~] = mkdir( obj.params.saveDirectory, 'mov_estimate');
                 tdir = [obj.params.saveDirectory, filesep, 'mov_estimate'];
                 saveas( hh, [tdir, filesep, sprintf('T%04d.png', parameters.time)])
-                pause(1);close all;
+                pause(0.25);close all;
                 return
             end
             
@@ -1171,7 +1171,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Main feature
             featureMainStruct = fitInfo.featureMain.saveAsStruct();
 
-            if fitInfo.timeReversal
+            if isfield(fitInfo,'timeReversal') && fitInfo.timeReversal
                 f_data = [ fitInfo.saveDirectory, filesep,  sprintf('C%d_T%d_%s', fitInfo.channel, fitInfo.time, fitInfo.fitScope ), '_reverse.mat' ];
             else
                 f_data = [ fitInfo.saveDirectory, filesep,  sprintf('C%d_T%d_%s', fitInfo.channel, fitInfo.time, fitInfo.fitScope ), '.mat' ];
@@ -1376,6 +1376,14 @@ classdef Cell < handle & matlab.mixin.Copyable
             intBank.fit{3}.curve = bundle.fit{3};
             intBank.graphics.curve = curve.graphics.red;
             props.intBank = intBank;
+            
+            % SPB Bank
+            spbBank.fit{2}.spot = spot.fit{2};
+            spbBank.fit{3}.spot = spot.fit{3};
+            spbBank.fit{2}.Environment = env1;
+            spbBank.fit{3}.Environment = env1;
+            spbBank.graphics.spot = spot.graphics.red;
+            props.spbBank = spbBank;
             % }}}
 
         end

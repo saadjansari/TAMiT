@@ -68,6 +68,9 @@ classdef MitoticCell < Cell
 
                 case 'Cut7'
                     feature = MitoticCell.findFeaturesDeNovo_Cut7( image, obj.params.estimate.cut7dist);
+                
+                case 'Sid1'
+                    feature = MitoticCell.findFeaturesDeNovo_Sid1( image, obj.params.estimate.sid1, obj.featureProps.spbBank);
             end
 
         end
@@ -585,11 +588,132 @@ classdef MitoticCell < Cell
         function Cut7 = findFeaturesDeNovo_Cut7( image2Find, displayFlag)
             % Find cut7
 
-            Cut7 = Cut7Distribution( image2Find, {} );
+            imageIn = im2double(image2Find);
+            Cut7 = Cut7Distribution( imageIn, {} );
+            imVals = imageIn( imageIn(:) > 0);
+            Cut7.background = median( imVals);
 
         end
         % }}}
+        
+        % Sid1 {{{
 
+        % findFeaturesDeNovo_KC {{{
+        function spbBank = findFeaturesDeNovo_Sid1( image2Find, params, props)
+            % Mitotic Cell: Find Spindle Pole Bodies
+            
+            imageIn = im2double( image2Find);
+            
+            % Find all possible spots
+            [ spb, intBkg] = MitoticCell.findSPB_sid1( imageIn);
+            
+            % Only keep the best 2 spots
+            if length(spb) == 0 
+                fprintf('WARNING!!!!!!!! No SPB spots found for this image!')
+                spb_bank = cell( length(spb) );
+                return
+            end
+            
+            if length(spb) > 2
+                [~,idxKeep] = sort( [spb.amplitude], 'descend');
+                idxKeep(3:end) = [];
+                spb = spb( idxKeep);
+            end
+            fprintf( '\tNumber of SPBs found = %d\n', length(spb) )
+            
+            % Create the SPBs
+            dim = length( size( image2Find) ); 
+            if dim==2, sigma=[1.2 1.2]; elseif dim==3, sigma=[1.2 1.2 1.0]; end
+            spb_bank = cell( 1, length(spb) );
+            for jspot = 1 : length(spb)
+                spb_bank{ jspot} = Spot( [ spb(jspot).x, spb(jspot).y, spb(jspot).z], spb(jspot).amplitude-intBkg, ...
+                    sigma, dim, props.fit{dim}.spot, props.graphics.spot);
+                spb_bank{ jspot}.findVoxelsInsideMask( logical(image2Find) );
+                spb_bank{ jspot}.label = 'spb';
+            end
+
+            % Create a Spot Bank for handling and storage
+            spbBank = SPBBank( dim, imageIn, spb_bank, props );
+            spbBank.findEnvironmentalConditions();
+
+%             if params.display
+%                 f = figure;
+%                 ax = axes;
+%                 imagesc( max( image2Find, [], 3) ); colormap gray; axis equal; hold on
+%                 spbBank.displayFeature( ax);
+%             end
+
+        end
+        % }}}
+        % findSPB_sid1 {{{
+        function [spbs, intBkg] = findSPB_sid1( imageOrg) 
+            % Find SPB that are sid1-labeled
+
+            % Process:
+            %   1. Find the 3D nucleus (to a high accuracy)
+            %   2. Find Kinetochores inside the nucleus by looking for peaks
+
+            intBkg = mean( imageOrg( imageOrg(:) > 0));
+            
+            % Get maximum Z projection and maxZ indices
+            [im_max, idxZ] = max(imageOrg,[],3);
+            
+            % 3D mask
+            imMaskB3 = logical( imageOrg);
+         
+            % gaussian filtered image (masked)
+            imageG = mat2gray( imgaussfilt( imageOrg, 1) ); imageG = imageG .* imMaskB3;
+            
+            % Iterative thresholding
+            imageG_max = max( imageG,[],3);
+            tt = min( imageG_max(:));
+            accepted_area = 1000000;
+            min_spot_area = 25;
+            
+            % Make movie
+%             vidfile = VideoWriter('~/Desktop/thesholding_movie.mp4','MPEG-4');
+%             vidfile.FrameRate = 10;
+%             open(vidfile);
+%             figure;
+            while tt < max(imageG_max(:)) && accepted_area >min_spot_area
+                
+%                 imagesc( [imageG_max , imageG_max > tt])
+%                 title(['threshold = ',num2str(tt),', N-true = ',num2str(accepted_area)])
+%                 
+                accepted_area = sum( imageG_max(:) > tt);
+%                 disp(['threshold = ',num2str(tt),', N-true = ',num2str(accepted_area)]);
+                tt = tt + 0.001;
+                
+%                 ff = getframe(gcf);
+%                 writeVideo(vidfile, ff);
+            end
+%             close(vidfile)
+            
+            img_threshed = bwareafilt( imageG_max>tt,[7 min_spot_area]);
+            % We have extracted connected regions in the image of size
+            % 9-20. Now, the goal is to find their centroids, and determine
+            % if they are possible locations of sid1.
+            
+            s  = regionprops( img_threshed, im_max, 'Centroid', 'Area', 'MeanIntensity');
+            centroids = cat(1, s.Centroid);
+            spot_intensities = cat(1, s.MeanIntensity);
+            spbs = [];
+            
+            for jrow = 1 : length( spot_intensities)
+                spbs(jrow).x = centroids(jrow,1);
+                spbs(jrow).y = centroids(jrow,2);
+                spbs(jrow).z = idxZ( round(centroids(jrow,2)), round(centroids(jrow,1)) );
+                spbs(jrow).amplitude = spot_intensities( jrow);
+            end
+            
+%             figure;
+%             imagesc( [im_max,im_max]); colormap gray; axis equal
+%             hold on; plot(centroids(1), centroids(2), 'color','green', 'marker','*','linewidth',1, 'markersize',12)
+            % We might need to ensure that the spot found has an intensity
+            % that is significantly bigger than the background intensity.
+        end 
+        % }}}
+        % }}}
     end
 
 end
