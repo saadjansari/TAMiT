@@ -1,5 +1,6 @@
 function paramsPath = initParams( opts)
     % Creates the settings for running the software
+    %
     
     % Initialize Configuration, Cell Info and Paths
     if exist( fullfile( pwd, 'initConfiguration.m') ) ~= 2
