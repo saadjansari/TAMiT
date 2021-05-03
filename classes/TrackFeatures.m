@@ -13,6 +13,7 @@ classdef TrackFeatures
         numVoxels 
         playMovie = 1
         saveMovie = 0
+        nfeats_per_frame
     end
     
     methods (Access = public)
@@ -155,6 +156,7 @@ classdef TrackFeatures
 
             end %(for iTrack = 1 : numTracks)
 
+            obj.nfeats_per_frame = sum( ~isnan(xCoordMatAll(:,:,1)), 1);
             % Call specialized function to get dynamic features
             obj.features = obj.mat2dyfeats( xCoordMatAll, yCoordMatAll, zCoordMatAll, ampMatAll);
             

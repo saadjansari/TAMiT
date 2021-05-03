@@ -606,12 +606,12 @@ classdef MitoticCellBud < Cell
             im_temp = imgaussfilt3(imageIn,2);
             med = median( im_temp(imageIn(:)~=0) );
             
-%             nms3 = 0*imageIn;
-%             im_tempp = 0*imageIn;
-%             for jZ = 1 : size(imageIn,3)
-%                 im_tempp(:,:,jZ) = imadjust(im_temp(:,:,jZ), [1*med, 5*med],[]);
-%                 [~, ~, nms3(:,:,jZ), ~] = steerableDetector( im_tempp(:,:,jZ), 4, 4);
-%             end
+            nms3 = 0*imageIn;
+            im_tempp = 0*imageIn;
+            for jZ = 1 : size(imageIn,3)
+                im_tempp(:,:,jZ) = imadjust(im_temp(:,:,jZ), [1*med, 5*med],[]);
+                [~, ~, nms3(:,:,jZ), ~] = steerableDetector( im_tempp(:,:,jZ), 4, 4);
+            end
             
             for pp = 1 : length(peakPhi)
                 

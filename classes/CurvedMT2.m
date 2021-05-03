@@ -1,4 +1,4 @@
-classdef CurvedMT < BasicElement 
+classdef CurvedMT2 < BasicElement 
     % This is a curve which represents a curve that is linear in the Z
     % dimension. The XY dimensions are modeled with:
     % 1) Start point - 3 params
@@ -12,20 +12,21 @@ classdef CurvedMT < BasicElement
     properties
         origin % origin of bundle (center of overlap zone)
         thetaInit % initial tangent theta and phi
-        normalVec % 2x1 array
+        curvature % nx1 array
+        model
         L = 8 
         length % filament length
         orientation % average orientation
         err_origin % origin of bundle (center of overlap zone)
         err_thetaInit % initial tangent theta and phi
-        err_normalVec % 2x1 array
+        err_curvature % nx1 array
         err_L
     end
 
     methods
 
         % CurvedMT {{{
-        function obj = CurvedMT( origin, thetaInit, normalVec, L, amplitude, sigma, dim, props2Fit, display)
+        function obj = CurvedMT2( model, origin, thetaInit, curvature, L, amplitude, sigma, dim, props2Fit, display)
         % Bundle : this is the constructor function for an interphase bundle. 
 
             % Ensure dim matches image dimensionality and positions dimensionality
@@ -34,10 +35,11 @@ classdef CurvedMT < BasicElement
             end
 
             obj = obj@BasicElement( dim, amplitude, sigma, props2Fit, display, 'CurvedMT');
-
+            
+            obj.model = model;
             obj.origin = origin;
             obj.thetaInit = thetaInit;
-            obj.normalVec = normalVec;
+            obj.curvature = curvature;
             obj.L = L; 
             obj.SetBounds();
 
@@ -66,19 +68,19 @@ classdef CurvedMT < BasicElement
                 temps.sigma = obj.sigma(3);
                 temps.amplitude = obj.amplitude;
                 temps.L = obj.L;
-                temps.normalVec = obj.normalVec;
+                temps.curvature = obj.curvature;
                 temps.bounds.ub.origin = obj.bounds.ub.origin(3);
                 temps.bounds.ub.thetaInit = obj.bounds.ub.thetaInit(2);
                 temps.bounds.ub.sigma = obj.bounds.ub.sigma(3);
                 temps.bounds.ub.amplitude = obj.bounds.ub.amplitude;
                 temps.bounds.ub.L = obj.bounds.ub.L;
-                temps.bounds.ub.normalVec = obj.bounds.ub.normalVec;
+                temps.bounds.ub.curvature = obj.bounds.ub.curvature;
                 temps.bounds.lb.origin = obj.bounds.lb.origin(3);
                 temps.bounds.lb.thetaInit = obj.bounds.lb.thetaInit(2);
                 temps.bounds.lb.sigma = obj.bounds.lb.sigma(3);
                 temps.bounds.lb.amplitude = obj.bounds.lb.amplitude;
                 temps.bounds.lb.L = obj.bounds.lb.L;
-                temps.bounds.lb.normalVec = obj.bounds.lb.normalVec;
+                temps.bounds.lb.curvature = obj.bounds.lb.curvature;
             end
             vec = []; ub=[]; lb=[];
             for jProp = 1 : length( props2get)
@@ -119,7 +121,7 @@ classdef CurvedMT < BasicElement
                 errBoolean = 0;
             end
             
-            props2find = {'origin','thetaInit', 'normalVec', 'L', 'amplitude', 'sigma'};
+            props2find = {'origin','thetaInit', 'curvature', 'L', 'amplitude', 'sigma'};
             
             % find the index of start positions
             for jProp = 1 : length( props2find)
@@ -294,6 +296,50 @@ classdef CurvedMT < BasicElement
 
         end
         % }}}
+
+        % MakeModelFunction
+        function ff = MakeModelFunction(obj)
+            
+            switch obj.model
+                case 'fourier1'
+                    a0 = obj.curvature(1);
+                    a1 = obj.curvature(2);
+                    b1 = obj.curvature(3);
+                    w = obj.curvature(4);
+
+                    ff = @(t) a0 + a1*cos(t*w) + b1*sin(t*w);
+
+                case 'fourier2'
+                    a0 = obj.curvature(1);
+                    a1 = obj.curvature(2);
+                    b1 = obj.curvature(3);
+                    a2 = obj.curvature(4);
+                    b2 = obj.curvature(5);
+                    w = obj.curvature(6);
+
+                    ff = @(t) a0 + a1*cos(t*w) + b1*sin(t*w) + ...
+                            a2*cos(2*t*w) + b2*sin(2*t*w);
+                    
+                case 'fourier3'
+                    a0 = obj.curvature(1);
+                    a1 = obj.curvature(2);
+                    b1 = obj.curvature(3);
+                    a2 = obj.curvature(4);
+                    b2 = obj.curvature(5);
+                    a3 = obj.curvature(6);
+                    b3 = obj.curvature(7);
+                    w = obj.curvature(8);
+
+                    ff = @(t) a0 + a1*cos(t*w) + b1*sin(t*w) + ...
+                            a2*cos(2*t*w) + b2*sin(2*t*w) + ...
+                            a3*cos(3*t*w) + b3*sin(3*t*w);
+
+                otherwise
+                    error('Unknown curvature model')
+            end
+
+        end
+
         % GetCoords {{{
         function cc = GetCoords( obj, tmax, tmin)
             % get coordinates of curve from tmin to max. If not specified, get coords of entire curve
@@ -314,33 +360,33 @@ classdef CurvedMT < BasicElement
                 tanVec = [ cos( obj.thetaInit(1)), sin( obj.thetaInit(1) ), cos( obj.thetaInit(2) )];
             end
             % construct time vector
-            t = linspace(0, tmax, ceil(10*tmax));  [~,idxStart] = min( abs(t-tmin));
+            t = linspace(0, tmax, ceil(1*tmax));  [~,idxStart] = min( abs(t-tmin));
 
-            % Acceleration function discretized in time
-            if length( obj.normalVec) == 1
-                acc = obj.normalVec(1)*ones(size(t));
-            elseif length( obj.normalVec) == 2
-                acc = obj.normalVec(1) + obj.normalVec(2)*t;
-            else
-                acc = obj.normalVec(1) + obj.normalVec(2)*t + obj.normalVec(3)*(t.*t);
-            end
+            % Curvature function discretized in time
+            acc = obj.MakeModelFunction();
+            
             % initialization
-            try
             xx = zeros( obj.dim, length(t) ); xx(:,1) = obj.origin';
-            catch
-                stoph=1;
-            end
-            vv = zeros( 2, length(t) ); vv(:,1) = tanVec(1:2);
+            vv = zeros( numel(tanVec), length(t) ); vv(:,1) = tanVec;
 
             % iterate
             for jt = 2 : length(t)
+                
+                % Step size
                 dt = t(jt)-t(jt-1);
-                vv(:,jt) = vv(:,jt-1) + acc( jt)*dt*Rot* vv(:,jt-1) / norm( vv(:,jt-1));
-                v_mean = 1/2 * ( vv(:,jt) + vv(:,jt-1) );
-                % v_mean = vv(:,jt-1);
-                xx(1:2,jt) = xx(1:2,jt-1) + dt*v_mean/norm(v_mean);
+
+                % New tangent : Get by adding normal vector to old tangent
+                old_tan = vv(:,jt-1);
+                new_tan_XY = old_tan(1:2) + acc(jt-1)*dt*Rot*old_tan(1:2);
+                vv(1:2,jt) = new_tan_XY/norm(new_tan_XY);
+                
                 if obj.dim == 3
-                    xx(3,jt) = xx(3,jt-1) + tanVec(3)*dt;
+                    vv(3,jt) = tanVec(3);
+                end
+                    
+                xx(1:2,jt) = xx(1:2,jt-1) + dt*vv(1:2,jt);
+                if obj.dim == 3
+                    xx(3,jt) = xx(3,jt-1) + vv(3,jt)*dt;
                 end
             end
             cc = xx(:,idxStart:end);
@@ -384,7 +430,7 @@ classdef CurvedMT < BasicElement
             feat.type = type;
             feat.origin = obj.origin;
             feat.tanInit = obj.tanInit;
-            feat.normalVec = obj.normalVec;
+            feat.curvature = obj.curvature;
             feat.L = obj.L;
             feat.amplitude = obj.amplitude;
             feat.sigma = obj.sigma;
@@ -405,14 +451,14 @@ classdef CurvedMT < BasicElement
             S.sigma = obj.sigma;
             S.origin = obj.origin;
             S.thetaInit = obj.thetaInit;
-            S.normalVec = obj.normalVec;
+            S.curvature = obj.curvature;
             S.L = obj.L;
             S.display = obj.display;
             S.err_amplitude = obj.err_amplitude;
             S.err_sigma = obj.err_sigma;
             S.err_origin = obj.err_origin;
             S.err_thetaInit = obj.err_thetaInit;
-            S.err_normalVec = obj.err_normalVec;
+            S.curvature = obj.curvature;
             S.err_L = obj.err_L;
 
         end
@@ -457,7 +503,7 @@ classdef CurvedMT < BasicElement
             obj.sigma(1:2) = obj2D.sigma(1:2);
             obj.amplitude = obj2D.amplitude;
             obj.L = obj2D.L;
-            obj.normalVec = obj2D.normalVec;
+            obj.curvature = obj2D.curvature;
             
         end
         % }}}
@@ -516,16 +562,18 @@ classdef CurvedMT < BasicElement
                 lb.thetaInit = obj.thetaInit - [0.3];
             end
             % normalVec
-            if length(obj.normalVec) == 1
-                ub.normalVec = obj.normalVec + [0.02];
-                lb.normalVec = obj.normalVec - [0.02];
-            elseif length(obj.normalVec) == 2
-                ub.normalVec = obj.normalVec + [0.02, 0.0002];
-                lb.normalVec = obj.normalVec - [0.02, 0.0002];
-            elseif length(obj.normalVec) == 3
-                ub.normalVec = obj.normalVec + [0.02, 0.0002, 0.000002];
-                lb.normalVec = obj.normalVec - [0.02, 0.0002, 0.000002];
-            end
+%             if length(obj.normalVec) == 1
+%                 ub.normalVec = obj.normalVec + [0.02];
+%                 lb.normalVec = obj.normalVec - [0.02];
+%             elseif length(obj.normalVec) == 2
+%                 ub.normalVec = obj.normalVec + [0.02, 0.0002];
+%                 lb.normalVec = obj.normalVec - [0.02, 0.0002];
+%             elseif length(obj.normalVec) == 3
+%                 ub.normalVec = obj.normalVec + [0.02, 0.0002, 0.000002];
+%                 lb.normalVec = obj.normalVec - [0.02, 0.0002, 0.000002];
+%             end
+            ub.curvature = obj.curvature + 0.02;
+            lb.curvature = obj.curvature - 0.02;
             
             obj.bounds.lb = lb;
             obj.bounds.ub = ub;

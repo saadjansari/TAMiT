@@ -1106,8 +1106,8 @@ classdef Methods
             while success && iter< max_iter
                 
                 if iter <= 2
-                    fov = 1.5*fieldOfVision;
-                    step = 2*stepSize;
+                    fov = 1.0*fieldOfVision;
+                    step = 1*stepSize;
                 else
                     fov = fieldOfVision;
                     step = stepSize;
@@ -1115,13 +1115,17 @@ classdef Methods
 
                 [coordNext, success, orientationNext] = Methods.estimateNextCurveCoord( coordCurr, orientationOld, step, visibility, fov, imageMT, bkg_thresholding, plotflags);
                 if ~success % try again for a limited number of times with smaller steps
-                    [coordNext, success, orientationNext] = Methods.estimateNextCurveCoord( coordCurr, orientationOld, step, visibility/2, fov, imageMT, bkg_thresholding, plotflags);
+                    [coordNext, success, orientationNext] = Methods.estimateNextCurveCoord( coordCurr, orientationOld, step/2, visibility/2, fov, imageMT, bkg_thresholding, plotflags);
 %                     currImproveCones = currImproveCones+1;
                 end
 
                 if success
                     orientBank = [ orientBank, orientationNext];
-                    try, orientationOld = mean( orientBank(end-2:end) ); end, try, orientationOld = mean( orientBank(end-1:end) ); end
+                    if length(orientBank) <= 3
+                        orientationNext = startOrient;
+                    end
+%                     try, orientationOld = mean( orientBank(end-2:end) ); end, try, orientationOld = mean( orientBank(end-1:end) ); end
+                    orientationOld = orientationNext;
                     coordCurr = coordNext;
                     coordsMT = [ coordsMT , coordNext];
 
@@ -1179,7 +1183,7 @@ classdef Methods
             IntPhi = zeros( 1, length( PhiVec) );
 
             rp = visibility; % used for radial integration (allows for better angular determination)
-            rmin = 1;
+            rmin = max([1, stepSize-5]);
 %             figure;
             for jPhi = 1 : length( PhiVec)
                 % Extract the relevant angles for drawing a non-zero angle
@@ -1216,7 +1220,8 @@ classdef Methods
                 imMask = bwconvhull( imMask);
 
                 imMasked = imMask .* imSub;
-%                 imshowpair(imSub, imMask); pause(0.25)
+%                 [~,x0_sub] = min( abs(xVecNew-x0)); [~,y0_sub] = min( abs(yVecNew-y0));
+%                 imshowpair(imSub, imMask); hold on; plot(x0_sub,y0_sub,'b*'); pause(0.25)
                 
                 % Sum up values and store them
                 IntPhi( jPhi) = sum( imMasked(:) ) / sum(imMask(:));

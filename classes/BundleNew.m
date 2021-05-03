@@ -630,18 +630,39 @@ classdef BundleNew < BasicElement
             if size(coords,1) ~= dim
                 error('Coord size doesnt match dim of image')
             end
-            % Get pixels coordinates perp to direction of curve
+            
+            % Get fine coordinates
+            % Arc length parameter as cum distance between points.
+            leng = sum( sqrt( sum(diff(coords, 1, 2).^2, 1) ) );
+            arc_leng = [0,cumsum( sqrt( sum(diff(coords, 1, 2).^2, 1) ) )];
+            % Resampled coordinates with finer spacing
+            t_even = 0:0.25:ceil( leng );
+            
+            if dim == 3
+                Xnew = interp1( arc_leng, coords(1,:), t_even, 'spline','extrap' );
+                Ynew = interp1( arc_leng, coords(2,:), t_even, 'spline','extrap'  );
+                Znew = interp1( arc_leng, coords(3,:), t_even, 'spline','extrap'  );
+                cc = [Xnew; Ynew; Znew];
+            else
+                Xnew = interp1( arc_leng, coords(1,:), t_even, 'spline','extrap' );
+                Ynew = interp1( arc_leng, coords(2,:), t_even, 'spline','extrap'  );
+                cc = [Xnew; Ynew];
+            end
+            
+            % Get pixels coordinates perp to direction of curve locally
+            grads = diff(cc,1,2);
             orient = atan2( coords(2,end)-coords(2,1) , coords(1,end)-coords(1,1) );
-            nVec = [cos(orient+pi/2); sin(orient+pi/2) ];
+            orients = atan2( grads(2,:), grads(1,:) ); orients = [orients(1), orients];
+            nVec = [cos(orients+pi/2); sin(orients+pi/2) ];
             rads = -rad:rad;
-            c2 = zeros( 2, size(coords,2)*length(rads));
+            c2 = zeros( 2, size(cc,2)*length(rads));
             for jr = 1: length(rads)
-                c2(:, 1+(jr-1)*size(coords,2):(jr)*size(coords,2)) = round( coords(1:2,:)+ rads(jr)*nVec);
+                c2(:, 1+(jr-1)*size(cc,2):(jr)*size(cc,2)) = round( cc(1:2,:)+ rads(jr)*nVec);
             end
             % Add half circle near endpoints
             try
             imt = zeros(sizeImage(1:2)); 
-            imt(round(coords(2,1)),round(coords(1,1)))=1; imt(round(coords(2,end)),round(coords(1,end)))=1; 
+            imt(round(cc(2,1)),round(cc(1,1)))=1; imt(round(cc(2,end)),round(cc(1,end)))=1; 
             catch
                 stoph=1;
             end

@@ -31,7 +31,9 @@ classdef SpindleNew < OrganizerMaster
             props.spindle = {'startPosition', 'endPosition', 'amplitude', 'sigma'};
             props.spb = {'position', 'amplitude', 'sigma'};
             props.mt = {'thetaInit', 'normalVec', 'L', 'amplitude', 'sigma'};
-
+            props.mt2 = {'thetaInit', 'curvature', 'L', 'amplitude', 'sigma'};
+            warning('using hard coded curvature property') 
+            
             % get vector from Spindle microtubule
             [vec_spindle, vecLabels_spindle, ub_s, lb_s] = getVec( obj.featureList{ 1}, props.spindle );
             vec = [vec, vec_spindle]; ub = [ub, ub_s]; lb = [lb, lb_s];
@@ -40,7 +42,7 @@ classdef SpindleNew < OrganizerMaster
 
             % Loop over mt arrays and get their vectors. Remove the SPBs from the fit vectors. 
             for jmt = 2 : obj.numFeatures
-                [vec_mtarray, vecLabels_mtarray, ub_ma, lb_ma] = getVec( obj.featureList{ jmt}, props.spb, props.mt);
+                [vec_mtarray, vecLabels_mtarray, ub_ma, lb_ma] = getVec( obj.featureList{ jmt}, props.spb, props.mt2);
                 % find indexes of strings that start with the 'SPB_position'
                 idxRm = find( strcmp( vecLabels_mtarray, 'SPB_position') );
                 vec_mtarray( idxRm) = []; ub_ma( idxRm) = []; lb_ma( idxRm) = [];

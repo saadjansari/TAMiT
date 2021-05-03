@@ -85,7 +85,7 @@ classdef AnalysisSingleCell < handle
                 % Make movie
                 if obj.flagMovie 
                     fprintf('   Directing movies...\n')
-                    obj.temp_fig1( jChannel);
+%                     obj.temp_fig1( jChannel);
 %                     obj.temp_fig3( jChannel);
 %                     obj.makeMovie( jChannel);
                     if obj.fwdreverse
@@ -458,7 +458,7 @@ classdef AnalysisSingleCell < handle
             % Create frames for a movie
             
             % Flag for tracking movie
-            do_movie_tracking=1;
+            do_movie_tracking=0;
             
             % Get movie
             movieMat = zeros( size(obj.simImageMT,1), size(obj.simImageMT,2), size(obj.simImageMT,4) );
@@ -552,6 +552,7 @@ classdef AnalysisSingleCell < handle
                     trackMono = trackMono.trackUTRACK();
                     if ~isempty(trackMono.tracksFinal)
                         trackMono = trackMono.parseTracksFinal( obj.data{jChannel}.features );
+                        writematrix(trackMono.nfeats_per_frame,[obj.path, filesep,'nfeats_per_frame.csv'])
                         dymgmt = DynamicFeatureMgmt( trackMono.features);
                         dymgmt.saveMat( obj.path)
                     end
@@ -1105,7 +1106,7 @@ classdef AnalysisSingleCell < handle
             % for each cell we'll run an AnalyzeSingle function
             for jCell = 1 : numCells
                 addpath( genpath( folds{jCell} ) );
-                if exist([params.pathParent, filesep, folds{jCell}, filesep, 'dydata.mat'], 'file') ~=2
+                if exist([params.pathParent, filesep, folds{jCell}, filesep, 'nfeats_per_frame.csv'], 'file') ~=2
                     anaCells{jCell} = AnalysisSingleCell.AnalyzeSingle( folds{ jCell}, params ); 
                 end
             end

@@ -149,7 +149,7 @@ classdef Cell < handle & matlab.mixin.Copyable
         function FindFeaturesFrame( obj, Image, parameters)
             % Find and fit features for a single CT frame
             
-            plot_estimate_and_skip = 0;
+            plot_estimate_and_skip = 1;
             
             % Decide if fit should be performed. Skip otherwise
             [obj, status] = DecideToFit( obj, Image, parameters);
@@ -180,7 +180,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                 img = imagesc( image2D ); eval( imageSets); hold on;
                 mainFeature.displayFeature(gca); set( get(gca, 'title'), 'String', 'Features');
                 suptitle( num2str(parameters.time))
-                drawnow; 
+                drawnow;
                 
                 % save png for estimate movie
                 [status,~,~] = mkdir( obj.params.saveDirectory, 'mov_estimate');
@@ -1267,6 +1267,8 @@ classdef Cell < handle & matlab.mixin.Copyable
             curve.fit{3} = {'startPosition', 'cX','cY','cZ', 'amplitude', 'sigma'};
             curveMT.fit{2} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L','sigma'};
             curveMT.fit{3} = {'origin', 'thetaInit', 'normalVec', 'amplitude', 'L','sigma'};
+            curveMT2.fit{2} = {'origin', 'thetaInit', 'curvature', 'amplitude', 'L','sigma'};
+            curveMT2.fit{3} = {'origin', 'thetaInit', 'curvature', 'amplitude', 'L','sigma'};
             curve.graphics.magenta = {'Color', [0.7 0 0.7] , 'LineWidth', 2};
             curve.graphics.green = {'Color', [0 1 0] , 'LineWidth', 2};
             curve.graphics.blue = {'Color', [0 0 1] , 'LineWidth', 2};
@@ -1329,12 +1331,12 @@ classdef Cell < handle & matlab.mixin.Copyable
             
             % Spindle Budding Yeast
             spindle_bud.fit{2}.line = line.fit{2};
-            spindle_bud.fit{2}.curve = curveMT.fit{2};
+            spindle_bud.fit{2}.curve = curveMT2.fit{2};
             spindle_bud.fit{2}.aster = asterLine.fit{2};
             spindle_bud.fit{2}.aster.spot(1) = [];
             spindle_bud.fit{2}.Environment = env2;
             spindle_bud.fit{3}.line = line.fit{3};
-            spindle_bud.fit{3}.curve = curveMT.fit{3};
+            spindle_bud.fit{3}.curve = curveMT2.fit{3};
             spindle_bud.fit{3}.aster = asterLine.fit{3};
             spindle_bud.fit{3}.aster.spot(1) = [];
             spindle_bud.fit{3}.Environment = env2;

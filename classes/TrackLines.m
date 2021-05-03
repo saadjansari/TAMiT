@@ -177,7 +177,8 @@ classdef TrackLines < TrackFeatures
             numFeat = size(xC,1);
 
             % Determine number of distinguisable colors needed
-            num_col = max( sum( ~isnan(xC(:,:,1)), 1) );
+            nFeatsPerFrame = sum( ~isnan(xC(:,:,1)), 1);
+            num_col = max( nFeatsPerFrame );
             num_col = numFeat;
             cols = distinguishable_colors(num_col, {'w','k'});
             
