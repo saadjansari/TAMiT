@@ -550,7 +550,7 @@ classdef AnalysisSingleCell < handle
                     feats = {trackSid};
                     
                     
-%                     error('not set up')
+                    error('not set up')
                 case 'Monopolar'
                     
                     % get asters at  SPB

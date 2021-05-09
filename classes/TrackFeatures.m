@@ -294,10 +294,21 @@ classdef TrackFeatures
                         
 
                     case 'Mitosis'
-                        error('not set up yet')
-                        % Display the spindles
-                        spindles = feats{1};
-                        spindles{jt}.displayFeature( h(jax))
+                        
+                        do_what = 'sid4';
+                        
+                        if strcmp( do_what,'sid4')
+                            
+                            spotbank = feats{1};
+                            spotbank.drawMatchedFeature( h(jax), jt);
+                            
+                        else
+                            error('not set up yet')
+                            % Display the spindles
+                            spindles = feats{1};
+                            spindles{jt}.displayFeature( h(jax))
+                        end
+                        
 
                     case 'Monopolar'
                         

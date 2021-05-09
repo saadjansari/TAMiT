@@ -192,8 +192,11 @@ classdef Spot < BasicElement
         % }}}
         
         % displayFeature3D {{{
-        function ax = displayFeature3D( obj, ax,sizeZ)
-            cm = hsv;
+        function ax = displayFeature3D( obj, ax,sizeZ, cm)
+            if nargin < 4
+                cm = hsv;
+            end
+%             cm = hsv;
             col = cm( round((obj.position(3)/sizeZ)*length(cm)), :);
             line( obj.position(1), obj.position(2), obj.position(3), 'Color', col, ...
                 'Marker','o', 'MarkerSize',20,'LineWidth',10,'MarkerFaceColor',col );

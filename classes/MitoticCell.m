@@ -611,7 +611,7 @@ classdef MitoticCell < Cell
             if length(spb) == 0 
                 fprintf('WARNING!!!!!!!! No SPB spots found for this image!')
                 spb_bank = cell( length(spb) );
-                return
+                
             end
             
             if length(spb) > 2

@@ -1,47 +1,42 @@
-classdef TrackCurves < TrackFeatures
-    % Class for tracking line features in cells.
-    % MitosisCellBud CELL
+classdef TrackSpots < TrackFeatures
+    % Class for tracking spot features in cells.
+    % MITOTIC CELL
     % Uses the Danuser u-track software and the generic TrackFeatures class
     properties
-        startPt % nDim x nTime
-        scaling = [1,1,5]
+        scaling = [3,3,1] % [position]
     end
     
     methods (Access = public)
         
-        function obj = TrackCurves(data_xyzt, times, timestep, sizeVoxels)
+        function obj = TrackSpots(data_xyzt, times, timestep, sizeVoxels)
             
-            obj = obj@TrackFeatures('Curve', data_xyzt, times, timestep, sizeVoxels);
+            obj = obj@TrackFeatures('Spot', data_xyzt, times, timestep, sizeVoxels);
             
         end
         
         function obj = parseMainFeature( obj, mainFeatures)
             
-            obj.startPt = zeros(3, length( obj.times),2 );
             for jTime = 1 : length( obj.times)
-                
                 feat = mainFeatures{jTime};
 
-                % Create a structure with fields xCoord,yCoord,zCoord,amp
-                % Instead of xC,yC, zC we will use thetaInit(1), thetaInit(2), length
-                theta1 = []; theta2 = []; el = []; amp = []; nV = [];
-                obj.startPt(:, jTime, 1) = feat.featureList{1}.position;
-                % obj.startPt(:, jTime, 2) = feat.featureList{1}.err_position;
-                for jc = 2: feat.numFeatures
-                    el = [ el ; [feat.featureList{jc}.GetLength(), 0]];
-                    theta1 = [ theta1 ; [feat.featureList{jc}.thetaInit(1), 0]];
-                    theta2 = [ theta2 ; [feat.featureList{jc}.thetaInit(2), 0]];
-                    amp = [amp; [feat.featureList{jc}.amplitude, 0]];
-%                     nV = [nV; feat.featureList{jc}.normalVec];
+                % The coordinates will be position.
+                xC = []; yC = []; zC = []; amp = [];
+                for jc = 1: feat.numFeatures
+                    
+                    xx = feat.featureList{jc}.position(1)/ obj.scaling(1);
+                    yy = feat.featureList{jc}.position(2)/ obj.scaling(2);
+                    zz = feat.featureList{jc}.position(3) / obj.scaling(3);
+                    
+                    xC = [xC; [xx, 0]];
+                    yC = [yC; [yy, 0]];
+                    zC = [zC; [zz, 0]];
+                    
+                    amp = [amp; [feat.featureList{jc}.amplitude, feat.featureList{jc}.err_amplitude]];
                 end
-                
-                % Scale length and theta
-                movieInfo(jTime).xCoord = theta1 / obj.scaling(1);
-                movieInfo(jTime).yCoord = theta2 / obj.scaling(2);
-                movieInfo(jTime).zCoord = el / obj.scaling(3);
+                movieInfo(jTime).xCoord = xC;
+                movieInfo(jTime).yCoord = yC;
+                movieInfo(jTime).zCoord = zC;
                 movieInfo(jTime).amp = amp;
-%                 movieInfo(jTime).normalVec = nV;
-                
             end
             obj.movieInfo = movieInfo;
             
@@ -49,9 +44,9 @@ classdef TrackCurves < TrackFeatures
         
         function obj = trackUTRACK( obj)
            
-            gapCloseParam.timeWindow = 3; %maximum allowed time gap (in frames) between a track segment end and a track segment start that allows linking them.
+            gapCloseParam.timeWindow = 2; %maximum allowed time gap (in frames) between a track segment end and a track segment start that allows linking them.
             gapCloseParam.mergeSplit = 0; %1 if merging and splitting are to be considered, 2 if only merging is to be considered, 3 if only splitting is to be considered, 0 if no merging or splitting are to be considered.
-            gapCloseParam.minTrackLen = 2; %minimum length of track segments from linking to be used in gap closing.
+            gapCloseParam.minTrackLen = 3; %minimum length of track segments from linking to be used in gap closing.
 
             %optional input:
             gapCloseParam.diagnostics = 0; %1 to plot a histogram of gap lengths in the end; 0 or empty otherwise.
@@ -157,7 +152,8 @@ classdef TrackCurves < TrackFeatures
             numFeat = size(xC,1);
 
             % Determine number of distinguisable colors needed
-            num_col = max( sum( ~isnan(xC(:,:,1)), 1) );
+            nFeatsPerFrame = sum( ~isnan(xC(:,:,1)), 1);
+            num_col = max( nFeatsPerFrame );
             num_col = numFeat;
             cols = distinguishable_colors(num_col, {'w','k'});
             
@@ -178,22 +174,31 @@ classdef TrackCurves < TrackFeatures
                 t0 = startend(jf,1);
                 t1 = startend(jf,2);
                 
-                % get position matrix
-                pos0 = obj.startPt(:,t0:t1,:);
-                
-                theta = zeros(2, feat_timespan(jf), 2);
-                theta(1,:,:) = xC( jf,t0:t1,:)*obj.scaling(1);
-                theta(2,:,:) = yC( jf,t0:t1,:)*obj.scaling(2);
-                lens = zC( jf,t0:t1,:)*obj.scaling(3);
-                
                 % get amplitudes
                 amp = aC( jf, t0:t1, :);
                 
-                dyfeats{jf} = DynamicCurve( startend(jf,1), startend(jf,2), pos0, lens, theta, amp, cols( 1+rem(jf,num_col), :), obj.timeStep, obj.sizeVoxels ); 
+%                 % get position matrix
+%                 pos = zeros(2,3, feat_timespan(jf) ,2 );
+%                 pos(1,:,:,:) = obj.startPt(:,t0:t1,:);
+%                 pos(2,1,:,:) = xC( jf,t0:t1,:);
+%                 pos(2,2,:,:) = yC( jf,t0:t1,:);
+%                 pos(2,3,:,:) = zC( jf,t0:t1,:);
+%                 
+%                 dyfeats{jf} = DynamicLine( startend(jf,1), startend(jf,2), pos, amp, cols( 1+rem(jf,num_col), :), obj.timeStep, obj.sizeVoxels ); 
+
+                
+                % get position matrix
+                pos0 = zeros(3, feat_timespan(jf), 2);
+                
+                pos0(1,:,:) = xC( jf,t0:t1,:)*obj.scaling(1);
+                pos0(2,:,:) = yC( jf,t0:t1,:)*obj.scaling(2);
+                pos0(3,:,:) = zC( jf,t0:t1,:)*obj.scaling(3);
+                
+                dyfeats{jf} = DynamicSpot( startend(jf,1), startend(jf,2), pos0, amp, cols( 1+rem(jf,num_col), :), obj.timeStep, obj.sizeVoxels ); 
+            
             end
             
         end
-        
         
     end
     

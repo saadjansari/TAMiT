@@ -50,7 +50,10 @@ classdef DynamicFeatureMgmt
        
        % save data to file
        function saveCSV(obj, path)
+           % Save csv file for lengths
+           % Save csv file for curvatures
            
+           % LENGTHS
            % Create a matrix of size nFeat x nTime
            nFeat = length(obj.features);
            % Find nTime
@@ -70,7 +73,29 @@ classdef DynamicFeatureMgmt
                dmat(times,jf) = lens;
            end
            
-           writematrix(dmat,[path, filesep,'dydata.csv'])
+           writematrix(dmat,[path, filesep,'dy_length.csv'])
+           
+           % CURVATURES
+           % Create a matrix of size nFeat x nTime
+           nFeat = length(obj.features);
+           % Find nTime
+           ts = 1;
+           te = [];
+           for jf = 1 : nFeat
+               te = [ te, obj.features{jf}.time_end];
+           end
+           te = max(te);
+           nT = te-ts+1;
+           dmat = nan(nT,nFeat);
+           
+           % fill out length values
+           for jf = 1 : nFeat
+               % get lengths
+               [K,~,times] = obj.features{jf}.getCurvature();
+               dmat(times,jf) = K;
+           end
+           
+           writematrix(dmat,[path, filesep,'dy_curvature.csv'])
        end
       
        

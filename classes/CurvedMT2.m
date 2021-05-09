@@ -248,14 +248,17 @@ classdef CurvedMT2 < BasicElement
         % }}}
         
         % displayFeature3D {{{
-        function ax = displayFeature3D( obj, ax, sizeZ)
+        function ax = displayFeature3D( obj, ax, sizeZ, cm)
+            if nargin < 4
+                cm = hsv;
+            end
              % Get (x,y,z) coordinates of the curve
             coords = obj.GetCoords();
             line( coords(1,:), coords(2,:), coords(3,:), obj.display{:} );
             x = [coords(1,:),NaN];
             y = [coords(2,:),NaN];
             z = [coords(3,:),NaN];
-            cm = hsv;
+%             cm = hsv;
 %             colormap(hsv)
             cols = round((z/sizeZ)*length(cm)); cols(end)=cols(end-1);
             cols( cols < 1) = 1; cols(cols>256) = 256;
@@ -393,6 +396,23 @@ classdef CurvedMT2 < BasicElement
 
         end
         % }}}
+        
+        % GetMeanCurvature {{{
+        function mean_K = GetMeanCurvature( obj)
+            % get coordinates of curve from tmin to max. If not specified, get coords of entire curve
+            tmax = obj.L;
+            tmin = 0;
+            
+            % construct time vector
+            t = linspace(0, tmax, ceil(10*tmax));
+
+            % Acceleration function discretized in time
+            % Curvature function discretized in time
+            acc = obj.MakeModelFunction();
+            mean_K = mean( acc(t) );
+
+        end
+        % }}}
         % }}}
 
         % forceInsideMask {{{
@@ -444,6 +464,7 @@ classdef CurvedMT2 < BasicElement
         % saveAsStruct {{{
         function S = saveAsStruct( obj)
 
+            S.model = obj.model;
             S.type = obj.type;
             S.dim = obj.dim;
             S.props2Fit = obj.props2Fit;
@@ -675,10 +696,10 @@ classdef CurvedMT2 < BasicElement
                 error('incorrect type')
             end          
             
-            obj = CurvedMT( S.origin, S.thetaInit, S.normalVec, S.L, S.amplitude, S.sigma, S.dim, S.props2Fit, S.display);
+            obj = CurvedMT2( 'fourier2',S.origin, S.thetaInit, S.curvature, S.L, S.amplitude, S.sigma, S.dim, S.props2Fit, S.display);
             try
                 obj.err_origin = S.err_origin;
-                obj.err_normalVec = S.err_normalVec;
+                obj.err_curvature = S.err_curvature;
                 obj.err_thetaInit = S.err_thetaInit;
                 obj.err_L = S.err_L;
                 obj.err_amplitude = S.err_amplitude;

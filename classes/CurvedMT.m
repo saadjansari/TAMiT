@@ -246,14 +246,17 @@ classdef CurvedMT < BasicElement
         % }}}
         
         % displayFeature3D {{{
-        function ax = displayFeature3D( obj, ax, sizeZ)
+        function ax = displayFeature3D( obj, ax, sizeZ, cm)
+            if nargin < 4
+                cm = hsv;
+            end
              % Get (x,y,z) coordinates of the curve
             coords = obj.GetCoords();
             line( coords(1,:), coords(2,:), coords(3,:), obj.display{:} );
             x = [coords(1,:),NaN];
             y = [coords(2,:),NaN];
             z = [coords(3,:),NaN];
-            cm = hsv;
+%             cm = hsv;
 %             colormap(hsv)
             cols = round((z/sizeZ)*length(cm)); cols(end)=cols(end-1);
             cols( cols < 1) = 1; cols(cols>256) = 256;
@@ -344,6 +347,27 @@ classdef CurvedMT < BasicElement
                 end
             end
             cc = xx(:,idxStart:end);
+
+        end
+        % }}}
+        % GetMeanCurvature {{{
+        function mean_K = GetMeanCurvature( obj)
+            % get coordinates of curve from tmin to max. If not specified, get coords of entire curve
+            tmax = obj.L;
+            tmin = 0;
+            
+            % construct time vector
+            t = linspace(0, tmax, ceil(10*tmax));
+
+            % Acceleration function discretized in time
+            if length( obj.normalVec) == 1
+                acc = obj.normalVec(1)*ones(size(t));
+            elseif length( obj.normalVec) == 2
+                acc = obj.normalVec(1) + obj.normalVec(2)*t;
+            else
+                acc = obj.normalVec(1) + obj.normalVec(2)*t + obj.normalVec(3)*(t.*t);
+            end
+            mean_K = mean(acc);
 
         end
         % }}}

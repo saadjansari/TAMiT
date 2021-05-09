@@ -38,7 +38,7 @@ function [origin, thetaInit, cf, L, cc] = get_tan_curvature_coeffs( coords, mode
     
     % Resampled coordinates with even spacing
     t_even = 0:0.25:round( max(t_uneven) );
-    t_even_twice = 0:0.25:1.5*round( max(t_uneven) );
+    t_even_twice = 0:0.25:2*round( max(t_uneven) );
 %     Xnew_twice = interp1( t_uneven, X, t_even_twice, 'spline','extrap' );
 %     Ynew_twice = interp1( t_uneven, Y, t_even_twice, 'spline','extrap'  );
 %     Znew_twice = interp1( t_uneven, Z, t_even_twice, 'spline','extrap'  );

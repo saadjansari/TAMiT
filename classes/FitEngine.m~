@@ -1383,13 +1383,12 @@ classdef FitEngine
                     
                     dof1 = sum( ROI(:) )-numP1;
                     dof2 = sum( ROI(:) )-numP2;
-%                     p2 = fcdf( resR2/resR1 , dof2, dof1);
-%                     
-%                     vargout = p2;
+                    p2 = fcdf( resR2/resR1 , dof2, dof1);
                     
-                    FF = ((resR1-resR2)/(dof1-dof2)) / (resR2/dof2);
-                    pp = 1-fcdf(FF,dof1-dof2,dof2);
-                    vargout = pp;
+                    vargout = p2;
+                    
+                    FF = ((resR1-resR2)/(dof1-dof2)) /resR2
+                    
                     
                 case 'aic'
                     

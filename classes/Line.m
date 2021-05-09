@@ -269,11 +269,15 @@ classdef Line < BasicElement
         % }}}
         
         % displayFeature3D {{{
-        function ax = displayFeature3D( obj, ax,sizeZ)
+        function ax = displayFeature3D( obj, ax,sizeZ, cm)
+            if nargin < 4
+                cm = hsv;
+            end
+            
             x = [linspace(obj.startPosition(1), obj.endPosition(1),100),NaN];
             y = [linspace(obj.startPosition(2), obj.endPosition(2),100),NaN];
             z = [linspace(obj.startPosition(3), obj.endPosition(3),100),NaN];
-            cm = hsv;
+%             cm = hsv;
 %             colormap(hsv)
             cols = round((z/sizeZ)*length(cm)); cols(end)=cols(end-1);
             cols( cols < 1) = 1; cols(cols>256) = 256;

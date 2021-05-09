@@ -3,6 +3,7 @@ classdef DynamicCurve < DynamicFeature
         startPosition % (numPts x numDim x numTimes)
         len
         theta
+        curvature
     end
     
     methods
@@ -67,6 +68,29 @@ classdef DynamicCurve < DynamicFeature
            
             lens_err = zeros( size(obj.len) );
         end
+        
+        % get Length
+        function [K, K_err, times] = getCurvature(obj)
+            
+            times = obj.time_step*([obj.time_start:obj.time_end]);
+            lens = zeros( size(times) );  
+            K = zeros( size(times) );
+            % For each time, get matched_feature, then get its coordinates,
+            % and then compute length, and also get its mean curvature
+            for jf = 1 : length( obj.matched_feats)
+                cf = obj.matched_feats{jf};
+                if isempty(cf)
+                    lens(jf) = nan;
+                    K(jf) = nan;
+                    continue
+                end
+                cc = cf.GetCoords(); cc = cc(1:2,:);
+                lens(jf) = sum( sqrt( sum( diff(cc,1, 2).^2,1) ) );
+                K(jf) = cf.GetMeanCurvature();
+            end
+           
+            K_err = zeros( size(obj.len) );
+        end
        
         function obj = matchFeatures( obj, feats_det)
             % Match feature to detection features
@@ -92,6 +116,7 @@ classdef DynamicCurve < DynamicFeature
                         obj.matched_feats{jt} = possible_curves{jdc};
                         obj.matched_feats{jt}.display{2} = obj.color;
                         match_found = 1;
+%                         obj.curvature = obj.matched_feats{jt}.normalVec;
                         break
                     end
                 end
