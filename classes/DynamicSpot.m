@@ -55,8 +55,9 @@ classdef DynamicSpot < DynamicFeature
                 end
                     
             end
-       end
-       
+        end
+
+        
    end
     
     

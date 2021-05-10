@@ -300,7 +300,7 @@ classdef TrackFeatures
                         if strcmp( do_what,'sid4')
                             
                             spotbank = feats{1};
-                            [lbl, cols] = spotbank.drawMatchedFeature_withlabel( h(jax), jt, {}, [], 0);   
+                            [lbl, cols] = bud1.drawMatchedFeature_withlabel( h(jax), jt, {}, [], 0);   
                             % draw feat labels
                             if ~isempty(lbl)
                                 clear p
@@ -313,7 +313,7 @@ classdef TrackFeatures
                                     stopph=1;
                                 end
                             end
-%                             spotbank.drawMatchedFeature( h(jax), jt);
+                            spotbank.drawMatchedFeature( h(jax), jt);
                             
                         else
                             error('not set up yet')

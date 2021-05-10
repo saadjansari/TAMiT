@@ -113,17 +113,17 @@ classdef DynamicFeatureMgmt
            end
            te = max(te);
            nT = te-ts+1;
-           pos_mat = nan(nFeat, 3, nT);
+           dmat = nan(nFeat, 3, nT);
            
            % fill out length values
            for jf = 1 : nFeat
                % get positions
                pos = obj.features{jf}.position(:,:,1);
                times = obj.features{jf}.time_start: obj.features{jf}.time_end;
-               pos_mat(jf, :, times) = pos;
+               dmat(jf, :, times) = pos;
            end
            
-           save([path, filesep,'sid4_positions.mat'],'pos_mat', '-v7');
+           save([path, filesep,'sid4_positions.mat'],'tau','lens', 'lens_err', 'amp', 'amp_err', 'times', '-v7');
        end
       
        

@@ -12,8 +12,7 @@ classdef AnalysisSingleCell < handle
         data
         folderName
         goodFrame = 1
-        flagMovie
-        flagGraph
+        flags
         simImageMT
         fwdreverse = 0
     end
@@ -21,7 +20,7 @@ classdef AnalysisSingleCell < handle
     methods (Access = public )
 
         % AnalysisSingleCell {{{
-        function obj = AnalysisSingleCell( pathResCell, cellType, channels, features, timeStep, sizeVoxels, flagMovie, flagGraph)
+        function obj = AnalysisSingleCell( pathResCell, cellType, channels, features, timeStep, sizeVoxels, flags)
             % Contruct the Analysis Object
             
             obj.path = pathResCell;
@@ -33,8 +32,8 @@ classdef AnalysisSingleCell < handle
 
             obj.channels = channels;
 
-            if ~any( strcmp(features, 'Microtubule') ) && ~any( strcmp( features, 'Kinetochore') ) && ~any( strcmp( feature, 'Cut7' ) )
-                error('AnalysisBank: unknown feature, allowed values are Microtubule, Kinetochore, and Cut7.')
+            if ~any( strcmp(features, 'Microtubule') ) && ~any( strcmp( features, 'Kinetochore') ) && ~any( strcmp( features, 'Cut7' ) ) && ~any( strcmp( features, 'Sid4' ) )
+                error('AnalysisBank: unknown feature, allowed values are Microtubule, Kinetochore, Sid4, and Cut7.')
             end
 
             obj.features = features;
@@ -50,8 +49,7 @@ classdef AnalysisSingleCell < handle
             [~, obj.folderName, ~] = fileparts( pathResCell);
 
             if nargin > 6
-                obj.flagMovie = flagMovie;
-                obj.flagGraph = flagGraph;
+                obj.flags = flags;
             end
             
             
@@ -72,30 +70,34 @@ classdef AnalysisSingleCell < handle
                 % Analysis
                 fname = [obj.path, filesep,'dydata.mat'];
                 
-                disp( 'temp bypass of analysis file check')
                 fprintf('   Analysis: channel %d with feature %s...\n', obj.channels( jChannel), obj.features{ jChannel}); 
                 dat = obj.analyzeChannel( jChannel); save( fname, 'dat', '-v7.3');
 
                 % graph channel analysis
-                if obj.flagGraph
-                    fprintf('   Graphing...\n')
-                    obj.graphChannel( jChannel);
-                end
+%                 if obj.flagGraph
+%                     fprintf('   Graphing...\n')
+%                     obj.graphChannel( jChannel);
+%                 end
 
                 % Make movie
-                if obj.flagMovie 
+                if obj.flags.movie
                     fprintf('   Directing movies...\n')
-%                     obj.temp_fig1( jChannel);
-%                     obj.temp_fig3( jChannel);
                     obj.makeMovie( jChannel);
                     if obj.fwdreverse
-%                         obj.makeMovieFwdReverse( jChannel);
+                      %  obj.makeMovieFwdReverse( jChannel);
                     end
                 end
                 
+                % Paper Figures
+                if obj.flags.paper_figs
+                    obj.temp_fig1( jChannel);
+                    obj.temp_fig3( jChannel);
+                end
+                
                 % Tracking
-                obj.trackChannel( jChannel);
-
+                if obj.flags.tracking
+                    obj.trackChannel( jChannel, obj.flags.tracking_movie);
+                end
             end
 
         end
@@ -108,10 +110,20 @@ classdef AnalysisSingleCell < handle
             global COUNTER
             COUNTER =1;
             
+            % Initialize display message
+            mtitle = sprintf('Status Box');
+            mtext1 = sprintf('Folder: %s \n', obj.folderName);
+            mtext2 = @(x) sprintf('Analyzing time %d / %d\n', x, obj.times(end) );
+            mbox = msgbox( {mtext1,mtext2(1)}, mtitle);
+            set(findobj(mbox,'style','pushbutton'),'Visible','off')
+
             for jFrame = 1 : length( obj.times)
-                fprintf('      Analyzing time %d...\n', obj.times( jFrame)); 
+                set(findobj(mbox,'Tag','MessageBox'),'String',{mtext1,mtext2(obj.times(jFrame))})
+                drawnow
                 obj.analyzeFrame( jChannel, jFrame);
             end
+            close(mbox)
+            
             obj.data{jChannel}.tag = obj.features{jChannel};
             data = obj.data{jChannel};
             
@@ -285,11 +297,24 @@ classdef AnalysisSingleCell < handle
         function makeMovie( obj, jChannel)
             % Create frames for a movie
             
+            % Initialize display message
+            mtitle = sprintf('Status Box');
+            mtext1 = sprintf('Folder: %s \n', obj.folderName);
+            mtext2 = @(x) sprintf('Making movies %d / %d\n', x, obj.times(end) );
+            mbox = msgbox( {mtext1,mtext2(1)}, mtitle);
+            set(findobj(mbox,'style','pushbutton'),'Visible','off')
+
+            
             global COUNTER
             COUNTER =1;
             scale_bars = 1;
             custom_xy = 1;
             for jTime = 1 : length( obj.times)
+                
+                % update display message
+                set(findobj(mbox,'Tag','MessageBox'),'String',{mtext1,mtext2(jTime)})
+                drawnow
+                figure(mbox);
                 
                 % get feature
                 feat = obj.data{jChannel}.features{jTime};
@@ -316,7 +341,7 @@ classdef AnalysisSingleCell < handle
                 
                 fs = 12;
                 % make figure
-                f = figure('visible', 'on'); 
+                f = figure('visible', 'off'); 
                 h = tight_subplot(1,3, 0.01, 0.3, 0.1);
                 % Axes (1,1): Original
                 set(f, 'currentaxes', h(1) );
@@ -375,7 +400,7 @@ classdef AnalysisSingleCell < handle
                 set(f, 'currentaxes', h_temp );hold on
                 colormap( h_temp, hsv);
                 feat.displayFeature( h_temp,1);
-                suptitle( sprintf('T=%d',obj.times(jTime)))
+                title( sprintf('T=%d',obj.times(jTime)))
                 
                 % Axes 3 for colorbar
                 h_temp2 = axes('Position',get(h(3),'Position'), 'Color', 'none', 'xtick', [], 'ytick', [], 'XColor', 'none', 'YColor', 'none');
@@ -415,7 +440,8 @@ classdef AnalysisSingleCell < handle
             end
             
             obj.writeMovie(jChannel);
-
+            close(mbox)
+            
         end
         % }}}
 
@@ -430,6 +456,8 @@ classdef AnalysisSingleCell < handle
                     mname = 'kc_video';
                 case 'Cut7'
                     mname = 'cut7_video';
+                case 'Sid4'
+                    mname = 'sid4_video';
                 otherwise
                     error('analyzeFrame: unknown feature')
             end
@@ -454,11 +482,8 @@ classdef AnalysisSingleCell < handle
         % }}}
         
         % makeMovie {{{
-        function trackChannel( obj, jChannel)
+        function trackChannel( obj, jChannel, do_movie_tracking)
             % Create frames for a movie
-            
-            % Flag for tracking movie
-            do_movie_tracking=1;
             
             % Get movie
             movieMat = zeros( size(obj.simImageMT,1), size(obj.simImageMT,2), size(obj.simImageMT,4) );
@@ -539,15 +564,31 @@ classdef AnalysisSingleCell < handle
                     
                 case 'Mitosis'
                     
-                    trackSid = TrackSpots(movieMat, obj.times, obj.timeStep, obj.sizeVoxels);
-                    trackSid = trackSid.parseMainFeature( obj.data{jChannel}.features );
-                    trackSid = trackSid.trackUTRACK();
-                    if ~isempty(trackSid.tracksFinal)
-                        trackSid = trackSid.parseTracksFinal( obj.data{jChannel}.features );
-                        dymgmt = DynamicFeatureMgmt( trackSid.features);
-%                         dymgmt.saveMat( obj.path)
+                    % Sid4
+                    switch obj.features{jChannel}
+                        case 'Sid4'
+                            trackSid = TrackSpots(movieMat, obj.times, obj.timeStep, obj.sizeVoxels);
+                            trackSid = trackSid.parseMainFeature( obj.data{jChannel}.features );
+                            trackSid = trackSid.trackUTRACK();
+                            if ~isempty(trackSid.tracksFinal)
+                                trackSid = trackSid.parseTracksFinal( obj.data{jChannel}.features );
+                                dymgmt = DynamicFeatureMgmt( trackSid.features);
+                                dymgmt.saveCSV_sid4positions( obj.path)
+                            end
+                            feats = {trackSid};
+                        case 'Cut7'
+                            
+                            % Create 3d movie
+                            sample_frame = obj.data{2}.features{1}.image;
+                            movie3D = zeros( size(sample_frame,1), size(sample_frame,2), size(sample_frame,3), length(obj.times) );
+                            for jTime = 1 : length( obj.times)
+                                feat = obj.data{jChannel}.features{jTime};
+                                movie3D(:,:,:,jTime) = feat.image;
+                            end
+                            save([obj.path, filesep,'cut7_data.mat'],'movie3D', '-v7');
+                            
+                            
                     end
-                    feats = {trackSid};
                     
                     
 %                     error('not set up')
@@ -1109,7 +1150,7 @@ classdef AnalysisSingleCell < handle
             params.resPath = resPathCell;
 
             % Initialize analysis object
-            anaCell = AnalysisSingleCell( resPathCell, params.Cell.params.cellInfo.type, params.channelsToAnalyze, params.channelFeatures, params.Cell.timeStep, params.Cell.sizeVoxels, params.flagMovie, params.flagGraph);
+            anaCell = AnalysisSingleCell( resPathCell, params.Cell.params.cellInfo.type, params.channelsToAnalyze, params.channelFeatures, params.Cell.timeStep, params.Cell.sizeVoxels, params.flags);
 
             % analyze the cell
             anaCell.Analyze();
