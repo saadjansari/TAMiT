@@ -32,7 +32,7 @@ function params = initConfiguration( opts)
     estimate.spindle.spindleMT = 1;
     estimate.spindle.spindlePoles = 1;
     estimate.spindle.astralMT = 1;
-    estimate.spindle.astral_poly_orderXY = 2;
+    estimate.spindle.astral_poly_orderXY = 3;
 
     % Monopolar Spindle
     estimate.monopolar.display = display;
