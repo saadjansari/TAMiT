@@ -610,7 +610,7 @@ classdef MitoticCell < Cell
             % Only keep the best 2 spots
             if length(spb) == 0 
                 fprintf('WARNING!!!!!!!! No SPB spots found for this image!')
-                spb_bank = cell( length(spb) );
+                spb_bank = {};
                 
             end
             

@@ -1022,6 +1022,8 @@ classdef FitEngine
             mask1(1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, 1) = mask0(:,:,1);
             mask1(1+pad_xy:end-pad_xy, 1+pad_xy:end-pad_xy, end) = mask0(:,:,end);
             obj.feature.mask = mask1;
+            obj.image = obj.image.*obj.feature.mask;
+            img1 = obj.image;
             
             if ~isempty(obj.feature.maskNuclear)
                 mask0 = obj.feature.maskNuclear;
