@@ -276,7 +276,8 @@ classdef SpindleNew < OrganizerMaster
 
             % Background
             if isBkg
-                imVals = obj.image( obj.image(:) > 0);
+                obj.mask = logical(obj.image);
+                imVals = obj.image( find(obj.mask));
                 obj.background = median( imVals);
             end
 
@@ -288,7 +289,9 @@ classdef SpindleNew < OrganizerMaster
                 bkg_nuc = median( obj.image( find(mask(:) ) ) );
                 
                 % new background first
-                obj.background = median( obj.image( find(mask(:)==0 ) ) );
+                if isBkg
+                    obj.background = median( obj.image( obj.mask & ~mask ) );
+                end
                 obj.backgroundNuclear = bkg_nuc - obj.background;
                 obj.maskNuclear = mask;
             end

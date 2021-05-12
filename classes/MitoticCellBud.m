@@ -239,6 +239,9 @@ classdef MitoticCellBud < Cell
             spindleObj = SpindleNew( dim, imageIn, {spindleMT, Asters{:} }, props);
             spindleObj.findEnvironmentalConditions();
             
+            % Try setting mask
+            spindleObj.mask = logical( imageIn); 
+            
             function curvedMTs = restrict_curvedMT_inside_image( frame, curvedMTs)
         
                 nvx = size(frame,2);

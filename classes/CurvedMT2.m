@@ -227,8 +227,14 @@ classdef CurvedMT2 < BasicElement
             % Get (x,y) coordinates of the curve
             coords = obj.GetCoords();
             
+            
             % 2D color plot for 3D information
             if obj.dim==3 && nargin==3
+                
+                % Force coords betwwen planes
+                coords(3, find(coords(3,:)>sizeZ)) = sizeZ;
+                coords(3, find(coords(3,:)<1)) = 1;
+                
                 cm = hsv;
                 col = cm( round((coords(3,:)/sizeZ)*length(cm)), :);
                 col = [ permute(col, [3 1 2]); permute(col, [3 1 2])];
@@ -368,6 +374,8 @@ classdef CurvedMT2 < BasicElement
             % Curvature function discretized in time
             acc = obj.MakeModelFunction();
             
+            max_curvature = 0.05;
+            
             % initialization
             xx = zeros( obj.dim, length(t) ); xx(:,1) = obj.origin';
             vv = zeros( numel(tanVec), length(t) ); vv(:,1) = tanVec;
@@ -380,7 +388,8 @@ classdef CurvedMT2 < BasicElement
 
                 % New tangent : Get by adding normal vector to old tangent
                 old_tan = vv(:,jt-1);
-                new_tan_XY = old_tan(1:2) + acc(jt-1)*dt*Rot*old_tan(1:2);
+                acc_old = sign( acc(jt-1))*min([ abs(acc(jt-1)), max_curvature]);
+                new_tan_XY = old_tan(1:2) + acc_old*dt*Rot*old_tan(1:2);
                 vv(1:2,jt) = new_tan_XY/norm(new_tan_XY);
                 
                 if obj.dim == 3
