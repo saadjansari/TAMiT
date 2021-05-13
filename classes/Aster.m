@@ -21,7 +21,7 @@ classdef Aster < Organizer
         function [vec, vecLabels,ub,lb] = getVec( obj, propsSPB, propsMT)
 
             if nargin < 3
-                propsMT = {'thetaInit', 'normalVec','L','amplitude', 'sigma'};
+                propsMT = {'thetaInit', 'curvature','L','amplitude', 'sigma'};
             end
             if nargin < 2
                 propsSPB = {'position', 'amplitude', 'sigma'};
@@ -175,7 +175,7 @@ classdef Aster < Organizer
             
             nms3 = 0*Image2Find;
             for jZ = 1 : size(Image2Find,3)
-                [~, ~, nms3(:,:,jZ), ~] = steerableDetector(Image2Find(:,:,jZ), 4, 3);
+                [~, ~, nms3(:,:,jZ), ~] = steerableDetector(Image2Find(:,:,jZ), 4, 2);
             end
             
             % create a mask to apply to steerable image
@@ -244,37 +244,24 @@ classdef Aster < Organizer
             for jb = 1 : length( curvedMTs )
 
                 coords = missingFeatures{jb};
+                        
+                % get intial theta, curvature coefficients from
+                % coords
+                curvature_model = 'fourier2';
+                [origin,thetaInit,curvature, L, ccd] = get_tan_curvature_coeffs( coords, curvature_model);
 
-                % Get length
-                L = sum( sqrt( diff( coords(1,:)).^2 + diff( coords(2,:)).^2 + diff( coords(3,:)).^2 ) );
-                nInt1 = ceil( L/ length( coords(1,:) ) );
-                [cX1,cY1,cZ1] = Methods.InterpolateCoords3( coords(1,:), coords(2,:), coords(3,:), nInt1 );
-                % Get Coeff
-                % t1 = linspace(0,L,length(cX1 )); 
-                t2 = cumsum( [0, sqrt( diff( cX1).^2 + diff( cY1).^2 + diff( cZ1).^2 )]);
-                cf1 = CurvedMT.estimatePolyCoefficients( [cX1;cY1;cZ1], [2 2 1], t2);
-                % Get coordinates from coeffs
-
-                x1 = polyval( cf1{1}, t2); y1 = polyval( cf1{2}, t2);
-
-                % Get origin
-%                         origin = [cf1{1}(end), cf1{2}(end),cf1{3}(end)];
-                origin = coords(:,1);
+                % Ensure origin is within the Z stacks
                 if origin(3) >= size( Image2Find,3)
                     origin(3) = size(Image2Find,3)-0.2;
                 elseif origin(3) <= 1
                     origin(3) = 1.2;
                 end
-                % Get initial tangent vector and theta vector
-                tanInit{1} = [cf1{1}(end-1), cf1{2}(end-1), cf1{3}(end-1)];
-                thetaInit = [atan2( tanInit{1}(2), tanInit{1}(1) ), pi/2];
-                % Normal Magnitude Coefficients
-                nV = 2*(cf1{1}(end-1)*cf1{2}(end-2) - cf1{1}(end-2)*cf1{2}(end-1));
-                % Get amplitude along each bundle
-                A1 = smooth( Cell.findAmplitudeAlongCurveCoords( max(Image2Find,[],3), round([cX1;cY1]) ));
+
+                % Get amplitude
+                A1 = smooth( findAmplitudeAlongCurveCoords( max(Image2Find,[],3), round(ccd(1:2,:)) ) - bkg_nuc);
                 A1( A1 < 0) = 0; amp = median(A1);
 
-                % Ensure coefficients are within the image region
+                % Ensure initial theta is pointed to inside the image region
                 if obj.dim == 3
                     if origin(3) == 1
                         thetaInit(1,2) = pi/2 - 0.03;
@@ -283,8 +270,8 @@ classdef Aster < Organizer
                     end
                 end
 
-                % Create
-                curvedMTs{jb} = CurvedMT( origin', thetaInit, nV, L, amp, sigma, obj.dim, props, display);
+                curvedMTs{jb} = CurvedMT2( curvature_model, origin', thetaInit, curvature, L, amp, sigma, obj.dim, props, display);
+                    
             end
             curvedMTs(idxRm) = [];
                 
