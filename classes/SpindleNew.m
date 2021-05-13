@@ -113,6 +113,7 @@ classdef SpindleNew < OrganizerMaster
             props.spindle = {'startPosition', 'endPosition', 'sigma'};
             props.spb = {'sigma'};
             props.mt = {'thetaInit', 'normalVec', 'L', 'amplitude', 'sigma'};
+            props.mt_curve = {'thetaInit', 'curvature', 'L', 'amplitude', 'sigma'};
 
             % Spindle vector
             [ vecList{1} , vecLabelsList{1}, ubList{1}, lbList{1}] = getVec( obj.featureList{1}, props.spindle );
@@ -131,14 +132,14 @@ classdef SpindleNew < OrganizerMaster
 
             % Microtubule vector : Aster 1
             for jmt = 1 : obj.featureList{2}.numFeatures-1
-                [ vecList{ numFeatures+jmt} , vecLabelsList{ numFeatures+jmt}, ubList{numFeatures+jmt}, lbList{numFeatures+jmt}] = getVec( obj.featureList{2}.featureList{1+jmt}, props.mt );
+                [ vecList{ numFeatures+jmt} , vecLabelsList{ numFeatures+jmt}, ubList{numFeatures+jmt}, lbList{numFeatures+jmt}] = getVec( obj.featureList{2}.featureList{1+jmt}, props.mt_curve );
                 objList{ numFeatures+jmt} = obj.featureList{2}.featureList{1+jmt};
             end
             numFeatures = numFeatures + obj.featureList{2}.numFeatures-1;
 
             % Microtubule vector : Aster 2
             for jmt = 1 : obj.featureList{3}.numFeatures-1
-                [ vecList{ numFeatures+jmt} , vecLabelsList{ numFeatures+jmt}, ubList{numFeatures+jmt}, lbList{numFeatures+jmt}] = getVec( obj.featureList{3}.featureList{1+jmt}, props.mt );
+                [ vecList{ numFeatures+jmt} , vecLabelsList{ numFeatures+jmt}, ubList{numFeatures+jmt}, lbList{numFeatures+jmt}] = getVec( obj.featureList{3}.featureList{1+jmt}, props.mt_curve );
                 objList{ numFeatures+jmt} = obj.featureList{3}.featureList{1+jmt};
             end
             numFeatures = numFeatures + obj.featureList{3}.numFeatures-1;

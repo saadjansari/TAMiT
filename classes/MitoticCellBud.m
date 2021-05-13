@@ -544,7 +544,7 @@ classdef MitoticCellBud < Cell
             
             nms3 = 0*imageIn;
             for jZ = 1 : size(imageIn,3)
-                [~, ~, nms3(:,:,jZ), ~] = steerableDetector( imgaussfilt(imageIn(:,:,jZ),1), 4, 3);
+                [~, ~, nms3(:,:,jZ), ~] = steerableDetector( imgaussfilt(imageIn(:,:,jZ),1), 4, 2);
             end
             
             % create a mask to apply to steerable image
