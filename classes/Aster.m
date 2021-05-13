@@ -258,7 +258,7 @@ classdef Aster < Organizer
                 end
 
                 % Get amplitude
-                A1 = smooth( findAmplitudeAlongCurveCoords( max(Image2Find,[],3), round(ccd(1:2,:)) ) - bkg_nuc);
+                A1 = smooth( findAmplitudeAlongCurveCoords( max(Image2Find,[],3), round(ccd(1:2,:)) ));
                 A1( A1 < 0) = 0; amp = median(A1);
 
                 % Ensure initial theta is pointed to inside the image region
