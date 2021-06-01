@@ -422,6 +422,23 @@ classdef CurvedMT2 < BasicElement
 
         end
         % }}}
+        
+        % GetMeanCurvature {{{
+        function tip_K = GetTipCurvature( obj)
+            % get coordinates of curve from tmin to max. If not specified, get coords of entire curve
+            tmax = obj.L;
+            tmin = 0;
+            
+            % construct time vector
+            t = linspace(tmin, tmax, ceil(10*tmax));
+
+            % Acceleration function discretized in time
+            % Curvature function discretized in time
+            acc = obj.MakeModelFunction();
+            tip_K = acc(t(end));
+
+        end
+        % }}}
         % }}}
 
         % forceInsideMask {{{
@@ -581,7 +598,7 @@ classdef CurvedMT2 < BasicElement
             
             % L 
             ub.L = obj.L+20;
-            lb.L = max( [6, obj.L-10]);
+            lb.L = max( [6, obj.L-20]);
 
             % thetaInit
             if obj.dim == 3

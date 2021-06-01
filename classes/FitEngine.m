@@ -55,7 +55,7 @@ classdef FitEngine
 
             disp('        Optimization')
             
-            pad_xy = 5;
+            pad_xy = 10;
             pad_z = 1;
             
             % Environment Optimization
