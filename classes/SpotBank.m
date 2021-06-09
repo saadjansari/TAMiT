@@ -22,7 +22,7 @@ classdef SpotBank < OrganizerMaster
         function [vec, vecLabels,ub,lb] = getVec( obj, propsSpot)
 
             if nargin < 2
-                propsSpot = {'position', 'amplitude', 'sigma'};
+                propsSpot = {'position', 'amplitude','sigma'};
             end
             
             % Get general environmental properties
@@ -177,11 +177,14 @@ classdef SpotBank < OrganizerMaster
             end
 
             % Load all the features from their structures recursively
-            featureList{ 1} = Spot.loadFromStruct( S.featureList{ 1} ); 
-            for jFeat = 1: length( S.featureList)
-                featureList{ jFeat} = Spot.loadFromStruct( S.featureList{jFeat} );
+%             featureList{ 1} = Spot.loadFromStruct( S.featureList{ 1} );
+            try
+                for jFeat = 1: length( S.featureList)
+                    featureList{ jFeat} = Spot.loadFromStruct( S.featureList{jFeat} );
+                end
+            catch
+                featureList = {};
             end
-
             obj = SpotBank( S.dim, S.image, featureList, S.props2Fit);
             obj.findEnvironmentalConditions();
             obj.syncFeaturesWithMap();

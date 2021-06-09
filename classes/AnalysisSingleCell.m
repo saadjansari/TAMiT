@@ -97,6 +97,7 @@ classdef AnalysisSingleCell < handle
                 % Tracking
                 if obj.flags.tracking
                     obj.trackChannel( jChannel, obj.flags.tracking_movie);
+%                     obj.track_fig_BY( jChannel);
                 end
             end
 
@@ -485,6 +486,9 @@ classdef AnalysisSingleCell < handle
         function trackChannel( obj, jChannel, do_movie_tracking)
             % Create frames for a movie
             
+            % temp BY figure
+            paper_fig = 0;
+            
             % Get movie
             movieMat = zeros( size(obj.simImageMT,1), size(obj.simImageMT,2), size(obj.simImageMT,4) );
             for jTime = 1 : length( obj.times)
@@ -562,6 +566,14 @@ classdef AnalysisSingleCell < handle
                     
                     feats = {spindles, trackBud1, trackBud2};
                     
+                    if paper_fig == 1
+                        make_fig6_curvature( movieMat, feats, obj.path );
+                        make_fig6_tracking( movieMat, feats, obj.path );
+                    end
+                    if do_movie_tracking
+                        TrackFeatures.makeMovie( obj.cellType, movieMat, obj.times, feats, obj.path );
+                    end
+                    
                 case 'Mitosis'
                     
                     % Sid4
@@ -576,6 +588,9 @@ classdef AnalysisSingleCell < handle
                                 dymgmt.saveCSV_sid4positions( obj.path)
                             end
                             feats = {trackSid};
+                            if do_movie_tracking
+                                TrackFeatures.makeMovie( obj.cellType, movieMat, obj.times, feats, obj.path );
+                            end
                         case 'Cut7'
                             
                             % Create 3d movie
@@ -611,11 +626,12 @@ classdef AnalysisSingleCell < handle
                     end
                     feats = {spbs, trackMono};
                     
+                    if do_movie_tracking
+                        TrackFeatures.makeMovie( obj.cellType, movieMat, obj.times, feats, obj.path );
+                    end
+            
             end
             
-            if do_movie_tracking
-                TrackFeatures.makeMovie( obj.cellType, movieMat, obj.times, feats, obj.path );
-            end
                     
         end
         % }}}

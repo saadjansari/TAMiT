@@ -405,7 +405,7 @@ classdef Spot < BasicElement
              %}
 
             med = median( imOrg( imOrg ~=0));
-            par.amplitude.lb = 0.5*med;
+            par.amplitude.lb = 0.25*med;
             par.amplitude.ub = max( imOrg(:));
             par.position.ub = size(imOrg);
             obj.SetBounds(par);

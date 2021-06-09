@@ -12,6 +12,33 @@ classdef SPBBank < SpotBank
         end
         % }}}
 
+        % getVec {{{
+        function [vec, vecLabels,ub,lb] = getVec( obj, propsSpot)
+
+            if nargin < 2
+                propsSpot = {'position', 'amplitude'};
+            end
+            
+            % Get general environmental properties
+            [vecE, vecLabelsE] = obj.getVecEnvironment();
+            ubE = vecE; lbE = vecE;
+            
+            vec = []; lb = []; ub = [];
+            vecLabels = {};
+            % Loop over spots and get their vectors. 
+            for js = 1 : obj.numFeatures
+                [vec_spot, vecLabels_spot, ub_spot, lb_spot] = getVec( obj.featureList{ js}, propsSpot );
+                vec = [vec , vec_spot]; lb = [lb, lb_spot]; ub = [ub, ub_spot];
+                vecLabels_spot = strcat( 'Spot', num2str( js), '_', vecLabels_spot);
+                vecLabels = { vecLabels{:}, vecLabels_spot{:} };
+            end
+            if isempty(lb)
+                clearvars lb ub
+            end
+            
+        end
+        % }}}
+        
         % addSubFeatures {{{
         function [obj, successAdd] = addSubFeatures( obj, image2Find)
             % Searches for missing features and adds them to the featureList
@@ -33,7 +60,7 @@ classdef SPBBank < SpotBank
                 % Consider the best spot
                 if length(spb) == 0
                     return
-                elseif length(spb) > 1
+                elseif length(spb) >= 1
                     [~,idxKeep] = sort( [spb.amplitude], 'descend');
                     spb = spb( idxKeep (1) );
                     

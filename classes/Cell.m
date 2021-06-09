@@ -1380,8 +1380,8 @@ classdef Cell < handle & matlab.mixin.Copyable
             props.intBank = intBank;
             
             % SPB Bank
-            spbBank.fit{2}.spot = spot.fit{2};
-            spbBank.fit{3}.spot = spot.fit{3};
+            spbBank.fit{2}.spot = {'position', 'amplitude'};
+            spbBank.fit{3}.spot = {'position', 'amplitude'};
             spbBank.fit{2}.Environment = env1;
             spbBank.fit{3}.Environment = env1;
             spbBank.graphics.spot = spot.graphics.red;
