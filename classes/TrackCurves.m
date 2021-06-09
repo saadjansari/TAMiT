@@ -194,6 +194,18 @@ classdef TrackCurves < TrackFeatures
             
         end
         
+        function drawMatchedFeature_curvature( obj, ax, jtime)
+            % Draw matched detected feature
+            
+            for jf = 1 : length(obj.features)
+            
+                if obj.features{jf}.existAtTime(jtime) && ...
+                        ~isempty( obj.features{jf}.matched_feats{ 1+ jtime - obj.features{jf}.time_start} )
+                    obj.features{jf}.matched_feats{ 1+ jtime - obj.features{jf}.time_start}.displayFeature_color_by_curvature( ax);
+                end
+            end
+            
+        end
         
     end
     

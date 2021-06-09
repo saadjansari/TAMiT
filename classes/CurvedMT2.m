@@ -253,6 +253,39 @@ classdef CurvedMT2 < BasicElement
         end
         % }}}
         
+        % displayFeature {{{
+        function ax = displayFeature_color_by_curvature( obj, ax)
+
+            if nargin < 2
+                error('displayFeature: must provide axes handle to display the feature in')
+            end
+
+            % Get (x,y) coordinates of the curve
+            coords = obj.GetCoords();
+            
+            % 2D color plot for 3D information
+            % Extract local curvature
+            t = linspace(0, obj.L, size(coords,2));
+            acc = obj.MakeModelFunction();
+            K = abs( acc(t));
+            % range of K from 0 to 0.05
+            K(K>0.15) = 0.15;
+                
+            cm = brighten(jet,0.4);
+            vals = round( (K/0.15)*length(cm));
+            vals(vals < 1) = 1;
+            vals(vals > 255) = 255; 
+            col = cm( vals, :);
+            col = [ permute(col, [3 1 2]); permute(col, [3 1 2])];
+            z = zeros([ 1, size( coords,2)]);
+            surface([coords(1,:);coords(1,:)],[coords(2,:);coords(2,:)],[z;z],col,...
+                    'facecol','no',...
+                    'edgecol','interp',...
+                    'linew',3);
+
+        end
+        % }}}
+        
         % displayFeature3D {{{
         function ax = displayFeature3D( obj, ax, sizeZ, cm)
             if nargin < 4
@@ -418,7 +451,7 @@ classdef CurvedMT2 < BasicElement
             % Acceleration function discretized in time
             % Curvature function discretized in time
             acc = obj.MakeModelFunction();
-            mean_K = mean( acc(t) );
+            mean_K = mean( abs(acc(t)) );
 
         end
         % }}}
