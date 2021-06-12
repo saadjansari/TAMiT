@@ -270,7 +270,7 @@ classdef Aster < Organizer
                     end
                 end
 
-                curvedMTs{jb} = CurvedMT2( curvature_model, origin', thetaInit, curvature, L, amp, sigma, obj.dim, props, display);
+                curvedMTs{jb} = CurvedMT( curvature_model, origin', thetaInit, curvature, L, amp, sigma, obj.dim, props, display);
                     
             end
             curvedMTs(idxRm) = [];
@@ -422,7 +422,7 @@ classdef Aster < Organizer
                 try
                     featureList{ jFeat} = Line.loadFromStruct( S.featureList{jFeat} );
                 catch
-                    featureList{ jFeat} = CurvedMT2.loadFromStruct( S.featureList{jFeat} );
+                    featureList{ jFeat} = CurvedMT.loadFromStruct( S.featureList{jFeat} );
                 end
             end
 

@@ -33,7 +33,7 @@ function dat = simAndFit(snr,type)
             fpar.channel = 1; fpar.time = 1; fpar.saveDirectory = [pwd, filesep, 'simdata']; fpar.timeReversal = 0;
             global COUNTER
             COUNTER = 1;
-            feature.ID = COUNTER; 
+            feature.ID = COUNTER;
             COUNTER = COUNTER + 1;
             feature.syncFeatures();
             feature.preOptimize();

@@ -168,7 +168,7 @@ classdef MitoticCellBud < Cell
                         
                         % get intial theta, curvature coefficients from
                         % coords
-                        curvature_model = 'fourier2';
+                        curvature_model = 'fourier4';
                         [origin,thetaInit,curvature, L, ccd] = get_tan_curvature_coeffs( coords, curvature_model);
                         
                         % Ensure origin is within the Z stacks
@@ -202,7 +202,7 @@ classdef MitoticCellBud < Cell
 
                         % Create
 %                         curvedMTs{jb} = CurvedMT( origin', thetaInit, nV, L, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
-                        curvedMTs{jb} = CurvedMT2( curvature_model, origin', thetaInit, curvature, L, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
+                        curvedMTs{jb} = CurvedMT( curvature_model, origin', thetaInit, curvature, L, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
                     end
                     curvedMTs( idxRm) = [];
                     
