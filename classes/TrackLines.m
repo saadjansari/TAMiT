@@ -152,9 +152,9 @@ classdef TrackLines < TrackFeatures
             % additional input
 
             %saveResults
-            saveResults.dir = '~/Documents/Projects/ImageAnalysis/SingleCell'; %directory where to save input and output
-            saveResults.filename = 'tracksTest.mat'; %name of file where input and output are saved
-            % saveResults = 0; %don't save results
+%             saveResults.dir = '~/Documents/Projects/ImageAnalysis/SingleCell'; %directory where to save input and output
+%             saveResults.filename = 'tracksTest.mat'; %name of file where input and output are saved
+            saveResults = 0; %don't save results
 
             %verbose state
             verbose = 1;
