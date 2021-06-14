@@ -1,3 +1,6 @@
 [submodule "functions/external/u-track"]
 	path = functions/external/u-track
 	url = https://github.com/DanuserLab/u-track
+[submodule "functions/external/Violinplot-Matlab"]
+	path = functions/external/Violinplot-Matlab
+	url = https://github.com/bastibe/Violinplot-Matlab
