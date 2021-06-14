@@ -5,10 +5,10 @@ function cellInfo = initCellInfo( opts)
     %type = 'Interphase';
     type = 'Mitosis';
     species = 'Pombe';
-    strain = 'WT_sid1';
+    strain = 'WT_sid4';
 
     % Channel Features ( what features do you want to fit?)
-    channelFeatures = {'Sid1', 'Cut7'};
+    channelFeatures = {'Sid4', 'Cut7'};
 
     % Channels to Fit ( [] = all ) (length must match the length of channelFeatures) (order must match the order of features in channelFeatures)
     channelsToFit = [1,2];
