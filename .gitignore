@@ -9,6 +9,4 @@
 /initConfiguration.m
 /initAnalysisParams.m
 /simul_single_cell_*
-/.DS_Store
-*/.DS_Store
-*/*/.DS_Store
+.DS_Store
