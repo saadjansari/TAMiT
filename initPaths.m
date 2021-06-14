@@ -11,16 +11,11 @@ function paramsCell = initPaths( params)
     switch params.LOC
         case 'Local'
             runPath = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell';
-            saveParent = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell/Results';
+            saveParent = [runPath,filesep,'Results'];
 
         case 'Summit'
             runPath = '/projects/saan8193/ImageAnalysis/SingleCell';
             saveParent = '/scratch/summit/saan8193/SingleCell';
-
-        case 'Rumor'
-            error('Rumor not setup for singleCell yet')
-            runPath = '/projects/saan8193/ImageAnalysis/SingleCell';
-            saveParent= '/scratch/summit/saan8193/ImageAnalysis/SingleCell/Results'
     end
     params.runPath = runPath;
     params.saveParent = saveParent;
