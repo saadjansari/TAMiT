@@ -69,8 +69,8 @@ classdef MitoticCell < Cell
                 case 'Cut7'
                     feature = MitoticCell.findFeaturesDeNovo_Cut7( image, obj.params.estimate.cut7dist);
                 
-                case 'Sid1'
-                    feature = MitoticCell.findFeaturesDeNovo_Sid1( image, obj.params.estimate.sid1, obj.featureProps.spbBank);
+                case 'Sid4'
+                    feature = MitoticCell.findFeaturesDeNovo_Sid4( image, obj.params.estimate.sid4, obj.featureProps.spbBank);
             end
 
         end
@@ -596,16 +596,16 @@ classdef MitoticCell < Cell
         end
         % }}}
         
-        % Sid1 {{{
+        % Sid4 {{{
 
         % findFeaturesDeNovo_KC {{{
-        function spbBank = findFeaturesDeNovo_Sid1( image2Find, params, props)
+        function spbBank = findFeaturesDeNovo_Sid4( image2Find, params, props)
             % Mitotic Cell: Find Spindle Pole Bodies
             
             imageIn = im2double( image2Find);
             
             % Find all possible spots
-            [ spb, intBkg] = MitoticCell.findSPB_sid1( imageIn);
+            [ spb, intBkg] = MitoticCell.findSPB_sid4( imageIn);
             
             % Only keep the best 2 spots
             if length(spb) == 0 
@@ -645,9 +645,9 @@ classdef MitoticCell < Cell
 
         end
         % }}}
-        % findSPB_sid1 {{{
-        function [spbs, intBkg] = findSPB_sid1( imageOrg) 
-            % Find SPB that are sid1-labeled
+        % findSPB_sid4 {{{
+        function [spbs, intBkg] = findSPB_sid4( imageOrg) 
+            % Find SPB that are sid4-labeled
 
             % Process:
             %   1. Find the 3D nucleus (to a high accuracy)
@@ -692,7 +692,7 @@ classdef MitoticCell < Cell
             img_threshed = bwareafilt( imageG_max>tt,[7 min_spot_area]);
             % We have extracted connected regions in the image of size
             % 9-20. Now, the goal is to find their centroids, and determine
-            % if they are possible locations of sid1.
+            % if they are possible locations of sid4.
             
             s  = regionprops( img_threshed, im_max, 'Centroid', 'Area', 'MeanIntensity');
             centroids = cat(1, s.Centroid);

@@ -56,7 +56,7 @@ classdef SPBBank < SpotBank
                 if obj.dim==3, sigma=[1.2 1.2 1.0]; elseif obj.dim==2, sigma=[1.2 1.2]; end
 
                 % Find spots
-                [ spb, intBkg] = MitoticCell.findSPB_sid1( image2Find);
+                [ spb, intBkg] = MitoticCell.findSPB_sid4( image2Find);
                 % Consider the best spot
                 if length(spb) == 0
                     return

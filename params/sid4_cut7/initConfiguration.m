@@ -54,8 +54,8 @@ function params = initConfiguration( opts)
     % Cut7
     estimate.cut7dist.display = display;
     
-    % Sid1
-    estimate.sid1.display = display;
+    % Sid4
+    estimate.sid4.display = display;
     % }}}
 
     % Fit {{{
