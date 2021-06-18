@@ -178,7 +178,10 @@ classdef Spot < BasicElement
             if obj.dim==3 && nargin==3
                 
                 cm = hsv;
-                col = cm( round((obj.position(3)/sizeZ)*length(cm)), :);
+                z_pos = obj.position(3);
+                z_pos(z_pos > sizeZ) = sizeZ;
+                z_pos(z_pos < 1) = 1;
+                col = cm( round((z_pos/sizeZ)*length(cm)), :);
                 h1 = plot( obj.position(1), obj.position(2), 'Marker', 'o', 'MarkerSize',10, 'Color', 'w', 'LineWidth', 2);
                 set(h1, 'markerfacecolor', col);
                 % colorbar('Ticks',linspace(0,1,sizeZ),'TickLabels',1:sizeZ)
