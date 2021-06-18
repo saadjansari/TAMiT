@@ -350,7 +350,7 @@ classdef CurvedMT < BasicElement
                 w = k(end); k(end) = [];
                 aa = k(1:2:end);
                 bb = k(2:2:end);
-                ff = @(t) a0 + sum( aa.*cos( [1:length(aa)]*t*w)) + sum( bb.*sin( [1:length(bb)]*t*w));
+                ff = @(t) a0 + sum( aa.*cos( [1:length(aa)].*t'*w),2)' + sum( bb.*sin( [1:length(bb)].*t'*w),2)';
 
             end
 
@@ -729,7 +729,7 @@ classdef CurvedMT < BasicElement
                 error('incorrect type')
             end          
             
-            obj = CurvedMT( 'fourier2',S.origin, S.thetaInit, S.curvature, S.L, S.amplitude, S.sigma, S.dim, S.props2Fit, S.display);
+            obj = CurvedMT( S.model,S.origin, S.thetaInit, S.curvature, S.L, S.amplitude, S.sigma, S.dim, S.props2Fit, S.display);
             try
                 obj.err_origin = S.err_origin;
                 obj.err_curvature = S.err_curvature;

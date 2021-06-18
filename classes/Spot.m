@@ -197,7 +197,10 @@ classdef Spot < BasicElement
                 cm = hsv;
             end
 %             cm = hsv;
-            col = cm( round((obj.position(3)/sizeZ)*length(cm)), :);
+            z_pos = obj.position(3);
+            z_pos(z_pos > sizeZ) = sizeZ;
+            z_pos(z_pos < 1) = 1;
+            col = cm( round((z_pos/sizeZ)*length(cm)), :);
             line( obj.position(1), obj.position(2), obj.position(3), 'Color', col, ...
                 'Marker','o', 'MarkerSize',20,'LineWidth',10,'MarkerFaceColor',col );
         end
