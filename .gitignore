@@ -10,3 +10,4 @@
 /initAnalysisParams.m
 /simul_single_cell_*
 .DS_Store
+*.m~
