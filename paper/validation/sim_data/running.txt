@@ -1,0 +1,2 @@
+noise = 5
+Trial = 992
