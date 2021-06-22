@@ -20,7 +20,7 @@ function features = singleCell( paramsPath)
     disp(' ')
     disp( ['    Run Path: ' params.runPath])
     disp( ['    Save Path: ' params.saveDirectory])
-    disp( ['    User Settings: ' params.paramsPath, '.mat' ])
+    disp( ['    User Settings: ' params.paramsPath])
     disp(' ')
     disp('--------------------------------------------------------------------------------------')
 
