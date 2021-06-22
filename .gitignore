@@ -1,10 +1,5 @@
 # ignore these files
 /Results/*
-/PaperFigures/*
-/PaperMeth/*
-/Tests/*
-/scripts_temp/*
-/validation/*
 /initCellInfo.m
 /initConfiguration.m
 /initAnalysisParams.m
