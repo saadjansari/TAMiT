@@ -205,7 +205,7 @@ classdef MitoticCell < Cell
 
             % Params
             spindleDeterminationSensitivity = 0.4;
-            spindleMinIntensity = 0.7;
+%             spindleMinIntensity = 0.7;
             linewidth = 3;
             brightestPixelAsSPB = 0;
             imMask3D = imageIn > 0;
@@ -220,7 +220,22 @@ classdef MitoticCell < Cell
             imPlane = mat2gray( max( image3DConv, [], 3) );
 
             % Keep the strongest signal pixels
-            threshOtsu = max( [thresholdOtsu( imPlane( imPlane > 0) ) 0.4]);
+            % XXX (otsu thresholding doe not give correct separation of
+            % desired voxels)
+            % shift to multithresh (multiple otsu thresholds), pick first
+            % threshold above the median value.
+            threshOtsu = multithresh( imPlane( imPlane > 0), 2 );
+            if threshOtsu(1) > median( imPlane( imPlane > 0) )
+                threshOtsu = threshOtsu(1);
+            elseif threshOtsu(2) > median( imPlane( imPlane > 0) )
+                threshOtsu = threshOtsu(2);
+            else
+                threshOtsu = median( imPlane( imPlane > 0) );
+            end
+            spindleMinIntensity = threshOtsu;
+                
+
+%             threshOtsu = max( [thresholdOtsu( imPlane( imPlane > 0) ) 0.4]);
             imPlaneStrong = imPlane;
             imPlaneStrong( imPlaneStrong < threshOtsu) = 0;
 
