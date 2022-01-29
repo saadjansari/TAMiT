@@ -572,7 +572,7 @@ classdef FitEngine
             fitEngine2.SetFeature( fitInfo.featureCurrent );
             
             if ~isfield( obj.parameters, 'useMultiStart') || obj.parameters.useMultiStart==1
-                fitEngine2.OptimizeMultiStartProps()
+%                 fitEngine2.OptimizeMultiStartProps()
             end
             obj.feature.Update3DFrom2D(fitEngine2.feature);
             obj.feature.syncFeatures();

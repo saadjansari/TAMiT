@@ -63,11 +63,15 @@ classdef Spindle < OrganizerMaster
         % }}}
 
         % absorbVec {{{
-        function obj = absorbVec( obj, vec, vecLabels)
+        function obj = absorbVec( obj, vec, vecLabels, errBoolean)
+            
+            if nargin < 4
+                errBoolean = 0;
+            end
             
             % Absorb Environmental parameters
-            obj.absorbVecEnvironment( vec, vecLabels);
-
+            obj.absorbVecEnvironment( vec, vecLabels, errBoolean);
+            
             % Spindle Vector
             try
                 % Take the vector and find the indexes associated with the spindle parameters
@@ -77,7 +81,7 @@ classdef Spindle < OrganizerMaster
                 % Get the vector for the spindle by removing the spindle substring. Absorb the vector
                 vecS = vec( idxSpindle);
                 vecLabelsS = erase( vecLabels( idxSpindle), 'S_');
-                obj.featureList{ 1} = absorbVec( obj.featureList{ 1}, vecS, vecLabelsS );
+                obj.featureList{ 1} = absorbVec( obj.featureList{ 1}, vecS, vecLabelsS, errBoolean );
             catch
                 disp('Spindle line absorption failed')
             end
@@ -95,7 +99,7 @@ classdef Spindle < OrganizerMaster
                     vecSP = [ vec( idxSpindlePosition( jAster, :) ) , vecSP ];
                     vecLabelsSPB = repmat( {'SPB_position'}, 1, length( idxSpindlePosition( jAster, :) ) );
                     vecLabelsSP = { vecLabelsSPB{:}, vecLabelsSP{:} };
-                    obj.featureList{ 1+jAster} = absorbVec( obj.featureList{ 1+jAster}, vecSP, vecLabelsSP );
+                    obj.featureList{ 1+jAster} = absorbVec( obj.featureList{ 1+jAster}, vecSP, vecLabelsSP, errBoolean );
 
                 end
             catch
