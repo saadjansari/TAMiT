@@ -719,7 +719,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             fprintf('-----------------------------------------------------------------------\n\n');
             fprintf( 'Type : %s\n', obj.type)
             fprintf( 'ImageData : \n')
-            ImageData.PrintInfo( obj.imageData);
+            obj.imageData.PrintInfo();
             disp( ['Features = ', strjoin( obj.featuresInChannels, ' - ') ] ) 
             fprintf('----------------------------------------------------------------------\n');
 

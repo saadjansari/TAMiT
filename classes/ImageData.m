@@ -129,6 +129,19 @@ classdef ImageData
         end
         % }}}
         
+        % PrintInfo {{{
+        function PrintInfo( obj)
+            % Prints information about the cell
+
+            fprintf( '\nImageData : \n')
+            fprintf( ' Movie Size XYZTC : %d x %d x %d x %d x %d\n', size(obj.image, 1), size(obj.image, 2), size(obj.image, 3), size(obj.image, 4), size( obj.image, 5) ) 
+            fprintf( ' Lifetime : %d - %d\n', obj.lifetime(1), obj.lifetime(2) );
+            fprintf( ' timeStep : %d seconds\n', obj.timeStep)
+            fprintf( ' SizeZvoxels : [ %d %d %d ]\n', obj.sizeVoxels)
+            fprintf( ' Path : %s\n', obj.path)
+        end
+        % }}}
+        
     end
 
     methods (Static = true)
@@ -320,18 +333,6 @@ classdef ImageData
         end
         % }}}
         
-        % PrintInfo {{{
-        function PrintInfo( obj)
-            % Prints information about the cell
-
-            fprintf( '\nImageData : \n')
-            fprintf( ' Movie Size XYZTC : %d x %d x %d x %d x %d\n', size(obj.image, 1), size(obj.image, 2), size(obj.image, 3), size(obj.image, 4), size( obj.image, 5) ) 
-            fprintf( ' Lifetime : %d - %d\n', obj.lifetime(1), obj.lifetime(2) );
-            fprintf( ' timeStep : %d seconds\n', obj.timeStep)
-            fprintf( ' SizeZvoxels : [ %d %d %d ]\n', obj.sizeVoxels)
-            fprintf( ' Path : %s\n', obj.path)
-        end
-        % }}}
         
         % FilterGaussBandpass {{{
         function imfilter = FilterGaussBandpass( image, sigMax, sigMin)

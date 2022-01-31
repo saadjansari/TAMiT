@@ -10,7 +10,7 @@ if length(varargin) == 1 && ( isa( varargin{1}, 'double') || isa( varargin{1}, '
 
     pos = get(gcf, 'position');
     set(gcf, 'pos', [-10000 pos(2:end)]);
-    set(gcf, 'WindowState', 'maximized');
+    %set(gcf, 'WindowState', 'maximized');
     set(gca, 'xlim', [1 size(img, 2)], 'ylim', [1 size(img, 1)], 'xtick',[], 'ytick',[] )
     
 elseif length( varargin) > 1
@@ -37,7 +37,7 @@ elseif length( varargin) > 1
     end
     pos = get(gcf, 'position');
     set(gcf, 'pos', [-10000 pos(2:end)]);
-    set(gcf, 'WindowState', 'maximized');
+    %set(gcf, 'WindowState', 'maximized');
         
 else
     error('Oops, something went wrong!')

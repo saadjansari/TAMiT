@@ -99,7 +99,7 @@ classdef MitoticCell < Cell
 
             % Spindle
             % Find the Spindle. 
-            spindle = MitoticCell.findTheSpindle( imageIn);
+            spindle = MitoticCell.findTheSpindle( imageIn, params);
 
             % Create the Spindle MT
             if params.spindleMT
@@ -195,24 +195,42 @@ classdef MitoticCell < Cell
         % }}}
         
         % findTheSpindle {{{
-        function [spindle, ax] = findTheSpindle( imageIn, ax)
+        function spindle  = findTheSpindle( imageIn, params)
+            % Find's a bright 2D spindle line
             
-            if nargin < 2 && nargout > 1
-                h = figure('Visible', 'on');
-                ax = axes;
-                imagesc( max( imageIn, [], 3) ); colormap gray; axis equal; hold on;
-            end
-
             % Params
-            spindleDeterminationSensitivity = 0.4;
-%             spindleMinIntensity = 0.7;
+%             linewidth = params.linewidth;
+%             brightestPixelAsSPB = params.brightestPixelAsSPB;
+%             spindleDeterminationSensitivity = params.spindleDeterminationSensitivity;
+%             visuals = params.visuals;
+%             visuals_path = params.visuals_path;
+%             verbose = params.verbose;
+%             spindleMinIntensity = params.spindleMinIntensity;
             linewidth = 3;
             brightestPixelAsSPB = 0;
-            imMask3D = imageIn > 0;
+            spindleDeterminationSensitivity = 0.4;
+            spindleMinIntensity = 0.6;
+            visuals = 0;
+            visuals_path = '.';
+            verbose = 0; 
+            
+            % Create visuals path if required
+            if visuals == 1
+                mkdir(visuals_path);
+            end
 
             % Useful variables  
             % zAnisotropy = ceil( sizeVoxelsZ / sizeVoxelsX );
             numVoxelsX = size( imageIn, 1); numVoxelsY = size( imageIn, 2); numVoxelsZ = size( imageIn, 3);
+            
+            % Mask
+            imageIn = mat2gray(imageIn);
+            imMask3D = imageIn > 0;
+            
+            % Set background to min value (then rescale image to stretch
+            % it)
+            minVal = min( imageIn(imageIn(:) ~= 0) );
+            imageIn = mat2gray((imageIn-minVal).*imMask3D);
 
             % Find Strong Signal Regions{{{
             % Convolve the image with a 3D gaussian to bring out the signal from the SPB
@@ -232,8 +250,10 @@ classdef MitoticCell < Cell
             else
                 threshOtsu = median( imPlane( imPlane > 0) );
             end
-            spindleMinIntensity = threshOtsu;
-                
+            spindleMinIntensity = max( [threshOtsu spindleMinIntensity]);
+            if verbose == 1
+                 fprintf('Spindle Threshold / Spindle Min Intensity Value = %.3f\n',spindleMinIntensity);
+            end
 
 %             threshOtsu = max( [thresholdOtsu( imPlane( imPlane > 0) ) 0.4]);
             imPlaneStrong = imPlane;
@@ -253,11 +273,11 @@ classdef MitoticCell < Cell
             meanInts = cell2mat( SScell(4,:) );
             [ spindleInt, idx] = max( meanInts);
 
-            if spindleInt < 0.5
-                error( 'The mean spindle intensity is less than 50% of the maximum intensity in the image');
-            else
-%                 disp('Success! A spindle was found')
-                disp( sprintf( '               Success: Spindle Mean Intensity = %.2f', spindleInt) )
+            if verbose == 1
+                 fprintf( 'Spindle Mean Intensity = %.2f\n', spindleInt) 
+            end
+            if spindleInt < 0.6
+                warning( 'The mean spindle intensity is less than 60% of the maximum intensity in the image. There may be issues with detection.');
             end
 
             % Now we can obtain the shape parameters of the spindle
@@ -270,7 +290,10 @@ classdef MitoticCell < Cell
             elseif angleOrient >=0
                 angle = pi/2 + angleOrient;
             end
-%             disp( sprintf( 'AngleRP = %.2f , AngleNew = %.2f', angleOrient, angle) )
+
+            if verbose == 1
+                 fprintf( 'AngleRP = %.2f , AngleNew = %.2f\n', angleOrient, angle) 
+            end
 
             % }}}
 
@@ -316,11 +339,9 @@ classdef MitoticCell < Cell
 
             perpMatrix = [-linewidth : linewidth] .* [cos( angle+pi/2 ) ; sin( angle+pi/2)];
 
-            % measure intensity
+            % Measure Intensity
             IntSpindle = zeros(1, length(coords) );
             idxMaxPix = zeros(1, length(coords) );
-%             dispImg( imPlane); hold on; title('How linescan is done with a line width'); set(gca, 'FontSize', 16)
-%             plot( [coords(2,1) coords(2,end)], [coords(1,1) coords(1,end)], 'r-', 'LineWidth', 1)
             for jPix = 1 : length(IntSpindle)
                 coordsPerp = round( coords(:, jPix) +  perpMatrix);
                 coordsPerp( 1, find( coordsPerp(1,:) > numVoxelsY) ) = numVoxelsY; coordsPerp( 1, find( coordsPerp(1,:) < 1) ) = 1;
@@ -381,36 +402,36 @@ classdef MitoticCell < Cell
             spindle.MT.amplitude = mean( Cell.findAmplitudeAlongLine( imageIn, spindlePosition(1, :), spindlePosition(2, :) ) );
             % }}}
 
-            % Display Plots {{{
-            if nargout > 1
-                line( AstersX, AstersY, 'LineWidth', 2, 'Marker', '*', 'MarkerSize', 4, 'Color', 'g' )
-            end
-
-            plotFlag_SpindleFinder = 0;
-            if plotFlag_SpindleFinder
+            if visuals == 1
 
                 % Figure 1
+                h = figure; 
                 imMaskRGB = zeros( numVoxelsX, numVoxelsY, 3); imMaskRGB(:,:,1) = imPlane; imMaskRGB(:,:,2) = imPlane.*imMask; 
-                dispImg( imPlane, imPlaneStrong, imMaskRGB, [1 3]);
-                subplot(131); title('Original Image')
-                subplot(132); title('Otsu Background Removal')
-                subplot(133); title('Extended Maximum')
-                set(findall(gcf,'-property','FontSize'),'FontSize',16);
+                subplot(131); imagesc(imPlane); title('Original Image')
+                subplot(132); imagesc(imPlaneStrong); title('Otsu Background Removal')
+                subplot(133); imagesc(imMaskRGB); title('Extended Maximum')
+                %set(findall(gcf,'-property','FontSize'),'FontSize',16);
+                saveas(h, [visuals_path,filesep,'preprocessing_step.png'])
+                close(h)
 
                 % Figure 2
-                dispImg( imPlane, imPlane, [1 3])
-                subplot(131); title('Original Image')
-                subplot(132); hold on, line( [ ptMin(2), ptMax(2)], [ ptMin(1), ptMax(1)] , 'LineWidth', 2, 'Marker', '*', 'MarkerSize', 10, 'Color', 'r' ); hold off; title('Line through possible spindle'); 
+                h = figure;
+                subplot(131); imagesc(imPlane); title('Original Image')
+                subplot(132); imagesc(imPlane); hold on, line( [ ptMin(2), ptMax(2)], [ ptMin(1), ptMax(1)] , 'LineWidth', 2, 'Marker', '*', 'MarkerSize', 10, 'Color', 'r' ); hold off; title('Line through possible spindle'); 
                 subplot(133), hold on; plot( IntSpindle, 'r-', 'LineWidth', 2); line( [1 length(IntSpindle)], [ spindleMinIntensity, spindleMinIntensity], 'Color', 'k', 'LineWidth', 1); xlabel('Pixel number'); ylabel('Max intensity'); title( sprintf('LineScan intensity with width %.1f', linewidth) ); hold off;
-                set(findall(gcf,'-property','FontSize'),'FontSize',16)
+                %set(findall(gcf,'-property','FontSize'),'FontSize',16)
+                saveas(h, [visuals_path,filesep,'estimation_step.png'])
+                close(h)
                 
                 % Figure 3
-                dispImg( imPlane)
+                h = figure;
+                imagesc(imPlane);
                 hold on, line( AstersX, AstersY, 'LineWidth', 4, 'Marker', '*', 'MarkerSize', 8, 'Color', 'r' ), hold off;
                 title('Final Estimated Spindle')
-                set(findall(gcf,'-property','FontSize'),'FontSize',16)
+                %set(findall(gcf,'-property','FontSize'),'FontSize',16)
+                saveas(h, [visuals_path,filesep,'estimation_final.png'])
+                close(h)
             end
-            % }}}
 
         end
         % }}}
@@ -613,22 +634,23 @@ classdef MitoticCell < Cell
         
         % Sid4 {{{
 
-        % findFeaturesDeNovo_KC {{{
+        % findFeaturesDeNovo_Sid4 {{{
         function spbBank = findFeaturesDeNovo_Sid4( image2Find, params, props)
             % Mitotic Cell: Find Spindle Pole Bodies
             
             imageIn = im2double( image2Find);
             
             % Find all possible spots
-            [ spb, intBkg] = MitoticCell.findSPB_sid4( imageIn);
+            [ spb, intBkg] = MitoticCell.findSPB_sid4( imageIn, params);
             
             % Only keep the best 2 spots
             if length(spb) == 0 
                 fprintf('WARNING!!!!!!!! No SPB spots found for this image!')
+                fprintf('Returning empty spb_bank! User must ensure proper functioning!')
                 spb_bank = {};
-                
             end
             
+            % Sort spbs in order of brightness
             if length(spb) > 2
                 [~,idxKeep] = sort( [spb.amplitude], 'descend');
                 idxKeep(3:end) = [];
@@ -661,13 +683,27 @@ classdef MitoticCell < Cell
         end
         % }}}
         % findSPB_sid4 {{{
-        function [spbs, intBkg] = findSPB_sid4( imageOrg) 
+        function [spbs, intBkg] = findSPB_sid4( imageOrg, params) 
             % Find SPB that are sid4-labeled
 
-            % Process:
-            %   1. Find the 3D nucleus (to a high accuracy)
-            %   2. Find Kinetochores inside the nucleus by looking for peaks
+            % Params
+            visuals = 0;
+            visuals_path = '.';
+            verbose = 0;
+            min_spot_area = 25;
+            min_conn_region_area = 7;
+%             visuals = params.visuals;
+%             visuals_path = params.visuals_path;
+%             verbose = params.verbose;
+%             min_spot_area = params.min_spot_area;
+%             min_conn_region_area = params.min_conn_region_area;
 
+            % Create visuals path if required
+            if visuals == 1
+                mkdir(visuals_path);
+            end
+
+            % Background
             intBkg = mean( imageOrg( imageOrg(:) > 0));
             
             % Get maximum Z projection and maxZ indices
@@ -681,39 +717,46 @@ classdef MitoticCell < Cell
             
             % Iterative thresholding
             imageG_max = max( imageG,[],3);
-            tt = min( imageG_max(:));
-            accepted_area = 1000000;
-            min_spot_area = 25;
+            tt = median( imageG_max( imageG_max>0) );
+            accepted_area = 1000000; % initialized as SOME LARGE NUMBER 
             
             % Make movie
-%             vidfile = VideoWriter('~/Desktop/thesholding_movie.mp4','MPEG-4');
-%             vidfile.FrameRate = 10;
-%             open(vidfile);
-%             figure;
+            if visuals == 1
+                vidfile = VideoWriter( [visuals_path,filesep,'thesholding_movie.mp4'],'MPEG-4');
+                vidfile.FrameRate = 10;
+                open(vidfile);
+                h = figure;
+            end
+
             while tt < max(imageG_max(:)) && accepted_area >min_spot_area
                 
-%                 imagesc( [imageG_max , imageG_max > tt])
-%                 title(['threshold = ',num2str(tt),', N-true = ',num2str(accepted_area)])
-%                 
                 accepted_area = sum( imageG_max(:) > tt);
-%                 disp(['threshold = ',num2str(tt),', N-true = ',num2str(accepted_area)]);
                 tt = tt + 0.001;
+
+                if verbose
+                    disp(['threshold = ',num2str(tt),', N-true = ',num2str(accepted_area)]);
+                end
                 
-%                 ff = getframe(gcf);
-%                 writeVideo(vidfile, ff);
+                if visuals 
+                    imagesc( [imageG_max , imageG_max > tt])
+                    title(['threshold = ',num2str(tt),', N-true = ',num2str(accepted_area)])
+                    writeVideo(vidfile, getframe(gcf));
+                end
             end
-%             close(vidfile)
+            if visuals 
+                close(vidfile)
+                close(h)
+            end
             
-            img_threshed = bwareafilt( imageG_max>tt,[7 min_spot_area]);
+            img_threshed = bwareafilt( imageG_max>tt,[min_conn_region_area min_spot_area]);
             % We have extracted connected regions in the image of size
             % 9-20. Now, the goal is to find their centroids, and determine
             % if they are possible locations of sid4.
-            
             s  = regionprops( img_threshed, im_max, 'Centroid', 'Area', 'MeanIntensity');
             centroids = cat(1, s.Centroid);
             spot_intensities = cat(1, s.MeanIntensity);
+
             spbs = [];
-            
             for jrow = 1 : length( spot_intensities)
                 spbs(jrow).x = centroids(jrow,1);
                 spbs(jrow).y = centroids(jrow,2);
@@ -721,9 +764,14 @@ classdef MitoticCell < Cell
                 spbs(jrow).amplitude = spot_intensities( jrow);
             end
             
-%             figure;
-%             imagesc( [im_max,im_max]); colormap gray; axis equal
-%             hold on; plot(centroids(1), centroids(2), 'color','green', 'marker','*','linewidth',1, 'markersize',12)
+            if visuals == 1
+                h = figure;
+                imagesc( [imageG_max,img_threshed,mat2gray(im_max)]); colormap gray; axis equal
+                hold on; plot(2*size(im_max,1)+centroids(:,1), centroids(:,2), 'color','green', 'marker','*','linestyle','None', 'markersize',12)
+                title('Final spots position')
+                saveas(h, [visuals_path,filesep,'final_estimate.png']);
+                close(h)
+            end
             % We might need to ensure that the spot found has an intensity
             % that is significantly bigger than the background intensity.
         end 
