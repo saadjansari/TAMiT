@@ -5,7 +5,7 @@ function paramsPath = initParams( opts)
     % Run path: Location of main.m
     % Save path: Path to results folder for storage
     % Local
-    exec_loc.local.runpath = '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell';
+    exec_loc.local.runpath = pwd;
     exec_loc.local.savepath = fullfile( exec_loc.local.runpath, 'Results');
     % Summit
     exec_loc.summit.runpath = '/projects/saan8193/ImageAnalysis/SingleCell';
