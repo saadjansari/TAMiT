@@ -4,5 +4,6 @@
 /initConfiguration.m
 /initAnalysisParams.m
 /simul_single_cell_*
+/demos/demo_figs
 .DS_Store
 *.m~
