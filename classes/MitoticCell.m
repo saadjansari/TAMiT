@@ -199,20 +199,20 @@ classdef MitoticCell < Cell
             % Find's a bright 2D spindle line
             
             % Params
-%             linewidth = params.linewidth;
-%             brightestPixelAsSPB = params.brightestPixelAsSPB;
-%             spindleDeterminationSensitivity = params.spindleDeterminationSensitivity;
-%             visuals = params.visuals;
-%             visuals_path = params.visuals_path;
-%             verbose = params.verbose;
-%             spindleMinIntensity = params.spindleMinIntensity;
-            linewidth = 3;
-            brightestPixelAsSPB = 0;
-            spindleDeterminationSensitivity = 0.4;
-            spindleMinIntensity = 0.6;
-            visuals = 0;
-            visuals_path = '.';
-            verbose = 0; 
+            linewidth = params.linewidth;
+            brightestPixelAsSPB = params.brightestPixelAsSPB;
+            spindleDeterminationSensitivity = params.spindleDeterminationSensitivity;
+            visuals = params.visuals;
+            visuals_path = params.visuals_path;
+            verbose = params.verbose;
+            spindleMinIntensity = params.spindleMinIntensity;
+%             linewidth = 3;
+%             brightestPixelAsSPB = 0;
+%             spindleDeterminationSensitivity = 0.4;
+%             spindleMinIntensity = 0.6;
+%             visuals = 0;
+%             visuals_path = '.';
+%             verbose = 0; 
             
             % Create visuals path if required
             if visuals == 1
@@ -687,16 +687,16 @@ classdef MitoticCell < Cell
             % Find SPB that are sid4-labeled
 
             % Params
-            visuals = 0;
-            visuals_path = '.';
-            verbose = 0;
-            min_spot_area = 25;
-            min_conn_region_area = 7;
-%             visuals = params.visuals;
-%             visuals_path = params.visuals_path;
-%             verbose = params.verbose;
-%             min_spot_area = params.min_spot_area;
-%             min_conn_region_area = params.min_conn_region_area;
+%             visuals = 0;
+%             visuals_path = '.';
+%             verbose = 0;
+%             min_spot_area = 25;
+%             min_conn_region_area = 7;
+            visuals = params.visuals;
+            visuals_path = params.visuals_path;
+            verbose = params.verbose;
+            min_spot_area = params.min_spot_area;
+            min_conn_region_area = params.min_conn_region_area;
 
             % Create visuals path if required
             if visuals == 1
@@ -722,8 +722,8 @@ classdef MitoticCell < Cell
             
             % Make movie
             if visuals == 1
-                vidfile = VideoWriter( [visuals_path,filesep,'thesholding_movie.mp4'],'MPEG-4');
-                vidfile.FrameRate = 10;
+                vidfile = VideoWriter( [visuals_path,filesep,'thresholding_movie.mp4'],'MPEG-4');
+                vidfile.FrameRate = 20;
                 open(vidfile);
                 h = figure;
             end
@@ -731,15 +731,21 @@ classdef MitoticCell < Cell
             while tt < max(imageG_max(:)) && accepted_area >min_spot_area
                 
                 accepted_area = sum( imageG_max(:) > tt);
-                tt = tt + 0.001;
+                tt = tt + 0.002;
 
                 if verbose
                     disp(['threshold = ',num2str(tt),', N-true = ',num2str(accepted_area)]);
                 end
                 
                 if visuals 
-                    imagesc( [imageG_max , imageG_max > tt])
-                    title(['threshold = ',num2str(tt),', N-true = ',num2str(accepted_area)])
+                    subplot(121)
+                    imagesc(imageG_max); colormap gray; axis equal; 
+                    xlim([0,size(imageG_max,2)]); ylim([0,size(imageG_max,1)]); 
+                    title('Gauss filtered image')
+                    subplot(122)
+                    imagesc(imageG_max > tt); colormap gray; axis equal; 
+                    xlim([0,size(imageG_max,2)]); ylim([0,size(imageG_max,1)]);
+                    title(sprintf('Threshold = %.3f\n Num unmasked pixels = %d',tt,accepted_area))
                     writeVideo(vidfile, getframe(gcf));
                 end
             end
@@ -766,8 +772,14 @@ classdef MitoticCell < Cell
             
             if visuals == 1
                 h = figure;
-                imagesc( [imageG_max,img_threshed,mat2gray(im_max)]); colormap gray; axis equal
-                hold on; plot(2*size(im_max,1)+centroids(:,1), centroids(:,2), 'color','green', 'marker','*','linestyle','None', 'markersize',12)
+                subplot(121)
+                imagesc(img_threshed); colormap gray; axis equal; 
+                xlim([0,size(imageG_max,2)]); ylim([0,size(imageG_max,1)]); 
+                title('Result after bwareafilt')
+                subplot(122)
+                imagesc(mat2gray(im_max)); colormap gray; axis equal; 
+                xlim([0,size(imageG_max,2)]); ylim([0,size(imageG_max,1)]);
+                hold on; plot(centroids(:,1), centroids(:,2), 'color','red', 'marker','o','linestyle','None', 'markersize',8, 'linewidth',2)
                 title('Final spots position')
                 saveas(h, [visuals_path,filesep,'final_estimate.png']);
                 close(h)
