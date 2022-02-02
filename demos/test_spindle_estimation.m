@@ -17,7 +17,7 @@ params.verbose = 1;
 params.linewidth = 3;
 params.brightestPixelAsSPB = 0;
 params.spindleDeterminationSensitivity = 0.4;
-params.spindleMinIntensity = 0.6;
+params.spindleMinIntensity = 0.35;
 
 % Delete visuals path
 if exist(params.visuals_path) == 7
