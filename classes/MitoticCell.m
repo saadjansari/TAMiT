@@ -199,20 +199,20 @@ classdef MitoticCell < Cell
             % Find's a bright 2D spindle line
             
             % Params
-            linewidth = params.linewidth;
-            brightestPixelAsSPB = params.brightestPixelAsSPB;
-            spindleDeterminationSensitivity = params.spindleDeterminationSensitivity;
-            visuals = params.visuals;
-            visuals_path = params.visuals_path;
-            verbose = params.verbose;
-            spindleMinIntensity = params.spindleMinIntensity;
-%             linewidth = 3;
-%             brightestPixelAsSPB = 0;
-%             spindleDeterminationSensitivity = 0.4;
-%             spindleMinIntensity = 0.6;
-%             visuals = 0;
-%             visuals_path = '.';
-%             verbose = 0; 
+%             linewidth = params.linewidth;
+%             brightestPixelAsSPB = params.brightestPixelAsSPB;
+%             spindleDeterminationSensitivity = params.spindleDeterminationSensitivity;
+%             visuals = params.visuals;
+%             visuals_path = params.visuals_path;
+%             verbose = params.verbose;
+%             spindleMinIntensity = params.spindleMinIntensity;
+            linewidth = 3;
+            brightestPixelAsSPB = 0;
+            spindleDeterminationSensitivity = 0.4;
+            spindleMinIntensity = 0.4;
+            visuals = 0;
+            visuals_path = '.';
+            verbose = 0; 
             
             % Create visuals path if required
             if visuals == 1
@@ -242,11 +242,11 @@ classdef MitoticCell < Cell
             % desired voxels)
             % shift to multithresh (multiple otsu thresholds), pick first
             % threshold above the median value.
-            threshOtsu = multithresh( imPlane( imPlane > 0), 2 );
+            threshOtsu = multithresh( imPlane( imPlane > 0), 1 );
             if threshOtsu(1) > median( imPlane( imPlane > 0) )
                 threshOtsu = threshOtsu(1);
-            elseif threshOtsu(2) > median( imPlane( imPlane > 0) )
-                threshOtsu = threshOtsu(2);
+%             elseif threshOtsu(2) > median( imPlane( imPlane > 0) )
+%                 threshOtsu = threshOtsu(2);
             else
                 threshOtsu = median( imPlane( imPlane > 0) );
             end
@@ -406,26 +406,46 @@ classdef MitoticCell < Cell
 
                 % Figure 1
                 h = figure; 
-                imMaskRGB = zeros( numVoxelsX, numVoxelsY, 3); imMaskRGB(:,:,1) = imPlane; imMaskRGB(:,:,2) = imPlane.*imMask; 
-                subplot(131); imagesc(imPlane); title('Original Image')
-                subplot(132); imagesc(imPlaneStrong); title('Otsu Background Removal')
-                subplot(133); imagesc(imMaskRGB); title('Extended Maximum')
+                imMaskRGB = zeros( numVoxelsX, numVoxelsY, 3); imMaskRGB(:,:,3) = imPlane; imMaskRGB(:,:,2) = imPlane.*imMask; imMaskRGB(:,:,1) = imPlane.*imMask;
+                subplot(131); imagesc(imPlane); title('Original Image'); axis equal;
+                xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
+                subplot(132); imagesc(imPlaneStrong); title('Threshold (Otsu)');axis equal;
+                xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
+                subplot(133); imagesc(imMaskRGB); title('Extended Maximum');axis equal;
+                xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
                 %set(findall(gcf,'-property','FontSize'),'FontSize',16);
                 saveas(h, [visuals_path,filesep,'preprocessing_step.png'])
                 close(h)
 
                 % Figure 2
                 h = figure;
-                subplot(131); imagesc(imPlane); title('Original Image')
-                subplot(132); imagesc(imPlane); hold on, line( [ ptMin(2), ptMax(2)], [ ptMin(1), ptMax(1)] , 'LineWidth', 2, 'Marker', '*', 'MarkerSize', 10, 'Color', 'r' ); hold off; title('Line through possible spindle'); 
-                subplot(133), hold on; plot( IntSpindle, 'r-', 'LineWidth', 2); line( [1 length(IntSpindle)], [ spindleMinIntensity, spindleMinIntensity], 'Color', 'k', 'LineWidth', 1); xlabel('Pixel number'); ylabel('Max intensity'); title( sprintf('LineScan intensity with width %.1f', linewidth) ); hold off;
+                subplot(131); imagesc(imPlane); title('Original Image'); axis equal;
+                xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
+                subplot(132); imagesc(imPlane); axis equal;
+                xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
+                hold on, line( [ ptMin(2), ptMax(2)], [ ptMin(1), ptMax(1)] , 'LineWidth', 2, 'Marker', '*', 'MarkerSize', 10, 'Color', 'r' ); hold off; 
+                title('Line through maximum'); 
+                subplot(133), hold on;
+                plot( IntSpindle, 'r-', 'LineWidth', 3); 
+                yline( spindleMinIntensity, '-','Threshold','Color', 'k', 'LineWidth', 1);
+                xl1 = xline( ind1, ':','Pole 1','Color', 'k', 'LineWidth', 2); 
+                xl1.LabelVerticalAlignment = 'top';
+                xl1.LabelHorizontalAlignment = 'center';
+                xl1.LabelOrientation='horizontal';
+                xl2 = xline( ind2, ':','Pole 2','Color', 'k', 'LineWidth', 2); 
+                xl2.LabelVerticalAlignment = 'top';
+                xl2.LabelHorizontalAlignment = 'center';
+                xl2.LabelOrientation='horizontal';
+                xlabel('Pixel number'); ylabel('Max intensity'); 
+                title( sprintf('LineScan intensity with width %.1f', linewidth) ); hold off;
                 %set(findall(gcf,'-property','FontSize'),'FontSize',16)
                 saveas(h, [visuals_path,filesep,'estimation_step.png'])
                 close(h)
                 
                 % Figure 3
                 h = figure;
-                imagesc(imPlane);
+                imagesc(imPlane); colormap gray; axis equal;
+                xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
                 hold on, line( AstersX, AstersY, 'LineWidth', 4, 'Marker', '*', 'MarkerSize', 8, 'Color', 'r' ), hold off;
                 title('Final Estimated Spindle')
                 %set(findall(gcf,'-property','FontSize'),'FontSize',16)
