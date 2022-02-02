@@ -252,22 +252,26 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
             error('drawGaussianLine3D: all data must be 3-dimensional')
         end
         
+        % Sort position so that startpos is lower in Z
+        if startPos(3) > endPos(3)
+            temp = startPos;
+            startPos = endPos;
+            endPos = temp;
+        end
+        
         x0 = startPos(1); y0 = startPos(2); z0 = startPos(3);
         x1 = endPos(1); y1 = endPos(2); z1 = endPos(3);
         sx = sigma(1); sy = sigma(2); sz = sigma(3);
         
-        if z0 < 1 || z0 > size(imageIn,3)
-            error('3D line start point should not be outside of z region')
-        end
         errorCode = 0;
         error_amount = 0;
         
-        if z1 < 1
+        if z0 < 1
             errorCode = 1;
         elseif z1 > size(imageIn,3)
             errorCode = size(imageIn,3);
         end
-        if z1 < 1 || z1 > size(imageIn,3)
+        if errorCode ~= 0
             [x1,y1,z1,error_amount] = TrimAndGetErrorZ( startPos,endPos,imageIn);
         end
 
@@ -358,11 +362,12 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
             fun = @(idx) linspace(startPos(idx),endPos(idx),100);
             xx = fun(1); yy = fun(2); zz = fun(3);
             
-            if endPos(3) < 1
+            if startPos(3) < 1
                 idxGood = find( zz < 1, 1, 'first') -1;
             elseif endPos(3) > size(imageIn,3)
                 idxGood = find( zz > size(imageIn,3), 1, 'first') -1;
             end
+            
             X = xx( idxGood); Y = yy( idxGood); Z = zz( idxGood);
             error_amount = (100-idxGood)/100;
         end
