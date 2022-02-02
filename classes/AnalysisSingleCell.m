@@ -313,7 +313,7 @@ classdef AnalysisSingleCell < handle
             for jTime = 1 : length( obj.times)
                 
                 % update display message
-                set(findobj(mbox,'Tag','MessageBox'),'String',{mtext1,mtext2(jTime)})
+                set(findobj(mbox,'Tag','MessageBox'),'String',{mtext1,mtext2(obj.times(jTime))})
                 drawnow
                 figure(mbox);
                 
@@ -601,7 +601,32 @@ classdef AnalysisSingleCell < handle
                                 movie3D(:,:,:,jTime) = feat.image;
                             end
                             save([obj.path, filesep,'cut7_data.mat'],'movie3D', '-v7');
+                        
+                        case 'Microtubule'
                             
+                            disp('Tracking the Spindle...')
+                            
+                            % Use spot tracking for this
+                            trackSPB = TrackSpots(movieMat, obj.times, obj.timeStep, obj.sizeVoxels);
+                            
+                            SPBfeats = cell(1,length(obj.data{jChannel}.features) );
+                            for jfeat = 1: length(SPBfeats)
+                                SPBfeats{jfeat} = SPBBank( obj.data{jChannel}.features{jfeat}.dim, ...
+                                    obj.data{jChannel}.features{jfeat}.image, ...
+                                    { obj.data{jChannel}.features{jfeat}.featureList{2}.featureList{1}, ...
+                                      obj.data{jChannel}.features{jfeat}.featureList{3}.featureList{1} }, {} );
+                            end
+                            trackSPB = trackSPB.parseMainFeature( SPBfeats );
+                            trackSPB = trackSPB.trackUTRACK();
+                            if ~isempty(trackSPB.tracksFinal)
+                                trackSPB = trackSPB.parseTracksFinal( SPBfeats );
+                                dymgmt = DynamicFeatureMgmt( trackSPB.features);
+                                dymgmt.saveCSV_sid4positions( obj.path)
+                            end
+                            feats = {trackSPB};
+                            if do_movie_tracking
+                                TrackFeatures.makeMovie( obj.cellType, movieMat, obj.times, feats, obj.path );
+                            end
                             
                     end
                     
