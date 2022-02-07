@@ -439,7 +439,7 @@ classdef Line < BasicElement
 
                 % Check again
                 imFeat = obj.simulateFeature( size(mask) );
-                outside = Methods.CheckEscapeMask( imFeat, mask);
+                outside = Methods.CheckEscapeMask( imFeat, mask,0.03);
                 obj.GetLength();
 
             end
@@ -622,11 +622,24 @@ classdef Line < BasicElement
                 error('incorrect length of len')
             end
             
+            % If this is the spindle, move both start and end position,
+            % otherwise just end position
             obj.length = len;
-            if obj.dim == 3
-                obj.endPosition = obj.startPosition + obj.length* [sin(obj.theta(2))*cos(obj.theta(1)), sin(obj.theta(2))*sin(obj.theta(1)), cos(obj.theta(2))];
-            elseif obj.dim == 2
-                obj.endPosition = obj.startPosition + obj.length* [cos(obj.theta(1)), sin(obj.theta(1))];
+            if obj.label == 'spindle'
+                centerPos = (obj.startPosition + obj.endPosition)/2;
+                if obj.dim == 3
+                    obj.endPosition = centerPos + (obj.length/2)* [sin(obj.theta(2))*cos(obj.theta(1)), sin(obj.theta(2))*sin(obj.theta(1)), cos(obj.theta(2))];
+                    obj.startPosition = centerPos - (obj.length/2)* [sin(obj.theta(2))*cos(obj.theta(1)), sin(obj.theta(2))*sin(obj.theta(1)), cos(obj.theta(2))];
+                elseif obj.dim == 2
+                    obj.endPosition = centerPos + (obj.length/2)* [cos(obj.theta(1)), sin(obj.theta(1))];
+                    obj.startPosition = centerPos - (obj.length/2)* [cos(obj.theta(1)), sin(obj.theta(1))];
+                end
+            else
+                if obj.dim == 3
+                    obj.endPosition = obj.startPosition + obj.length* [sin(obj.theta(2))*cos(obj.theta(1)), sin(obj.theta(2))*sin(obj.theta(1)), cos(obj.theta(2))];
+                elseif obj.dim == 2
+                    obj.endPosition = obj.startPosition + obj.length* [cos(obj.theta(1)), sin(obj.theta(1))];
+                end
             end
                 
         end

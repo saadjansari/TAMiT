@@ -313,13 +313,8 @@ classdef OrganizerMaster < Organizer
             %rmFeat = [];
             for jF = 1 : obj.numFeatures
                 obj.featureList{jF}.forceInsideMask( mask);
-                %if success
-                    %rmFeat = [ rmFeat, jF];
-                %end
             end
-
-            % Remove bad features
-            %obj.removeFeaturesFromList( rmFeat);
+            obj.updateSubFeatures()
             
         end
         % }}}

@@ -172,6 +172,7 @@ classdef Spindle < OrganizerMaster
             obj.featureList{2}.featureList{1}.position = obj.featureList{1}.startPosition;
             obj.featureList{3}.featureList{1}.position = obj.featureList{1}.endPosition;
 
+            obj.numFeatures = length( obj.featureList);
         end
         % }}}
 
