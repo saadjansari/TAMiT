@@ -99,7 +99,15 @@ classdef MitoticCell < Cell
 
             % Spindle
             % Find the Spindle. 
-            spindle = MitoticCell.findTheSpindle( imageIn, params);
+            % Params
+            params_spindle_finder.linewidth = 3;
+            params_spindle_finder.brightestPixelAsSPB = 0;
+            params_spindle_finder.spindleDeterminationSensitivity = 0.4;
+            params_spindle_finder.spindleMinIntensity = 0.4;
+            params_spindle_finder.visuals = 0;
+            params_spindle_finder.visuals_path = '';
+            params_spindle_finder.verbose = 0;
+            spindle = MitoticCell.findTheSpindle( imageIn, params_spindle_finder);
 
             % Create the Spindle MT
             if params.spindleMT
@@ -197,22 +205,27 @@ classdef MitoticCell < Cell
         % findTheSpindle {{{
         function spindle  = findTheSpindle( imageIn, params)
             % Find's a bright 2D spindle line
-            
+
             % Params
-%             linewidth = params.linewidth;
-%             brightestPixelAsSPB = params.brightestPixelAsSPB;
-%             spindleDeterminationSensitivity = params.spindleDeterminationSensitivity;
-%             visuals = params.visuals;
-%             visuals_path = params.visuals_path;
-%             verbose = params.verbose;
-%             spindleMinIntensity = params.spindleMinIntensity;
-            linewidth = 3;
-            brightestPixelAsSPB = 0;
-            spindleDeterminationSensitivity = 0.4;
-            spindleMinIntensity = 0.4;
-            visuals = 0;
-            visuals_path = '.';
-            verbose = 0; 
+            % Thickness of spindle axis used to calculate spindle intensity
+            linewidth = params.linewidth;
+            
+            % The minimum normalized intensity that is used to find the end-points of
+            % the spindle. The end-point is where the intensity function drops to this
+            % value.
+            spindleMinIntensity = params.spindleMinIntensity;
+            
+            % A setting (either 0 or 1) that forces one of the ends of the spindle to
+            % be at the brightest pixel.
+            brightestPixelAsSPB = params.brightestPixelAsSPB;
+            
+            % A sensitivity parameter used in the extended maxima function call. 
+            spindleDeterminationSensitivity = params.spindleDeterminationSensitivity;
+            
+            % Other parameters
+            visuals = params.visuals; % to turn on visuals
+            visuals_path = params.visuals_path; % location to save the visuals
+            verbose = params.verbose; % descriptions ON
             
             % Create visuals path if required
             if visuals == 1
