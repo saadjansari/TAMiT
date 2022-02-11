@@ -205,7 +205,9 @@ classdef MitoticCell < Cell
         % findTheSpindle {{{
         function spindle  = findTheSpindle( imageIn, params)
             % Find's a bright 2D spindle line
-
+            
+            imageIn_old = imageIn;
+            
             % Params
             % Thickness of spindle axis used to calculate spindle intensity
             linewidth = params.linewidth;
@@ -273,18 +275,21 @@ classdef MitoticCell < Cell
             imPlaneStrong( imPlaneStrong < threshOtsu) = 0;
 
             imMask = imextendedmax( imPlaneStrong, spindleDeterminationSensitivity);
-            imPlaneStrongBool = imPlaneStrong;
-            imPlaneStrongBool( imPlaneStrongBool > 0 ) = 1;
+%             imPlaneStrongBool = imPlaneStrong;
+%             imPlaneStrongBool( imPlaneStrongBool > 0 ) = 1;
 
             % }}}
 
             % Pick Brightest Strong Region and find its shape {{{
 
             % we'll pick the maxima which has the biggest mean intensity
-            SS = regionprops( imMask, imPlane, 'Centroid', 'MajorAxisLength', 'Orientation', 'MeanIntensity');
+            SS = regionprops( imMask, imPlane, 'Centroid', 'MajorAxisLength', 'Orientation', 'MeanIntensity','Area');
             SScell = struct2cell( SS);
-            meanInts = cell2mat( SScell(4,:) );
-            [ spindleInt, idx] = max( meanInts);
+            
+            % Keep maxima with largest integrated intensity
+            sumInts = cell2mat( SScell(1,:) ).*cell2mat( SScell(5,:) );
+            [ spindleInt, idx] = max( sumInts);
+            spindleInt = spindleInt/SScell{1,idx};
 
             if verbose == 1
                  fprintf( 'Spindle Mean Intensity = %.2f\n', spindleInt) 
@@ -294,9 +299,9 @@ classdef MitoticCell < Cell
             end
 
             % Now we can obtain the shape parameters of the spindle
-            centroid = cell2mat( SScell( 1, idx) );
-            majAxisLen = cell2mat(  SScell( 2, idx) );
-            angleOrient = deg2rad( cell2mat(  SScell( 3, idx) ) );
+            centroid = cell2mat( SScell( 2, idx) );
+            majAxisLen = cell2mat(  SScell( 3, idx) );
+            angleOrient = deg2rad( cell2mat(  SScell( 4, idx) ) );
 
             if angleOrient < 0
                 angle = 3*pi/2 - abs(angleOrient);
