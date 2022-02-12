@@ -150,6 +150,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Find and fit features for a single CT frame
             
             plot_estimate_and_skip = 0;
+            use_time_averaged_image_for_estimate = 1;
             
             % Decide if fit should be performed. Skip otherwise
             [obj, status] = DecideToFit( obj, Image, parameters);
@@ -160,11 +161,18 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Get the image for this frame
             Image2Fit = Image(:,:,:, parameters.time, parameters.channelTrue);
             
+            
             % Estimate the features based on an estimation routine (defined in specialized sub-class )
             disp('Estimating features...')
             % Good estimation is key to good optimization in low SnR images
-            obj.EstimateFeatures( Image2Fit, parameters.time, parameters.channelTrue, parameters.channelIdx,obj.params.timeReversal, obj.params.newEstimateEveryT);
+            if use_time_averaged_image_for_estimate == 1
+                Image4Estimate = ImageData.RollingTimeMedian(Image(:,:,:,:,parameters.channelTrue),3,parameters.time);
+            else
+                Image4Estimate = Image2Fit;
+            end
+            obj.EstimateFeatures( Image4Estimate, parameters.time, parameters.channelTrue, parameters.channelIdx,obj.params.timeReversal, obj.params.newEstimateEveryT);
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
+            mainFeature.image = Image2Fit;
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
             
             if plot_estimate_and_skip
@@ -183,8 +191,9 @@ classdef Cell < handle & matlab.mixin.Copyable
                 drawnow;
                 
                 % save png for estimate movie
-                [status,~,~] = mkdir( obj.params.saveDirectory, 'mov_estimate');
-                tdir = [obj.params.saveDirectory, filesep, 'mov_estimate'];
+                est_savedir = ['mov_estimate_C',num2str(parameters.channelTrue)];
+                [status,~,~] = mkdir( obj.params.saveDirectory, est_savedir);
+                tdir = [obj.params.saveDirectory, filesep, est_savedir];
                 saveas( hh, [tdir, filesep, sprintf('T%04d.png', parameters.time)])
                 pause(0.25);close all;
                 return
