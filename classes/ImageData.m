@@ -361,7 +361,39 @@ classdef ImageData
 
         end
         % }}}
+        
+        function im_med = RollingTimeMedian( image, window, t_probe)
+            % Takes a rolling time median over window
+            % Time must be the last dimension of image.
+            % window must be odd
+            % Returns an image at index t_probe
+            
+            % Ensure window is odd
+            if mod(window,2) == 0
+                error('window parameter must be odd')
+            end
+            
+            ndims = length(size(image));
+            nTime = size(image, ndims);
+            
+            % Find window
+            window_idx = t_probe-(window-1)/2:t_probe+(window-1)/2;
+            window_idx(window_idx<1) = [];
+            window_idx(window_idx>nTime) = [];
 
+            % Get array in window
+            switch ndims
+                case 2
+                    arr = image(:,window_idx);
+                case 3
+                    arr = image(:,:,window_idx);
+                case 4
+                    arr = image(:,:,:,window_idx);
+                case 5
+                    arr = image(:,:,:,:,window_idx);
+            end
+            im_med = squeeze( median(arr,ndims) );
+        end
     end
 
 end
