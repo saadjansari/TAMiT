@@ -119,7 +119,19 @@ classdef MitoticCell < Cell
             else
                 fprintf('Not estimating spindle MT\n')
             end
-
+            
+            % Force spindle amplitude to be above 0
+            if spindleAmp < 0
+                warning(sprintf('\n%s\n%s\n%s\n%s\n%s\n%s\n',...
+                    '       !!!!!!!!!!!!!!!!!!!!!',...
+                    'BAD DETECTION!!!',...
+                    'AMPLITUDE OF SPINDLE FOUND WAS LESS THAN MEDIAN OF IMAGE!!!',...
+                    'FORCING SPINDLE AMPLITUDE TO BE ABOVE 0!!!',...
+                    'FINAL RESULTS MAY BE INACCURATE!!!',...
+                    '       !!!!!!!!!!!!!!!!!!!!!'))
+                spindleAmp = 0.1;
+            end
+            
             AsterObjects{1} = {};
             AsterObjects{2} = {};
 
@@ -215,7 +227,7 @@ classdef MitoticCell < Cell
             % The minimum normalized intensity that is used to find the end-points of
             % the spindle. The end-point is where the intensity function drops to this
             % value.
-            spindleMinIntensity = params.spindleMinIntensity;
+            max_threshold = 0.8;
             
             % A setting (either 0 or 1) that forces one of the ends of the spindle to
             % be at the brightest pixel.
@@ -223,6 +235,9 @@ classdef MitoticCell < Cell
             
             % A sensitivity parameter used in the extended maxima function call. 
             spindleDeterminationSensitivity = params.spindleDeterminationSensitivity;
+            
+            % Thresholding Min Area
+            min_spindle_area = 100;
             
             % Other parameters
             visuals = params.visuals; % to turn on visuals
@@ -252,32 +267,89 @@ classdef MitoticCell < Cell
             image3DConv = imgaussfilt3( imageIn, 1, 'FilterDomain', 'spatial') .* imMask3D;
             imPlane = mat2gray( max( image3DConv, [], 3) );
 
-            % Keep the strongest signal pixels
-            % XXX (otsu thresholding doe not give correct separation of
-            % desired voxels)
-            % shift to multithresh (multiple otsu thresholds), pick first
-            % threshold above the median value.
-            threshOtsu = multithresh( imPlane( imPlane > 0), 1 );
-            if threshOtsu(1) > median( imPlane( imPlane > 0) )
-                threshOtsu = threshOtsu(1);
-%             elseif threshOtsu(2) > median( imPlane( imPlane > 0) )
-%                 threshOtsu = threshOtsu(2);
-            else
-                threshOtsu = median( imPlane( imPlane > 0) );
+%             % Keep the strongest signal pixels
+%             % XXX (otsu thresholding doe not give correct separation of
+%             % desired voxels)
+%             % shift to multithresh (multiple otsu thresholds), pick first
+%             % threshold above the median value.
+%             threshOtsu = multithresh( imPlane( imPlane > 0), 1 );
+%             if threshOtsu(1) > median( imPlane( imPlane > 0) )
+%                 threshOtsu = threshOtsu(1);
+% %             elseif threshOtsu(2) > median( imPlane( imPlane > 0) )
+% %                 threshOtsu = threshOtsu(2);
+%             else
+%                 threshOtsu = median( imPlane( imPlane > 0) );
+%             end
+%             spindleMinIntensity = max( [threshOtsu spindleMinIntensity]);
+%             if verbose == 1
+%                  fprintf('Spindle Threshold / Spindle Min Intensity Value = %.3f\n',spindleMinIntensity);
+%             end
+% 
+% %             threshOtsu = max( [thresholdOtsu( imPlane( imPlane > 0) ) 0.4]);
+%             imPlaneStrong = imPlane;
+%             imPlaneStrong( imPlaneStrong < threshOtsu) = 0;
+% 
+%             imMask = imextendedmax( imPlaneStrong, spindleDeterminationSensitivity);
+% %             imPlaneStrongBool = imPlaneStrong;
+% %             imPlaneStrongBool( imPlaneStrongBool > 0 ) = 1;
+            
+            % Use Iterative thresholding
+            % Iterative thresholding
+            tt = 0.5*(median( imPlane( imPlane>0) ) + max( imPlane( imPlane>0) ));
+            accepted_area = 1000000; % initialized as SOME LARGE NUMBER 
+            MAL = 100;
+            % Make movie
+            if visuals == 1
+                vidfile = VideoWriter( [visuals_path,filesep,'thresholding_movie.mp4'],'MPEG-4');
+                vidfile.FrameRate = 20;
+                open(vidfile);
+                h = figure;
             end
-            spindleMinIntensity = max( [threshOtsu spindleMinIntensity]);
-            if verbose == 1
-                 fprintf('Spindle Threshold / Spindle Min Intensity Value = %.3f\n',spindleMinIntensity);
+
+%             while tt < max(imPlane(:)) && accepted_area >min_spindle_area
+            while tt < max(imPlane(:)) && MAL > 5
+
+                accepted_area = sum( imPlane(:) > tt);
+                tt = tt + 0.01;
+                MAL = regionprops(bwconvhull(imPlane > tt),'MinorAxisLength').MinorAxisLength;
+                if verbose
+                    disp(['threshold = ',num2str(tt),', N-true = ',num2str(accepted_area)]);
+                end
+                
+                if visuals 
+                    subplot(121)
+                    imagesc(imPlane); colormap gray; axis equal; 
+                    xlim([0,size(imPlane,2)]); ylim([0,size(imPlane,1)]); 
+                    title('Gauss filtered image')
+                    subplot(122)
+                    imagesc(imPlane > tt); colormap gray; axis equal; 
+                    xlim([0,size(imPlane,2)]); ylim([0,size(imPlane,1)]);
+                    title(sprintf('Threshold = %.3f\n Num unmasked pixels = %d',tt,accepted_area))
+                    writeVideo(vidfile, getframe(gcf));
+                end
             end
-
-%             threshOtsu = max( [thresholdOtsu( imPlane( imPlane > 0) ) 0.4]);
-            imPlaneStrong = imPlane;
-            imPlaneStrong( imPlaneStrong < threshOtsu) = 0;
-
-            imMask = imextendedmax( imPlaneStrong, spindleDeterminationSensitivity);
-%             imPlaneStrongBool = imPlaneStrong;
-%             imPlaneStrongBool( imPlaneStrongBool > 0 ) = 1;
-
+            if visuals 
+                close(vidfile)
+                close(h)
+            end
+            imMask = imPlane > tt;
+            
+            % Erode small areas, and dilate
+            imMask = imdilate( imerode(imMask, strel('disk',1)), strel('disk',1) );
+            
+            % remove areas under some small area
+            imMask = bwareafilt( imMask,[6 1000]);
+            
+            % if no obvious region, place a dummy spindle in center, and
+            % give warning
+            if sum(imMask(:)) == 0
+                warning('No good spindle was found. Placing a dummy spindle...')
+                spindle.MT.startPosition = [size(imageIn_old,1)/2,size(imageIn_old,2)/2,1];
+                spindle.MT.endPosition = [5+size(imageIn_old,1)/2,size(imageIn_old,2)/2,1];
+                spindle.MT.amplitude = median(imageIn(imageIn(:)>0));
+                return
+            end
+            
             % }}}
 
             % Pick Brightest Strong Region and find its shape {{{
@@ -327,8 +399,8 @@ classdef MitoticCell < Cell
                 majAxisLen = 3;
             end
 
-            ptMin = round( flip(centroid) + (5*majAxisLen) * [ cos(angle), sin(angle)  ] );
-            ptMax = round( flip(centroid) - (5*majAxisLen) * [ cos(angle), sin(angle)  ] );
+            ptMin = round( flip(centroid) + (10*majAxisLen) * [ cos(angle), sin(angle)  ] );
+            ptMax = round( flip(centroid) - (10*majAxisLen) * [ cos(angle), sin(angle)  ] );
 
             coords1 = round( linspace( ptMin(1), ptMax(1), ceil(6*majAxisLen) ) );
             coords2 = round( linspace( ptMin(2), ptMax(2), ceil(6*majAxisLen) ) );
@@ -374,6 +446,10 @@ classdef MitoticCell < Cell
             % }}}
 
             % Find Spindle endpoints {{{
+            
+            spindleMinIntensity = multithresh(IntSpindle(IntSpindle>0),2);
+            spindleMinIntensity = spindleMinIntensity(end);
+            spindleMinIntensity = 0.5*(max(imPlane(imPlane(:)>0)) + median(imPlane(imPlane(:)>0)));
             % Now lets obtain the two SPB points. 
             indSpindle = find( IntSpindle > spindleMinIntensity);
             if length( indSpindle) == 1
@@ -427,7 +503,7 @@ classdef MitoticCell < Cell
                 imMaskRGB = zeros( numVoxelsX, numVoxelsY, 3); imMaskRGB(:,:,3) = imPlane; imMaskRGB(:,:,2) = imPlane.*imMask; imMaskRGB(:,:,1) = imPlane.*imMask;
                 subplot(131); imagesc(imPlane); title('Original Image'); axis equal;
                 xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
-                subplot(132); imagesc(imPlaneStrong); title('Threshold (Otsu)');axis equal;
+%                 subplot(132); imagesc(imPlaneStrong); title('Threshold (Otsu)');axis equal;
                 xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
                 subplot(133); imagesc(imMaskRGB); title('Extended Maximum');axis equal;
                 xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
