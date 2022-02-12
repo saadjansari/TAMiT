@@ -129,7 +129,8 @@ classdef MitoticCell < Cell
                     'FORCING SPINDLE AMPLITUDE TO BE ABOVE 0!!!',...
                     'FINAL RESULTS MAY BE INACCURATE!!!',...
                     '       !!!!!!!!!!!!!!!!!!!!!'))
-                spindleAmp = 0.1;
+                spindleAmp = 2*bkg;
+                spindleMT.amplitude = spindleAmp;
             end
             
             AsterObjects{1} = {};

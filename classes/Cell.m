@@ -172,7 +172,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             end
             obj.EstimateFeatures( Image4Estimate, parameters.time, parameters.channelTrue, parameters.channelIdx,obj.params.timeReversal, obj.params.newEstimateEveryT);
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
-            mainFeature.image = Image2Fit;
+            mainFeature.image = im2double(Image2Fit);
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
             
             if plot_estimate_and_skip
