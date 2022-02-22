@@ -19,20 +19,18 @@ img3D = read_tiff_stack(image_path);
 
 %% Define params
 
+% Region Finding: Expected Minor Axis Length
+params.expectedMAL = 5;
+
+% Region Finding: Minimum area (in pixels)
+params.minRegionArea = 6;
+
 % Thickness of spindle axis used to calculate spindle intensity
 params.linewidth = 3;
 
 % A setting (either 0 or 1) that forces one of the ends of the spindle to
 % be at the brightest pixel. 
 params.brightestPixelAsSPB = 0;
-
-% A sensitivity parameter used in the extended maxima function call. 
-params.spindleDeterminationSensitivity = 0.4;
-
-% The minimum normalized intensity that is used to find the end-points of
-% the spindle. The end-point is where the intensity function drops to this
-% value.
-params.spindleMinIntensity = 0.35;
 
 % Other parameters
 params.visuals = 1; % Visuals ON. Necessary to produce demo figures.

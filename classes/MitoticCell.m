@@ -216,29 +216,39 @@ classdef MitoticCell < Cell
         % }}}
         
         % findTheSpindle {{{
-        function spindle  = findTheSpindle( imageIn, params)
+        function [spindle,h] = findTheSpindle( imageIn, params)
             % Find's a bright 2D spindle line
-            
+            % Input Parameters:
+            % -----------------
+            %   1. imageIn : 3D array (XYZ intensity data)
+            %   2. params  : struct
+            %       A. linewidth : float (Thickness of spindle axis used to
+            %           calculate spindle intensity)
+            %       B. expectedMAL : int (Region Finding: Expected Minor Axis
+            %           Length)
+            %       C. minRegionArea: int (Region Finding: Minimum area (in
+            %           pixels))
+            %       D. brightestPixelAsSPB: boolean (A setting that forces one 
+            %           of the ends of the spindle to be at the brightest pixel.)
+            %       E. visuals : boolean (turn on visuals)
+            %       F. visuals_path : str (location to save the visuals)
+            %       G. verbose : boolean (print relevant info to log)
+
             imageIn_old = imageIn;
             
-            % Params
+            % Extract Params
             % Thickness of spindle axis used to calculate spindle intensity
             linewidth = params.linewidth;
             
-            % The minimum normalized intensity that is used to find the end-points of
-            % the spindle. The end-point is where the intensity function drops to this
-            % value.
-            max_threshold = 0.8;
+            % Region Finding: Expected Minor Axis Length
+            expectedMAL = params.expectedMAL;
+
+            % Region Finding: Minimum area (in pixels)
+            minRegionArea = params.minRegionArea;
             
             % A setting (either 0 or 1) that forces one of the ends of the spindle to
             % be at the brightest pixel.
             brightestPixelAsSPB = params.brightestPixelAsSPB;
-            
-            % A sensitivity parameter used in the extended maxima function call. 
-            spindleDeterminationSensitivity = params.spindleDeterminationSensitivity;
-            
-            % Thresholding Min Area
-            min_spindle_area = 100;
             
             % Other parameters
             visuals = params.visuals; % to turn on visuals
@@ -267,39 +277,18 @@ classdef MitoticCell < Cell
             % Convolve the image with a 3D gaussian to bring out the signal from the SPB
             image3DConv = imgaussfilt3( imageIn, 1, 'FilterDomain', 'spatial') .* imMask3D;
             imPlane = mat2gray( max( image3DConv, [], 3) );
-
-%             % Keep the strongest signal pixels
-%             % XXX (otsu thresholding doe not give correct separation of
-%             % desired voxels)
-%             % shift to multithresh (multiple otsu thresholds), pick first
-%             % threshold above the median value.
-%             threshOtsu = multithresh( imPlane( imPlane > 0), 1 );
-%             if threshOtsu(1) > median( imPlane( imPlane > 0) )
-%                 threshOtsu = threshOtsu(1);
-% %             elseif threshOtsu(2) > median( imPlane( imPlane > 0) )
-% %                 threshOtsu = threshOtsu(2);
-%             else
-%                 threshOtsu = median( imPlane( imPlane > 0) );
-%             end
-%             spindleMinIntensity = max( [threshOtsu spindleMinIntensity]);
-%             if verbose == 1
-%                  fprintf('Spindle Threshold / Spindle Min Intensity Value = %.3f\n',spindleMinIntensity);
-%             end
-% 
-% %             threshOtsu = max( [thresholdOtsu( imPlane( imPlane > 0) ) 0.4]);
-%             imPlaneStrong = imPlane;
-%             imPlaneStrong( imPlaneStrong < threshOtsu) = 0;
-% 
-%             imMask = imextendedmax( imPlaneStrong, spindleDeterminationSensitivity);
-% %             imPlaneStrongBool = imPlaneStrong;
-% %             imPlaneStrongBool( imPlaneStrongBool > 0 ) = 1;
             
-            % Use Iterative thresholding
             % Iterative thresholding
+            % Increase threshold value until we have a region that has
+            % maximum thickness equal to params.expectedMAL
+            
+            % Initial threshold value
             tt = 0.5*(median( imPlane( imPlane>0) ) + max( imPlane( imPlane>0) ));
-            accepted_area = 1000000; % initialized as SOME LARGE NUMBER 
+            
+            % Initial MAL (some big number)
             MAL = 100;
-            % Make movie
+            
+            % Set up threshold movie making
             if visuals == 1
                 vidfile = VideoWriter( [visuals_path,filesep,'thresholding_movie.mp4'],'MPEG-4');
                 vidfile.FrameRate = 20;
@@ -307,14 +296,18 @@ classdef MitoticCell < Cell
                 h = figure;
             end
 
-%             while tt < max(imPlane(:)) && accepted_area >min_spindle_area
-            while tt < max(imPlane(:)) && MAL > 5
+            % Iteratively threshold image
+            while tt < max(imPlane(:)) && MAL > expectedMAL
 
-                accepted_area = sum( imPlane(:) > tt);
+                % increase threshold value
                 tt = tt + 0.01;
-                MAL = regionprops(bwconvhull(imPlane > tt),'MinorAxisLength').MinorAxisLength;
+                
+                % find current MAL by finding a convex hull over all
+                % regions, and then finding its minor axis length
+                MAL = regionprops( bwconvhull(imPlane > tt),'MinorAxisLength').MinorAxisLength;
+                
                 if verbose
-                    disp(['threshold = ',num2str(tt),', N-true = ',num2str(accepted_area)]);
+                    disp(['threshold = ',num2str(tt),', MAL = ',num2str(MAL)]);
                 end
                 
                 if visuals 
@@ -325,7 +318,7 @@ classdef MitoticCell < Cell
                     subplot(122)
                     imagesc(imPlane > tt); colormap gray; axis equal; 
                     xlim([0,size(imPlane,2)]); ylim([0,size(imPlane,1)]);
-                    title(sprintf('Threshold = %.3f\n Num unmasked pixels = %d',tt,accepted_area))
+                    title(sprintf('Threshold = %.3f\n MAL = %.3f',tt,MAL))
                     writeVideo(vidfile, getframe(gcf));
                 end
             end
@@ -333,21 +326,39 @@ classdef MitoticCell < Cell
                 close(vidfile)
                 close(h)
             end
+            
+            % Turn on pixels above threshold, and store in a variable
             imMask = imPlane > tt;
             
-            % Erode small areas, and dilate
+            % Erode small areas, and dilate (This eliminates tiny regions
+            % of size 1)
             imMask = imdilate( imerode(imMask, strel('disk',1)), strel('disk',1) );
             
-            % remove areas under some small area
-            imMask = bwareafilt( imMask,[6 1000]);
+            % Remove areas under some small area
+            imMask = bwareafilt( imMask,[minRegionArea 1000]);
             
-            % if no obvious region, place a dummy spindle in center, and
+            % If no obvious region, place a dummy spindle in center, and
             % give warning
             if sum(imMask(:)) == 0
                 warning('No good spindle was found. Placing a dummy spindle...')
+                % Set dummy values and then exit function
                 spindle.MT.startPosition = [size(imageIn_old,1)/2,size(imageIn_old,2)/2,1];
                 spindle.MT.endPosition = [5+size(imageIn_old,1)/2,size(imageIn_old,2)/2,1];
                 spindle.MT.amplitude = median(imageIn(imageIn(:)>0));
+                
+                if visuals == 1
+                    h = figure;
+                    t = tiledlayout(h, 'flow', 'TileSpacing','compact', 'Padding', 'compact');
+                    % Original Image
+                    nexttile
+                    imagesc(imPlane); title('Original image - No Spindle Region Found'); axis equal;
+                    colormap gray;
+                    xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
+                    saveas(h, [visuals_path,filesep,'spindle_estimation.png'])
+                    if nargout ~= 2
+                        close(h)
+                    end
+                end
                 return
             end
             
@@ -448,19 +459,27 @@ classdef MitoticCell < Cell
 
             % Find Spindle endpoints {{{
             
-            spindleMinIntensity = multithresh(IntSpindle(IntSpindle>0),2);
-            spindleMinIntensity = spindleMinIntensity(end);
+%             spindleMinIntensity = multithresh(IntSpindle(IntSpindle>0),2);
+%             spindleMinIntensity = spindleMinIntensity(end);
+
+            % Threshold for separating spindle from background in 1D.
             spindleMinIntensity = 0.5*(max(imPlane(imPlane(:)>0)) + median(imPlane(imPlane(:)>0)));
+            
             % Now lets obtain the two SPB points. 
             indSpindle = find( IntSpindle > spindleMinIntensity);
             if length( indSpindle) == 1
-                ind1 = indD-1; ind2 = indD+1;
+                ind1 = indSpindle-1; % index for SPB1
+                ind2 = indSpindle+1; % index for SPB2
             else
-                ind1 = indSpindle(1); ind2 = indSpindle(end); end
+                ind1 = indSpindle(1); % index for SPB1
+                ind2 = indSpindle(end); % index for SPB2
+            end
 
             % Here X is the horizontal coordinate.
             [AstersY, AstersX] = ind2sub( size(imPlane), idxMaxPix( [ind1, ind2] ) );
 
+            % If this setting is on, force one SPB to be at the brightest
+            % pixel
             if brightestPixelAsSPB
 
                 % Now find the maximum intensity location in this image plane and set
@@ -492,6 +511,7 @@ classdef MitoticCell < Cell
             AstersZ = [ zIdx( round(AstersY(1)), round(AstersX(1)) ), zIdx( round(AstersY(2)), round(AstersX(2)) ) ];
             spindlePosition = [AstersX' , AstersY', AstersZ'];
 
+            % Store final results
             spindle.MT.startPosition = spindlePosition(1, :);
             spindle.MT.endPosition = spindlePosition(2, :);
             spindle.MT.amplitude = mean( Cell.findAmplitudeAlongLine( imageIn, spindlePosition(1, :), spindlePosition(2, :) ) );
@@ -499,53 +519,57 @@ classdef MitoticCell < Cell
 
             if visuals == 1
 
-                % Figure 1
-                h = figure; 
-                imMaskRGB = zeros( numVoxelsX, numVoxelsY, 3); imMaskRGB(:,:,3) = imPlane; imMaskRGB(:,:,2) = imPlane.*imMask; imMaskRGB(:,:,1) = imPlane.*imMask;
-                subplot(131); imagesc(imPlane); title('Original Image'); axis equal;
-                xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
-%                 subplot(132); imagesc(imPlaneStrong); title('Threshold (Otsu)');axis equal;
-                xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
-                subplot(133); imagesc(imMaskRGB); title('Extended Maximum');axis equal;
-                xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
-                %set(findall(gcf,'-property','FontSize'),'FontSize',16);
-                saveas(h, [visuals_path,filesep,'preprocessing_step.png'])
-                close(h)
-
-                % Figure 2
                 h = figure;
-                subplot(131); imagesc(imPlane); title('Original Image'); axis equal;
+                t = tiledlayout(h, 'flow', 'TileSpacing','compact', 'Padding', 'compact');
+                
+                % Original Image
+                nexttile
+                imagesc(imPlane); title('A. Original image'); axis equal;
                 xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
-                subplot(132); imagesc(imPlane); axis equal;
-                xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
-                hold on, line( [ ptMin(2), ptMax(2)], [ ptMin(1), ptMax(1)] , 'LineWidth', 2, 'Marker', '*', 'MarkerSize', 10, 'Color', 'r' ); hold off; 
-                title('Line through maximum'); 
-                subplot(133), hold on;
+                
+                % Axis Intensity
+                nexttile([1,2])
+                hold on;
                 plot( IntSpindle, 'r-', 'LineWidth', 3); 
                 yline( spindleMinIntensity, '-','Threshold','Color', 'k', 'LineWidth', 1);
-                xl1 = xline( ind1, ':','Pole 1','Color', 'k', 'LineWidth', 2); 
+                xl1 = xline( ind1, ':','1','Color', 'k', 'LineWidth', 2); 
                 xl1.LabelVerticalAlignment = 'top';
                 xl1.LabelHorizontalAlignment = 'center';
                 xl1.LabelOrientation='horizontal';
-                xl2 = xline( ind2, ':','Pole 2','Color', 'k', 'LineWidth', 2); 
+                xl2 = xline( ind2, ':','2','Color', 'k', 'LineWidth', 2); 
                 xl2.LabelVerticalAlignment = 'top';
                 xl2.LabelHorizontalAlignment = 'center';
                 xl2.LabelOrientation='horizontal';
-                xlabel('Pixel number'); ylabel('Max intensity'); 
-                title( sprintf('LineScan intensity with width %.1f', linewidth) ); hold off;
-                %set(findall(gcf,'-property','FontSize'),'FontSize',16)
-                saveas(h, [visuals_path,filesep,'estimation_step.png'])
-                close(h)
+                xlabel('Pixel number'); ylabel('Axis intensity'); 
+                title( 'D. Axis intensity'); hold off;
                 
-                % Figure 3
-                h = figure;
+                % Spindle Region
+                nexttile
+                imMaskRGB = zeros( numVoxelsX, numVoxelsY, 3); 
+                imMaskRGB(:,:,3) = 0.5*imPlane; 
+                imMaskRGB(:,:,2) = 0.5*imPlane + imPlane.*imMask; 
+                imMaskRGB(:,:,1) = imPlane.*imMask;
+                imagesc(imMaskRGB); title('B. Spindle region');axis equal;
+                xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
+                
+                % Final estimate
+                nexttile([2,2])
                 imagesc(imPlane); colormap gray; axis equal;
                 xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
-                hold on, line( AstersX, AstersY, 'LineWidth', 4, 'Marker', '*', 'MarkerSize', 8, 'Color', 'r' ), hold off;
-                title('Final Estimated Spindle')
-                %set(findall(gcf,'-property','FontSize'),'FontSize',16)
-                saveas(h, [visuals_path,filesep,'estimation_final.png'])
-                close(h)
+                hold on, line( AstersX, AstersY, 'LineWidth', 2, 'Marker', 'x', 'MarkerSize', 5, 'Color', 'r' ), hold off;
+                title('E. Spindle estimate')
+                
+                % Spindle Axis
+                nexttile
+                imagesc(imPlane); axis equal;
+                xlim([0,size(imageIn,2)]); ylim([0,size(imageIn,1)]);
+                hold on, line( [ ptMin(2), ptMax(2)], [ ptMin(1), ptMax(1)] , 'LineWidth', 2, 'Marker', '*', 'MarkerSize', 10, 'Color', 'r' ); hold off; 
+                title('C. Spindle axis'); 
+                
+                saveas(h, [visuals_path,filesep,'spindle_estimation.png'])
+                if nargout ~= 2
+                    close(h)
+                end
             end
 
         end
