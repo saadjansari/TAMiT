@@ -102,11 +102,13 @@ classdef MitoticCell < Cell
             % Params
             params_spindle_finder.linewidth = 3;
             params_spindle_finder.brightestPixelAsSPB = 0;
-            params_spindle_finder.spindleDeterminationSensitivity = 0.4;
-            params_spindle_finder.spindleMinIntensity = 0.4;
+            %params_spindle_finder.spindleDeterminationSensitivity = 0.4;
+            %params_spindle_finder.spindleMinIntensity = 0.4;
             params_spindle_finder.visuals = 0;
             params_spindle_finder.visuals_path = '';
             params_spindle_finder.verbose = 0;
+            params_spindle.expectedMAL = 5;
+            params_spindle.minRegionArea = 6;
             spindle = MitoticCell.findTheSpindle( imageIn, params_spindle_finder);
 
             % Create the Spindle MT
