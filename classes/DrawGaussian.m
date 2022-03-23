@@ -272,7 +272,9 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
             errorCode = size(imageIn,3);
         end
         if errorCode ~= 0
-            [x1,y1,z1,error_amount] = TrimAndGetErrorZ( startPos,endPos,imageIn);
+            [startPosTrim,endPosTrim,error_amount] = TrimAndGetErrorZ( startPos,endPos,imageIn);
+            x0 = startPosTrim(1); y0 = startPosTrim(2); z0 = startPosTrim(3);
+            x1 = endPosTrim(1); y1 = endPosTrim(2); z1 = endPosTrim(3);
         end
 
         % First lets parameterize this line with a parameter t. We'll find the
@@ -357,19 +359,20 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
         imageLine( idx) = IntValues;
         
         % TrimAndGetErrorZ {{{
-        function [X,Y,Z,error_amount] = TrimAndGetErrorZ( startPos, endPos,imageIn)
+        function [spNew, epNew,error_amount] = TrimAndGetErrorZ( startPos, endPos,imageIn)
             
             fun = @(idx) linspace(startPos(idx),endPos(idx),100);
             xx = fun(1); yy = fun(2); zz = fun(3);
             
-            if startPos(3) < 1
-                idxGood = find( zz < 1, 1, 'first') -1;
-            elseif endPos(3) > size(imageIn,3)
-                idxGood = find( zz > size(imageIn,3), 1, 'first') -1;
-            end
+            logivalValid = zz > 1 & zz < size(imageIn,3);
+            xx_new = xx( logicalValid);
+            yy_new = yy( logicalValid);
+            zz_new = zz( logicalValid);
             
-            X = xx( idxGood); Y = yy( idxGood); Z = zz( idxGood);
-            error_amount = (100-idxGood)/100;
+            spNew = [ xx_new(1), yy_new(1), zz_new(1) ];
+            epNew = [ xx_new(end), yy_new(end), zz_new(end) ];
+            
+            error_amount = 1 - (sum(logicalValid)/length(logicalValid));
         end
         % }}}
 
