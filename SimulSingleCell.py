@@ -63,7 +63,7 @@ class SimulSingleCell( object):
         self.slurm= {
                 'routine' : 'multicore', # singlecore or multicore
                 'account' : 'ucb-summit-smr',
-                'time' : '16:00:00',
+                'time' : '4:00:00',
                 'qos' : 'condo',
                 'partition' : 'shas',
                 'jobname' : 'SingleCell',
@@ -209,7 +209,7 @@ export SCRATCH=/scratch/summit/saan8193
 mkdir -p $SCRATCH/$SLURM_JOB_ID
 
 module purge
-module load matlab/R2018b
+module load matlab/R2019b
 
 """
         # Loop over seeds and make job strings to launch
