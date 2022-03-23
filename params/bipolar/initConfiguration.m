@@ -53,6 +53,9 @@ function params = initConfiguration( opts)
 
     % Cut7
     estimate.cut7dist.display = display;
+    
+    % Sid4
+    estimate.sid4.display = display;
     % }}}
 
     % Fit {{{
@@ -61,7 +64,7 @@ function params = initConfiguration( opts)
     fit.runLocalOptimization = runLocalFit;
     fit.runGlobalOptimization = runGlobalFit;
     fit.runFeatureNumberOptimization = runFeatureNumberFit;
-    fit.useParallel = true; 
+    fit.useParallel = false; 
     fit.state = opts.CFG;
     fit.display = display;
     fit.alpha = 0.1;

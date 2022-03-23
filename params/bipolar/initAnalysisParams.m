@@ -6,11 +6,11 @@ function params = initAnalysisParams()
     fprintf('Current Path: %s', params.pathParent)
 
     % channelsToAnalyze gives the channel index where channelFeatures are located
-    params.channelsToAnalyze = [ 1];
-    params.channelFeatures = {'Microtubule'};
+    params.channelsToAnalyze = [ 1,2];
+    params.channelFeatures = {'Microtubule','Cut7'};
     params.timeStep = 8; % Can be overwritten in analysis code
 
-    params.flags.movie = 1;
+    params.flags.movie = 0;
     params.flags.graph = 0;
     params.flags.tracking = 1;
     params.flags.tracking_movie = 1;
