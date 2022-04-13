@@ -364,7 +364,7 @@ function [imageFeat, error_code, error_amount] = DrawGaussian( sigma, imageIn, f
             fun = @(idx) linspace(startPos(idx),endPos(idx),100);
             xx = fun(1); yy = fun(2); zz = fun(3);
             
-            logivalValid = zz > 1 & zz < size(imageIn,3);
+            logicalValid = zz > 1 & zz < size(imageIn,3);
             xx_new = xx( logicalValid);
             yy_new = yy( logicalValid);
             zz_new = zz( logicalValid);
