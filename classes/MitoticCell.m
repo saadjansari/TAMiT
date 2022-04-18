@@ -299,7 +299,7 @@ classdef MitoticCell < Cell
             end
 
             % Iteratively threshold image
-            while tt < max(imPlane(:)) && MAL > expectedMAL
+            while tt < max(imPlane(:))-0.01 && MAL > expectedMAL
 
                 % increase threshold value
                 tt = tt + 0.01;
@@ -307,7 +307,6 @@ classdef MitoticCell < Cell
                 % find current MAL by finding a convex hull over all
                 % regions, and then finding its minor axis length
                 MAL = regionprops( bwconvhull(imPlane > tt),'MinorAxisLength').MinorAxisLength;
-                
                 if verbose
                     disp(['threshold = ',num2str(tt),', MAL = ',num2str(MAL)]);
                 end
