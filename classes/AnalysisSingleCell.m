@@ -68,7 +68,7 @@ classdef AnalysisSingleCell < handle
                 obj.times = obj.findTimes( obj.channels( jChannel));
             
                 % Analysis
-                fname = [obj.path, filesep,'dydata.mat'];
+                fname = [obj.path, filesep,'dydata_',obj.features{ jChannel},'.mat'];
                 
                 fprintf('   Analysis: channel %d with feature %s...\n', obj.channels( jChannel), obj.features{ jChannel}); 
                 dat = obj.analyzeChannel( jChannel); save( fname, 'dat', '-v7.3');
@@ -1181,9 +1181,10 @@ classdef AnalysisSingleCell < handle
 
             % check if resPathCell is a fullpath, if not then make it full
             [pth, ~, ~] = fileparts( resPathCell);
-            if isempty( pth)
-                resPathCell = fullfile( params.pathParent, resPathCell);
-            end
+%             if isempty( pth)
+%                 resPathCell = fullfile( params.pathParent, resPathCell);
+%             end
+            resPathCell = fullfile( params.pathParent, resPathCell);
             [~,cellName,~] = fileparts( resPathCell);
             fprintf( 'Cell = %s\n', cellName);
            
