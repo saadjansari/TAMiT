@@ -141,7 +141,7 @@ classdef Cell < handle & matlab.mixin.Copyable
             % #########      ESTIMATION       #########
             % #########################################
             
-            if parameters.verbose > 0; fprintf('\nEstimating features...'); end
+            if parameters.verbose > 0; fprintf('\nEstimating features...\n'); end
             
             % Get a time averaged image if option enabled.
             if parameters.estimate.use_time_averaged_image == 1
@@ -930,12 +930,12 @@ classdef Cell < handle & matlab.mixin.Copyable
                 fName = sprintf('C%d_T%d_globum%d-%d_iter%d', channel, time, fitInfo.Nold, fitInfo.Nnew, optim.iteration );
                 sName = sprintf('globum%d-%d_iter%d', fitInfo.Nold, fitInfo.Nnew, optim.iteration );
             end
-            if fitInfo.timeReversal
-                sName = [fitInfo.saveDirectory, filesep, sName, '_reverse'];
-            else
-                sName = [fitInfo.saveDirectory, filesep, sName];
-            end
-            figProps = {'NumberTitle', 'off', 'Name', fName, 'Position', [1 2000 1280 720]};
+            sName = [fitInfo.saveDirectory, filesep, sName];
+            
+            % Get screensize
+            ssz = get(0,'screensize');
+            figProps = {'NumberTitle', 'off', 'Name', fName, ...
+                'Position', [round(0.2*ssz(3)) round(0.2*ssz(4)) round(0.6*ssz(3)) round(0.6*ssz(4))]};
 
             graphicsVerbose = 1;
             if graphicsVerbose == 1

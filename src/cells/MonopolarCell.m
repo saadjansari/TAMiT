@@ -64,97 +64,133 @@ classdef MonopolarCell < Cell
         
         % findFeaturesDeNovo_MT {{{
         function MonopolarObj = findFeaturesDeNovo_MT( imageIn, params, props)
-
             % Monopolar Cell:
-            %   Find astral microtubules from single pole
+            %   Find the Pole
+            %   From astral microtubules
 
+            % #################################
+            % ###########  Params  ############
+            % #################################
+            
             displayFlag = params.display;
             dim = length( size(imageIn) );
             imageIn = im2double( imageIn);
-
-            if dim==3, sigma=[1.2 1.2 1.0]; elseif dim==2, sigma=[1.2 1.2]; end
+            sigma = params.common.sigma(1:dim);
             bkg = median( imageIn( imageIn(:) > 0) );
+            astralMTRepresentation = params.astralMTRepresentation;
+            astralMinLength = params.astralMinLength;
 
-            % Find the Pole
-            pole = MonopolarCell.findThePole( imageIn); 
+            % #################################
+            % #########  Spindle Pole #########
+            % #################################
 
-            % Create Pole
-            if params.pole
+            % Set up parameters for pole finder
+            params_pole_finder.poleMinIntensity = params.poleMinIntensity;
+            params_pole_finder.poleDeterminationSensitivity = params.poleDeterminationSensitivity;
+            params_pole_finder.visuals = params.visuals;
+            params_pole_finder.visuals_path = params.visuals_path;
+            params_pole_finder.verbose = params.common.verbose;
 
-                % Find amplitude
-                poleAmp = imageIn( round(pole.position(2)), round(pole.position(1)), round(pole.position(3)) ) - bkg;
-                if poleAmp < 0;
-                    poleAmp = bkg;
-                    warning( 'findFeaturesMT_deNovo : forcing PoleAmp to be > 0')
+            % Extract the pole
+            pole = MonopolarCell.findThePole( imageIn, params_pole_finder); 
+
+            % Find amplitude at spindle pole, then subtract background.
+            poleAmp = imageIn( round(pole.position(2)), round(pole.position(1)), round(pole.position(3)) ) - bkg;
+            
+            % Force pole amplitude to be above atleast equal to the
+            % background.
+            if poleAmp < 0
+                poleAmp = bkg;
+                if params.common.verbose>1
+                    warning(sprintf('\n%s\n%s\n%s\n%s\n',...
+                        'POTENTIALLY BAD DETECTION!!!',...
+                        'AMPLITUDE OF SPINDLE POLE FOUND WAS LESS THAN BKG!!!',...
+                        'FORCING SPINDLE POLE AMPLITUDE TO BE EQUAL TO BKG!!!',...
+                        'FINAL RESULTS MAY BE INACCURATE!!!'))
                 end
-                Pole = Spot( pole.position, poleAmp, sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot); Pole.label = 'spb';
-            else
-                error('Monopolar Cell must have a microtubule pole')
             end
+            
+            % Create a Spot feature for the Spindle Pole Body
+            Pole = Spot( pole.position, poleAmp, sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot); Pole.label = 'spb';
+            
+            % #################################
+            % ##########  Astral MTs  #########
+            % #################################
 
             % Astral MTs
             lines = {};
-            if params.mt
+            
+            if params.astralMT
 
                 % Find Astral Microtubules
                 Aster.MT = MitoticCell.findAstralMicrotubules( imageIn, pole.position, [], [] );
 
-                % Create Astral MTs
                 for jmt = 1 : length( Aster.MT )
-
+                    
+                    % Find median amplitude along line
                     lineAmp = median( Cell.findAmplitudeAlongLine( imageIn, Aster.MT{jmt}.startPosition, Aster.MT{jmt}.endPosition ) )-bkg;
-
+                    
+                    % Create Line objects for Astral MTs
                     newMT = Line( Aster.MT{jmt}.startPosition, Aster.MT{jmt}.endPosition, lineAmp, sigma, dim, props.fit{dim}.line, props.graphics.aster.line);
-                    % XXX : spherical set
-%                     newMT.repr = 'spherical';
-                    if norm( [Aster.MT{jmt}.startPosition - Aster.MT{jmt}.endPosition]) > 4
+                    newMT.repr = astralMTRepresentation; 
+                    newMT.label = 'astralFYMonopolar';
+
+                    % Add lines longer than min allowed length
+                    if norm( [Aster.MT{jmt}.startPosition - Aster.MT{jmt}.endPosition]) > astralMinLength
                         lines = { lines{:}, newMT };
                     end
-
                 end
-
             end
 
-            % Store basic objects in object Hierarchy
+            % ##############################################
+            % ##########  Setup Feature Heirarchy  #########
+            % ##############################################
             
             % Aster MT Objects
-            % Pole + Astral MTs stored in an AsterMT
+            % SPB + Astral MTs stored in an AsterMT
             AsterObj  = AsterMT( dim, Pole, lines{:} );
 
             % Monopolar Aster Feature 
             MonopolarObj = MonopolarAster( dim, imageIn, {AsterObj}, props);
-
-%             if displayFlag
-%                 fName = 'estimate_monopolar';
-%                 f = figure( 'NumberTitle', 'off', 'Name', fName); 
-%                 ax = axes;
-%                 imagesc( ax, max(imageIn, [], 3) ); colormap gray; axis equal; hold on;
-%                 MonopolarObj.displayFeature(ax)
-%                 %sName = [fitInfo.saveDirectory, filesep, sName];
-%                 %export_fig( sName, '-png', '-nocrop', '-a1') 
-%             end
+            
+            % Find enviornment conditions for spindle
             MonopolarObj.findEnvironmentalConditions();
-            %MonopolarObj.syncFeaturesWithMap();
             
         end
         % }}}
         
         % findThePole {{{
-        function [pole, ax] = findThePole( imageIn, ax)
+        function [pole, h] = findThePole( imageIn, params)
+            % Find a bright spindle pole
+            % Input Parameters:
+            % -----------------
+            %   1. imageIn : 3D array (XYZ intensity data)
+            %   2. params  : struct
+            %       A. poleMinIntensity : float (Minimum intensity of pole
+            %           relative to brightest image pixel) (Range 0-1)
+            %       B. poleDeterminationSensitivity : float (Extended
+            %           Region Sensitivity) (Range 0-1)
+            %       C. visuals : boolean (turn on visuals)
+            %       D. visuals_path : str (location to save the visuals)
+            %       E. verbose : 0,1,2 (print relevant info to log)
             
-            if nargin < 2 && nargout > 1
-                h = figure('Visible', 'on');
-                ax = axes;
-                imagesc( max( imageIn, [], 3) ); colormap gray; axis equal; hold on;
-            end
-
-            % Params
-            poleMinIntensity = 0.75;
-            poleDeterminationSensitivity = 0.2;
+            imageIn_old = imageIn;
+            h=0;
+            
+            % Extract Params
+            % Minimum intensity of pole relative to brightest image pixel
+            poleMinIntensity = params.poleMinIntensity;
+            
+            % Extended Region Sensitivity
+            poleDeterminationSensitivity = params.poleDeterminationSensitivity;
+            
+            % Other parameters
+            visuals = params.visuals; % to turn on visuals
+            visuals_path = params.visuals_path; % location to save the visuals
+            verbose = params.verbose; % descriptions ON
+                                    
+            % Find the mask
             imMask3D = imageIn > 0;
-
-            % Useful variables  
-            numVoxelsX = size( imageIn, 1); numVoxelsY = size( imageIn, 2); numVoxelsZ = size( imageIn, 3);
 
             % Find Strong Signal Regions{{{
             % Convolve the image with a 3D gaussian to bring out the signal from the SPB
@@ -169,7 +205,6 @@ classdef MonopolarCell < Cell
             imMask = imextendedmax( imPlaneStrong, poleDeterminationSensitivity);
             imPlaneStrongBool = imPlaneStrong;
             imPlaneStrongBool( imPlaneStrongBool > 0 ) = 1;
-
             % }}}
 
             % Pick Brightest Strong Region and find its shape {{{
@@ -179,10 +214,9 @@ classdef MonopolarCell < Cell
             meanInts = cell2mat( SScell(2,:) );
             [ poleInt, idx] = max( meanInts);
 
-            if poleInt < 0.7
-                error( 'The mean pole intensity is less than 70% of the maximum intensity in the image');
-            else
-                fprintf( 'Success: Pole Mean Intensity = %.2f\n', poleInt) 
+            if verbose>0; fprintf( ' - Pole Mean Intensity = %.2f\n', poleInt); end
+            if poleInt < poleMinIntensity
+                if verbose>1; warning( 'Mean pole intensity < 70% of the max image intensity'); end
             end
 
             % Now we can obtain the shape parameters of the spindle
@@ -193,10 +227,6 @@ classdef MonopolarCell < Cell
             [~, zIdx] = max( image3DConv, [], 3);
             voxelZ = zIdx( round(pole.position(2)), round(pole.position(1)) );
             pole.position = [ pole.position, voxelZ];
-
-            if nargout > 1
-                plot( AstersX, AstersY, 'LineWidth', 2, 'Marker', '*', 'MarkerSize', 4, 'Color', 'g' )
-            end
 
         end
         % }}}

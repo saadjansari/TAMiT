@@ -189,7 +189,7 @@ classdef MonopolarAster < OrganizerMaster
             pole = aster.featureList{1};
             pos = pole.position;
 
-            for jmt = aster.numFeatures-1
+            for jmt = 1:aster.numFeatures-1
                 aster.featureList{jmt+1}.startPosition = pos;
             end
 
