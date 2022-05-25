@@ -66,37 +66,21 @@ classdef Cell < handle & matlab.mixin.Copyable
         
         % FindFeatures {{{
         function obj = FindFeatures( obj)
-
+            
+            fprintf('\n--------------------------------------------------------\n')
+            fprintf('-----------  F I N D I N G   F E A T U R E S  ----------\n')
+            fprintf('--------------------------------------------------------\n\n')
+            
+            disp(['Number of Channels : ', num2str(length(obj.channelsToFit))])
+            disp(['Number of Frames   : ', num2str(diff( obj.imageData.GetLifetime())+1)])
+            fprintf('\n\n')
+            
             for jChannel = 1 : length(obj.channelsToFit)
-
-                cChannel = obj.channelsToFit( jChannel);
-                disp( upper( sprintf( ['Channel %d = ' obj.featuresInChannels{jChannel}], cChannel ) ) )
-                disp('-----------------------------------------------------------------------')
                 
-                if ~isfield( obj.params, 'newEstimateEveryT')
-                    obj.params.newEstimateEveryT = 0;
-                end
-                
-                if obj.params.timeReversal && obj.params.newEstimateEveryT
-                    obj.params.timeReversal = 0;
-                end
-                if obj.params.timeReversal
-                    obj.params.timeReversal = 0;
-                    obj.FindFeaturesChannel( jChannel);
-                    obj.params.timeReversal = 1;
-                else
-                    obj.FindFeaturesChannel( jChannel);
-                end
-                
-                % Reverse time
-                if obj.params.timeReversal
-                    fprintf('Time reversed!\n')
-                    % Basic cleanup
-                    obj.featureList = cell( length( obj.channelsToFit), size( obj.imageData.GetImage, 4) );
-                    obj.featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any');
-                    % fit again
-                    obj.FindFeaturesChannel( jChannel);
-                end
+                disp( sprintf( ['Finding ', obj.featuresInChannels{jChannel}, ' ( Channel %d )' ], obj.channelsToFit( jChannel) ) )
+                fprintf('---------------------------------\n')
+                % Find features for this frame
+                obj.FindFeaturesChannel( jChannel);
 
             end
 
@@ -112,11 +96,6 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Get lifetime for this cell
             lifetime = obj.imageData.GetLifetime;
             lifetimes = lifetime(1):lifetime(2);
-            
-            % Reverse time order if parameter specified
-            if obj.params.timeReversal
-                lifetimes = flip( lifetimes);
-            end
 
             % Check for existence of images in all the frames and duplicate images if necessary
             [obj, imgNew] = CheckUpdateImages( obj, cChannel);
@@ -125,9 +104,9 @@ classdef Cell < handle & matlab.mixin.Copyable
                 
                 cTime = lifetimes(jTime);
 
-                fprintf( 'C-%d Time = %d\n', jChannel, cTime) 
+                fprintf( '\n--> Channel %d, Time = %d <--\n', jChannel, cTime) 
 
-                % Initialize for this CT step
+                % Initialize for this C-T step
                 params = obj.params;
                 params.channelTrue = cChannel;
                 params.channelIdx = jChannel;
@@ -137,7 +116,7 @@ classdef Cell < handle & matlab.mixin.Copyable
                 mkdir( params.saveDirectory);
 
                 % Find features for this CT frame
-                obj.FindFeaturesFrame( imgNew, params) 
+                obj.FindFeaturesFrame( imgNew, params)
 
             end
             disp('-----------------------------------------------------------------------')
@@ -148,10 +127,7 @@ classdef Cell < handle & matlab.mixin.Copyable
         % FindFeaturesFrame {{{
         function FindFeaturesFrame( obj, Image, parameters)
             % Find and fit features for a single CT frame
-            
-            plot_estimate_and_skip = 0;
-            use_time_averaged_image_for_estimate = 1;
-            
+                        
             % Decide if fit should be performed. Skip otherwise
             [obj, status] = DecideToFit( obj, Image, parameters);
             if ~status
@@ -161,60 +137,55 @@ classdef Cell < handle & matlab.mixin.Copyable
             % Get the image for this frame
             Image2Fit = Image(:,:,:, parameters.time, parameters.channelTrue);
             
+            % #########################################
+            % #########      ESTIMATION       #########
+            % #########################################
             
-            % Estimate the features based on an estimation routine (defined in specialized sub-class )
-            disp('Estimating features...')
-            % Good estimation is key to good optimization in low SnR images
-            if use_time_averaged_image_for_estimate == 1
+            if parameters.verbose > 0; fprintf('\nEstimating features...'); end
+            
+            % Get a time averaged image if option enabled.
+            if parameters.estimate.use_time_averaged_image == 1
                 Image4Estimate = ImageData.RollingTimeMedian(Image(:,:,:,:,parameters.channelTrue),3,parameters.time);
             else
                 Image4Estimate = Image2Fit;
             end
-            obj.EstimateFeatures( Image4Estimate, parameters.time, parameters.channelTrue, parameters.channelIdx,obj.params.timeReversal, obj.params.newEstimateEveryT);
+            
+            % Good estimation is key to good optimization in low SnR images
+            % Estimate the features based on an estimation routine (defined in specialized sub-class )
+            % This stores a feature in obj.featureList
+            obj.EstimateFeatures( Image4Estimate, parameters.time, parameters.channelTrue, parameters.channelIdx);
+            
+            % Update image in feature to grayscale
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
             mainFeature.image = im2double(Image2Fit);
+            
+            % Sync feature map. This tracks all features/subfeatures for
+            % all channels and frames
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
             
-            if plot_estimate_and_skip
-                nX = size( Image2Fit, 2); nY = size( Image2Fit, 1); nZ = size( Image2Fit, 3); dim = length( size(Image2Fit) );
-                image2D = max( Image2Fit, [], 3); intMin = min( Image2Fit(:) ); intMax = max( Image2Fit(:) );
-                imageSets = 'colormap gray; axis equal; axis ij; set( gca, ''xlim'', [1 nX], ''ylim'', [1 nY], ''XTick'', [], ''YTick'', [], ''CLim'', [intMin intMax], ''FontSize'', 14)';
-
-                hh = figure;
-                ax = tight_subplot(1, 2, 0.05);
-                axes( ax(1) );
-                img = imagesc( image2D ); eval( imageSets); set( get(gca, 'title'), 'String', 'Image Original');
-                axes( ax(2) );
-                img = imagesc( image2D ); eval( imageSets); hold on;
-                mainFeature.displayFeature(gca); set( get(gca, 'title'), 'String', 'Features');
-                suptitle( num2str(parameters.time))
-                drawnow;
-                
-                % save png for estimate movie
-                est_savedir = ['mov_estimate_C',num2str(parameters.channelTrue)];
-                [status,~,~] = mkdir( obj.params.saveDirectory, est_savedir);
-                tdir = [obj.params.saveDirectory, filesep, est_savedir];
-                saveas( hh, [tdir, filesep, sprintf('T%04d.png', parameters.time)])
-                pause(0.25);close all;
-                return
-            end
+            % #########################################
+            % ###########      FITTING       ##########
+            % #########################################
             
+            if parameters.verbose > 0; disp('Fitting features...'); end
+
             % Pre-fit adjustments
             mainFeature.preOptimize();
             
             % Prepare fit params
-            params = obj.params.fit;
-            params.channel = parameters.channelTrue;
-            params.time = parameters.time;
-            params.saveDirectory = parameters.saveDirectory;
-            params.timeReversal = obj.params.timeReversal;
+            fparams = obj.params.fit;
+            fparams.channel = parameters.channelTrue;
+            fparams.time = parameters.time;
+            fparams.saveDirectory = parameters.saveDirectory;
+            fparams.verbose = obj.params.verbose;
             
-            % Fit Features via Fit Engine.
-            fitEngine = FitEngine( Image2Fit, mainFeature, params);
+            % Fit Features via FitEngine class.
+            fitEngine = FitEngine( Image2Fit, mainFeature, fparams);
             fitEngine = fitEngine.Optimize();
+            
+            % Add optimized feature to featureList
             obj.featureList{ parameters.channelIdx , parameters.time} = fitEngine.GetFeature();
             obj.featureList{ parameters.channelIdx , parameters.time}.finalizeAddedFeatures();
-            
             obj.syncFeatureMap( parameters.channelIdx, parameters.time);
             close all
 
@@ -724,14 +695,12 @@ classdef Cell < handle & matlab.mixin.Copyable
         function PrintInfo( obj)
             % Prints information about the cell
 
-            fprintf('-----------------------   C E L L    I N F O   ------------------------\n');
-            fprintf('-----------------------------------------------------------------------\n\n');
+            fprintf('--------------------------------------------------------\n');
+            fprintf('----------------   C E L L    I N F O   ----------------\n');
+            fprintf('--------------------------------------------------------\n\n');
             fprintf( 'Type : %s\n', obj.type)
-            fprintf( 'ImageData : \n')
+            disp( ['Features = ', strjoin( obj.featuresInChannels, ' - ') ] );
             obj.imageData.PrintInfo();
-            disp( ['Features = ', strjoin( obj.featuresInChannels, ' - ') ] ) 
-            fprintf('----------------------------------------------------------------------\n');
-
         end
         % }}}
         

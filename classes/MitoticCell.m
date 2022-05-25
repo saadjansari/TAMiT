@@ -16,31 +16,15 @@ classdef MitoticCell < Cell
         % }}}
 
         % EstimateFeatures {{{
-        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel, timeReverse, newEstimate)
-        % findFeatures : estimates and finds the features 
+        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel)
+        % findFeatures : estimates and finds the features for mitotic cell
+        % with spindle
             
             % Get feature type
             currentFeature  = obj.featuresInChannels{ idxChannel};
 
-            % Get Image for estimation
-%             estimationImage = obj.imageData.GetImage;
-%             estimationImage = estimationImage( :,:,:,cTime, cChannel);
-
-            % Get Start time 
-            lifetime = obj.imageData.GetLifetime;
-            if timeReverse
-                startTime = lifetime(2);
-            else
-                startTime = lifetime(1);
-            end
-
-            % Novel Estimation for first frame
-            if cTime == startTime || newEstimate
-                obj.featureList{ idxChannel, cTime} = obj.EstimateFeaturesNovel( currentFeature, estimationImage);
-            % Propagate old feature for later frames
-            else 
-                obj = obj.PropagateOldFeature( idxChannel, cChannel, cTime, timeReverse);
-            end
+            % Estimation
+            obj.featureList{ idxChannel, cTime} = obj.EstimateFeaturesNovel( currentFeature, estimationImage);
 
             % Special Tasks 
             % If cut7 channel, try to get spindle information from MT channel
@@ -57,7 +41,6 @@ classdef MitoticCell < Cell
 
         % EstimateFeaturesNovel {{{
         function feature = EstimateFeaturesNovel( obj, currentFeature, image)
-            disp('- DeNovo') 
 
             switch currentFeature
                 case 'Microtubule'
@@ -89,74 +72,95 @@ classdef MitoticCell < Cell
             %   Find the Spindle microtubule
             %   From each spindle pole, find astral microtubules
 
+            % #################################
+            % ###########  Params  ############
+            % #################################
+            
             displayFlag = params.display;
             dim = length( size(imageIn) );
             imageIn = im2double( imageIn);
-            spindleExclusionRange = deg2rad(45);
-
-            if dim==3, sigma=[1.2 1.2 1.0]; elseif dim==2, sigma=[1.2 1.2]; end
+            spindleExclusionRange = params.spindleExclusionRange;
+            astralMTRepresentation = params.astralMTRepresentation;
+            astralMinLength = params.astralMinLength;
+            sigma = params.common.sigma(1:dim);
             bkg = median( imageIn( imageIn(:) > 0) );
 
-            % Spindle
-            % Find the Spindle. 
-            % Params
-            params_spindle_finder.linewidth = 3;
-            params_spindle_finder.brightestPixelAsSPB = 0;
-            %params_spindle_finder.spindleDeterminationSensitivity = 0.4;
-            %params_spindle_finder.spindleMinIntensity = 0.4;
-            params_spindle_finder.visuals = 0;
-            params_spindle_finder.visuals_path = '';
-            params_spindle_finder.verbose = 0;
-            params_spindle_finder.expectedMAL = 5;
-            params_spindle_finder.minRegionArea = 6;
-            spindle = MitoticCell.findTheSpindle( imageIn, params_spindle_finder);
+            % #################################
+            % #########  Spindle Line #########
+            % #################################
 
-            % Create the Spindle MT
-            if params.spindleMT
-                lineAmpList = Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition );
-%                 spindleAmp = lineAmpList( round( length(lineAmpList)/2) ) - bkg;
-                spindleAmp = median(lineAmpList) - bkg;
-                spindleMT = Line( spindle.MT.startPosition, spindle.MT.endPosition, spindleAmp, sigma, dim, props.fit{dim}.line, props.graphics.line);
-                spindleMT.label = 'spindle';
-            else
-                fprintf('Not estimating spindle MT\n')
-            end
+            % Set up parameters for spindle finder
+            params_spindle_finder.linewidth = params.linewidth;
+            params_spindle_finder.brightestPixelAsSPB = params.brightestPixelAsSPB;
+            params_spindle_finder.visuals = params.visuals;
+            params_spindle_finder.visuals_path = params.visuals_path;
+            params_spindle_finder.verbose = params.common.verbose;
+            params_spindle_finder.expectedMAL = params.expectedMAL;
+            params_spindle_finder.minRegionArea = params.minRegionArea;
             
-            % Force spindle amplitude to be above 0
+            % Extract spindle
+            spindle = MitoticCell.findTheSpindle( imageIn, params_spindle_finder);
+            
+            % Find amplitude along spindle line, then subtract background.
+            lineAmpList = Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition );
+            spindleAmp = median(lineAmpList) - bkg;
+            
+            % Create a Line feature for the Spindle MTs
+            spindleMT = Line( spindle.MT.startPosition, spindle.MT.endPosition, spindleAmp, sigma, dim, props.fit{dim}.line, props.graphics.line);
+            spindleMT.label = 'spindle';
+            
+            % Force spindle amplitude to be above atleast twice the
+            % background.
             if spindleAmp < 0
-                warning(sprintf('\n%s\n%s\n%s\n%s\n%s\n%s\n',...
-                    '       !!!!!!!!!!!!!!!!!!!!!',...
-                    'BAD DETECTION!!!',...
-                    'AMPLITUDE OF SPINDLE FOUND WAS LESS THAN MEDIAN OF IMAGE!!!',...
-                    'FORCING SPINDLE AMPLITUDE TO BE ABOVE 0!!!',...
-                    'FINAL RESULTS MAY BE INACCURATE!!!',...
-                    '       !!!!!!!!!!!!!!!!!!!!!'))
+                if params.common.verbose>1
+                    warning(sprintf('\n%s\n%s\n%s\n%s\n',...
+                        'POTENTIALLY BAD DETECTION!!!',...
+                        'AMPLITUDE OF SPINDLE FOUND WAS LESS THAN MEDIAN OF IMAGE!!!',...
+                        'FORCING SPINDLE AMPLITUDE TO BE ABOVE 0!!!',...
+                        'FINAL RESULTS MAY BE INACCURATE!!!'))
+                end
                 spindleAmp = 2*bkg;
                 spindleMT.amplitude = spindleAmp;
             end
             
+            % #################################
+            % ########  Spindle Poles  ########
+            % #################################
+            
             AsterObjects{1} = {};
             AsterObjects{2} = {};
 
-            % Spindle Poles
             if params.spindlePoles
-                % Create the SpindlePoleBody objects
+                
+                % Find amplitude at spindle pole locations
                 spbAmp(1) = imageIn( spindleMT.startPosition(2), spindleMT.startPosition(1), spindleMT.startPosition(3) ) - bkg - spindleAmp;
                 spbAmp(2) = imageIn( spindleMT.endPosition(2), spindleMT.endPosition(1), spindleMT.endPosition(3) )-bkg-spindleAmp;
-                if any(spbAmp < 0);
+                
+                % Force spindle pole body amplitude to be above atleast
+                % equal to the background value
+                if any(spbAmp < 0)
                     spbAmp( spbAmp < 0) = bkg;
-                    warning( 'findFeaturesMT_deNovo : forcing SPBAmp to be > 0')
+                    if params.common.verbose > 1
+                        warning( 'findFeaturesMT_deNovo : Forcing SPB amplitude to be > 0')
+                    end
                 end
-                SPB{1} = Spot( spindleMT.startPosition, spbAmp(1), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot); SPB{1}.label = 'spb';
-                SPB{2} = Spot( spindleMT.endPosition, spbAmp(2), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot); SPB{2}.label = 'spb';
+                
+                % Create the Spot features for SpindlePoleBodies
+                SPB{1} = Spot( spindleMT.startPosition, spbAmp(1), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot); 
+                SPB{1}.label = 'spb';
+                SPB{2} = Spot( spindleMT.endPosition, spbAmp(2), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot); 
+                SPB{2}.label = 'spb';
                 AsterObjects{1} = {SPB{1}};
                 AsterObjects{2} = {SPB{2}};
             end
+            
+            % #################################
+            % ##########  Astral MTs  #########
+            % #################################
 
-            % Astral MTs
             if params.astralMT
 
-                % Find the angle of this spindle w.r.t to each pole
+                % Find spindle angle w.r.t to each pole
                 spindleAngle(1) = mod( atan2( spindleMT.endPosition(2)-spindleMT.startPosition(2) , spindleMT.endPosition(1)-spindleMT.startPosition(1) ) , 2*pi );
                 spindleAngle(2) = mod( atan2( spindleMT.startPosition(2)-spindleMT.endPosition(2) , spindleMT.startPosition(1)-spindleMT.endPosition(1) ) , 2*pi );
 
@@ -164,17 +168,26 @@ classdef MitoticCell < Cell
                 AMT{1} = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.startPosition, spindleAngle(1), spindleExclusionRange);
                 AMT{2} = MitoticCell.findAstralMicrotubules( imageIn, spindleMT.endPosition, spindleAngle(2), spindleExclusionRange); 
 
-                % Create Astral MTs
-                AstralMT = cell(1,2);
                 for jAster = 1 : 2
-                    idxRm=[]; 
+                    
+                    % List to store indices of bad microtubules
+                    idxRm = [];
+                    
+                    % Initialize cell array of microtubules
                     mts = cell(1, length( AMT{jAster} ));
+                    
                     for jmt = 1 : length( mts )
-
+                        
+                        % Find median amplitude along line
                         lineAmp = median( Cell.findAmplitudeAlongLine( imageIn, AMT{jAster}{jmt}.startPosition, AMT{jAster}{jmt}.endPosition ) )-bkg;
+                        
+                        % Create Line object for microtubule
                         mts{jmt} = Line( AMT{jAster}{jmt}.startPosition, AMT{jAster}{jmt}.endPosition, lineAmp, sigma, dim, props.fit{dim}.line, props.graphics.aster.line);
-                        mts{jmt}.repr = 'spherical'; mts{jmt}.label = 'astralFY';
-                        if mts{jmt}.GetLength() > 4
+                        mts{jmt}.repr = astralMTRepresentation; 
+                        mts{jmt}.label = 'astralFY';
+                        
+                        % Remove lines shorter than min allowed length
+                        if mts{jmt}.GetLength() > astralMinLength
                             idxRm = [idxRm, jmt];
                         end
                     end
@@ -185,33 +198,22 @@ classdef MitoticCell < Cell
                     end
                 end
             end
-
-            % Store basic objects in object Hierarchy
+            
+            % ##############################################
+            % ##########  Setup Feature Heirarchy  #########
+            % ##############################################
             
             % Aster MT Objects
-            % SPBs + Astral MTs stored in an AsterMT
+            % SPBs + Astral MTs stored in an AsterMT object
             Asters = cell(1,2);
             for jAster = 1 : 2
                 Asters{jAster} = AsterMT( dim, AsterObjects{jAster}{:} );
             end
 
             % Spindle Feature
-            % SpindleMT + 2 Asters stored in a Spindle
-%             if isempty( AsterObjects) 
-%                 spindleObj = Spindle( dim, imageIn, {spindleMT}, props);
-%             else
-                spindleObj = Spindle( dim, imageIn, {spindleMT, Asters{:} }, props);
-%             end
-
-            if displayFlag
-%                 fName = 'estimate_spindle';
-%                 f = figure( 'NumberTitle', 'off', 'Name', fName); 
-%                 ax = axes;
-%                 imagesc( ax, max(imageIn, [], 3) ); colormap gray; axis equal; hold on;
-%                 spindleObj.displayFeature(ax)
-                %sName = [fitInfo.saveDirectory, filesep, sName];
-                %export_fig( sName, '-png', '-nocrop', '-a1') 
-            end
+            spindleObj = Spindle( dim, imageIn, {spindleMT, Asters{:} }, props);
+            
+            % Find enviornment conditions for spindle
             spindleObj.findEnvironmentalConditions();
             
         end
@@ -234,7 +236,7 @@ classdef MitoticCell < Cell
             %           of the ends of the spindle to be at the brightest pixel.)
             %       E. visuals : boolean (turn on visuals)
             %       F. visuals_path : str (location to save the visuals)
-            %       G. verbose : boolean (print relevant info to log)
+            %       G. verbose : 0,1,2 (print relevant info to log)
 
             imageIn_old = imageIn;
             
@@ -307,8 +309,8 @@ classdef MitoticCell < Cell
                 % find current MAL by finding a convex hull over all
                 % regions, and then finding its minor axis length
                 MAL = regionprops( bwconvhull(imPlane > tt),'MinorAxisLength').MinorAxisLength;
-                if verbose
-                    disp(['threshold = ',num2str(tt),', MAL = ',num2str(MAL)]);
+                if verbose>1
+                    disp(['   - Threshold = ',num2str(tt),', MAL = ',num2str(MAL)]);
                 end
                 
                 if visuals 
@@ -341,7 +343,9 @@ classdef MitoticCell < Cell
             % If no obvious region, place a dummy spindle in center, and
             % give warning
             if sum(imMask(:)) == 0
-                warning('No good spindle was found. Placing a dummy spindle...')
+                if verbose > 0
+                    fprintf(' - No good spindle was found. Dummy spindle added...\n')
+                end
                 % Set dummy values and then exit function
                 spindle.MT.startPosition = [size(imageIn_old,1)/2,size(imageIn_old,2)/2,1];
                 spindle.MT.endPosition = [5+size(imageIn_old,1)/2,size(imageIn_old,2)/2,1];
@@ -376,10 +380,10 @@ classdef MitoticCell < Cell
             [ spindleInt, idx] = max( sumInts);
             spindleInt = spindleInt/SScell{1,idx};
 
-            if verbose == 1
-                 fprintf( 'Spindle Mean Intensity = %.2f\n', spindleInt) 
+            if verbose > 0
+                 fprintf( ' - Spindle Mean Intensity = %.2f\n', spindleInt) 
             end
-            if spindleInt < 0.6
+            if spindleInt < 0.6 && verbose>1
                 warning( 'The mean spindle intensity is less than 60% of the maximum intensity in the image. There may be issues with detection.');
             end
 
@@ -394,9 +398,9 @@ classdef MitoticCell < Cell
                 angle = pi/2 + angleOrient;
             end
 
-            if verbose == 1
-                 fprintf( 'AngleRP = %.2f , AngleNew = %.2f\n', angleOrient, angle) 
-            end
+%             if verbose > 1
+%                  fprintf( 'AngleRP = %.2f , AngleNew = %.2f\n', angleOrient, angle) 
+%             end
 
             % }}}
 

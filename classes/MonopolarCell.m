@@ -16,31 +16,15 @@ classdef MonopolarCell < Cell
         % }}}
 
         % EstimateFeatures {{{
-        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel, timeReverse, newEstimate)
-        % findFeatures : estimates and finds the features 
+        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel)
+        % findFeatures : estimates and finds the features for a monopolar
+        % aster
             
             % Get feature type
             currentFeature  = obj.featuresInChannels{ idxChannel};
 
-            % Get Image for estimation
-%             estimationImage = obj.imageData.GetImage();
-%             estimationImage = img( :,:,:,cTime, cChannel);
-
-            % Get Start time 
-            lifetime = obj.imageData.GetLifetime;
-            if timeReverse
-                startTime = lifetime(2);
-            else
-                startTime = lifetime(1);
-            end
-            
-            % Novel Estimation for first frame
-            if cTime == startTime || newEstimate
-                obj.featureList{ idxChannel, cTime} = obj.EstimateFeaturesNovel( currentFeature, estimationImage);
-            % Propagate old feature for later frames
-            else 
-                obj = obj.PropagateOldFeature( idxChannel, cChannel, cTime, timeReverse);
-            end
+            % Estimation
+            obj.featureList{ idxChannel, cTime} = obj.EstimateFeaturesNovel( currentFeature, estimationImage);
 
             % Special Tasks 
             % If cut7 channel, try to get monopolar information from MT channel
@@ -57,7 +41,6 @@ classdef MonopolarCell < Cell
 
         % EstimateFeaturesNovel {{{
         function feature = EstimateFeaturesNovel( obj, currentFeature, image)
-            disp('- DeNovo') 
 
             switch currentFeature
                 case 'Microtubule'

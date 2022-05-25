@@ -287,10 +287,10 @@ classdef Spot < BasicElement
         function obj = GetProjection2DSpecific( obj)
             % Get 2D projection of feature
             
-            % Check object dimensionality
-            if obj.dim == 2
-                warning('object dimensionality is already 2')
-            end
+%             % Check object dimensionality
+%             if obj.dim == 2
+%                 warning('object dimensionality is already 2')
+%             end
             
             obj.position = obj.position(1:2);
             obj.SetBounds();
@@ -340,7 +340,7 @@ classdef Spot < BasicElement
                 lb.amplitude = pars.amplitude.lb;
                 if obj.amplitude < lb.amplitude
                     obj.amplitude = 1.05*lb.amplitude;
-                    disp('forcing line amplitude above a lower threshold for monopolar')
+                    % disp('forcing line amplitude above a lower threshold for monopolar')
                 end
             else
                 ub.amplitude = 1;

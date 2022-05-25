@@ -1,7 +1,7 @@
 function features = singleCell( paramsPath)
     % Input: paramsPath is a path to a .mat file
 
-    clc; close all;
+    close all;
     clearvars -except paramsPath 
 
     % Make sure we have the correct paths
@@ -12,18 +12,30 @@ function features = singleCell( paramsPath)
 
     % Load the params
     load( paramsPath); 
-
-    disp('--------------------------------------------------------------------------------------')
-    disp( ['Configuration: ' params.CFG])
+ 
+    % Print preamble
+    disp('--------------------------------------------------------')
+    disp('--------------------------------------------------------')
+    disp('    _______       __  __ _ _______ ')
+    disp('   |__   __|/\   |  \/  (_)__   __|')
+    disp('      | |  /  \  | \  / |_   | |   ')
+    disp('      | | / /\ \ | |\/| | |  | |   ')
+    disp('      | |/ ____ \| |  | | |  | |   ')
+    disp('      |_/_/    \_\_|  |_|_|  |_|   ')
     disp(' ')
-    disp('Paths:')
+    disp('Toolkit for Automated Microtubule Tracking')
+    fprintf('\n\n')
+    disp(fileread('LICENSE'))
+    disp('--------------------------------------------------------')
+    disp('--------------- C O N F I G U R A T I O N --------------')
+    disp('--------------------------------------------------------')
     disp(' ')
-    disp( ['    Run Path: ' params.runPath])
-    disp( ['    Save Path: ' params.saveDirectory])
-    disp( ['    User Settings: ' params.paramsPath])
+    disp( ['Mode: ' params.CFG])
+    disp( ['Run Path: ' params.runPath])
+    disp( ['Save Path: ' params.saveDirectory])
+    disp( ['Params File Path: ' params.paramsPath])
     disp(' ')
-    disp('--------------------------------------------------------------------------------------')
-
+    
     % Locate the single cell movie
     if isempty( params.cellInfo.moviePath) 
         [cfile, cpath] = uigetfile({'*.mat';'*.tiff'});
@@ -79,6 +91,10 @@ function features = singleCell( paramsPath)
             
     % Find features
     myCell = myCell.FindFeatures();
+    
+    fprintf('--------------------------------------------------------\n')
+    fprintf('-------------------  S U C C E S S !!!  ----------------\n')
+    fprintf('--------------------------------------------------------\n\n\n')
 
 
 end

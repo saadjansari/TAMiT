@@ -284,10 +284,10 @@ classdef OrganizerMaster < Organizer
         function obj = GetProjection2DSpecific( obj)
            % Get 2D projection of feature
            
-           % Check object dimensionality
-           if obj.dim == 2
-               warning('object dimensionality is already 2')
-           end
+%            % Check object dimensionality
+%            if obj.dim == 2
+%                warning('object dimensionality is already 2')
+%            end
            
            obj.image = max( obj.image, [], 3);          
            try
@@ -314,7 +314,7 @@ classdef OrganizerMaster < Organizer
             for jF = 1 : obj.numFeatures
                 obj.featureList{jF}.forceInsideMask( mask);
             end
-            obj.updateSubFeatures()
+            obj.updateSubFeatures();
             
         end
         % }}}

@@ -356,10 +356,10 @@ classdef Line < BasicElement
         function obj = GetProjection2DSpecific( obj)
             % Get 2D projection of feature
             
-            % Check object dimensionality
-            if obj.dim == 2
-                warning('object dimensionality is already 2')
-            end
+%             % Check object dimensionality
+%             if obj.dim == 2
+%                 warning('object dimensionality is already 2')
+%             end
             
             obj.startPosition = obj.startPosition(1:2);
             obj.endPosition = obj.endPosition(1:2);
@@ -472,7 +472,7 @@ classdef Line < BasicElement
                 lb.amplitude = pars.amplitude.lb;
                 if obj.amplitude < lb.amplitude
                     obj.amplitude = 1.05*lb.amplitude;
-                    disp('forcing line amplitude above a lower threshold for monopolar')
+                    % disp('forcing line amplitude above a lower threshold for monopolar')
                 end
             else
                 if ~isfield(obj.bounds, 'ub')
@@ -742,7 +742,6 @@ classdef Line < BasicElement
             elseif dim == 3
                 [lineVox.y, lineVox.x, lineVox.z] = ind2sub( sizeImage, lineVox.idx);
             end
-            
             
         end
         % }}}

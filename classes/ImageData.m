@@ -35,7 +35,7 @@ classdef ImageData
             obj.numberOfChannels = size( image, 5);
             obj.numVoxels = size( image(:,:,:,1,1) );
 
-            disp( 'Created ImageData Object')
+%             disp( 'Created ImageData Object')
             %ImageData.PrintInfo( obj);
 
             % parseArgs {{{

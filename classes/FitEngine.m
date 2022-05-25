@@ -53,12 +53,13 @@ classdef FitEngine
         function obj = Optimize( obj)
             % Optimization of the feature parameters
 
-            disp('        Optimization')
+%             if obj.parameters.verbose > 0; disp('Optimizing feature parameters'); end
             
-            pad_xy = 10;
-            pad_z = 1;
+            pad_xy = obj.parameters.pad_xy;
+            pad_z = obj.parameters.pad_z;
             
             % Environment Optimization
+            if obj.parameters.verbose > 0; disp(' - Environment Optimization...'); end
             fitInfo = obj.OptimizeEnvironment([]); fitInfo = [];
             
             % Add z-padding
@@ -66,6 +67,7 @@ classdef FitEngine
             
             fitInfo = [];
             if obj.parameters.fit2DFirst == 1
+                if obj.parameters.verbose > 0; disp(' - Global 2D optimization...'); end
                 [obj,fitInfo] = obj.OptimizeProjection2D();
             end            
             
@@ -73,9 +75,11 @@ classdef FitEngine
             fitInfo = obj.OptimizeLocal(fitInfo);
             
             % Global Optimization
+            if obj.parameters.verbose > 0; disp(' - Global 3D Optimization...'); end
             fitInfo = obj.OptimizeGlobal(fitInfo);
             
             % Hyper Parameters Optimization
+            if obj.parameters.verbose > 0; disp(' - Hyperparameter Optimization...'); end
             fitInfo = obj.OptimizeHyperParameters( fitInfo);
             
             % Save final optimized data
@@ -118,11 +122,11 @@ classdef FitEngine
                 fitInfo.saveDirectory = obj.parameters.saveDirectory;
                 fitInfo.featureMain = obj.feature;
                 fitInfo.fitScope = 'local';
-                fprintf('Skipping fitting for %s\n', obj.feature.type);  
+                if obj.parameters.verbose > 0; fprintf('   - Skipping fitting for %s\n', obj.feature.type);  end
                 return
             end
             
-            disp('Local Optimization...')
+            if obj.parameters.verbose > 0; disp('   - Local Optimization...'); end
 
 
             % Get total number of features to optimize 
@@ -130,7 +134,7 @@ classdef FitEngine
 
             for jFeature = 1 : nFeatures
 
-                fprintf('Current Feature = %d / %d\n', jFeature, nFeatures);
+                if obj.parameters.verbose > 1; fprintf('Current Feature = %d / %d\n', jFeature, nFeatures); end
                 
                 try
                     % Prepare for optimization
@@ -144,7 +148,7 @@ classdef FitEngine
                     % Update feature heirarchy to ensure all dependencies are acknowledged
                     obj.feature.updateSubFeatures();
                 catch
-                    disp('Could not locally fit feature')
+                    if obj.parameters.verbose > 1; disp('Could not locally fit feature'); end
                 end
 
             end
@@ -154,18 +158,14 @@ classdef FitEngine
         % OptimizeGlobal {{{
         function [fitInfo] = OptimizeGlobal(obj, fitInfo)
             % Global Optimization Routine 
-
-            if ~obj.parameters.runGlobalOptimization
-                return
-            end
             
-            disp('Global Optimization...')
+%             if obj.parameters.verbose > 0; disp('Global Optimization...'); end
 
             % Prepare for the Fit
             obj.feature.forceInsideMask();
             [ fitProblem, fitInfo] = obj.PrepareOptimizeGlobal();
             if isempty(obj.feature.featureList)
-                fprintf('Skipping fitting for %s\n', obj.feature.type);  
+                if obj.parameters.verbose > 0; fprintf('   - Skipping fitting for %s\n', obj.feature.type);  end;
                 return
             end
 
@@ -186,18 +186,12 @@ classdef FitEngine
         % OptimizeEnvironment {{{
         function [fitInfo] = OptimizeEnvironment(obj, fitInfo)
             % Global Optimization Routine 
-
-            if ~obj.parameters.runGlobalOptimization
-                return
-            end
-            
-            disp('Environment Optimization...')
-            
+                        
             iSim_def = obj.feature.simulateFeature( size(obj.feature.image));
             binit = obj.feature.background;
             if ~isempty(obj.feature.backgroundNuclear)
                 bninit = obj.feature.backgroundNuclear;
-                fprintf('\t Initial = %.4f\n\t Initial Nuclear = %.4f\n',binit, bninit)
+                if obj.parameters.verbose > 1; fprintf(' - - Initial = %.4f\n\t Initial Nuclear = %.4f\n',binit, bninit); end
                 
                 blist = linspace(0.7*binit, 1.5*binit, 20);
                 bnlist = linspace(0.7*bninit, 1.5*bninit, 20);
@@ -214,9 +208,10 @@ classdef FitEngine
                 [~, idx1] = min( min( res,[],1) );
                 obj.feature.background = blist(idx0);
                 obj.feature.backgroundNuclear = bnlist(idx1);
-                fprintf('\t Final = %.4f\n\t Final Nuclear = %.4f\n',obj.feature.background, obj.feature.backgroundNuclear)
+                if obj.parameters.verbose > 1; fprintf(' - - Final = %.4f\n\t Final Nuclear = %.4f\n',obj.feature.background, ...
+                        obj.feature.backgroundNuclear); end
             else
-                fprintf('  Initial = %.4f\n',binit)
+                if obj.parameters.verbose > 1; fprintf(' - - Initial = %.4f\n',binit); end
                 blist = linspace(0.5*binit, 2*binit, 100);
                 res = zeros( size(blist));
                 for ib = 1 : length(blist)
@@ -226,7 +221,7 @@ classdef FitEngine
                 end
                 [~, idx] = min( res);
                 obj.feature.background = blist(idx);
-                fprintf('  Final = %.4f\n', obj.feature.background)
+                if obj.parameters.verbose > 1; fprintf(' - - Final = %.4f\n', obj.feature.background); end
             end
             
 
@@ -242,11 +237,6 @@ classdef FitEngine
             if isfield(fitInfoOld, 'fitResults')
                 fitInfo.fitVecOld = fitInfoOld.fitResults.vfit;
             end
-            % Display and Save
-%             if obj.parameters.display
-%                 Cell.displayFinalFit( obj.image, obj.feature, fitInfo);
-%             end
-            %Cell.saveFinalFit( obj.image, obj.feature, fitInfo);
 
         end
         % }}}
@@ -261,12 +251,12 @@ classdef FitEngine
 
             % check if mainFeature should be fit. If not, then return out of method
             if isempty( obj.feature.featureList)
-                fprintf('Skipping fitting for %s\n', obj.feature.type);  
+                if obj.parameters.verbose > 0; fprintf('   - Skipping fitting for %s\n', obj.feature.type);  end
                 fitInfo = fitInfoOld;
                 return
             end
 
-            disp('Feature Number Optimization...')
+            if obj.parameters.verbose > 0; disp('   - Feature Number Optimization...'); end
 
             % Book-keeping
             fitInfo.fitScope = 'globum';
@@ -275,11 +265,10 @@ classdef FitEngine
 %             mainFeature.Org = obj.feature.copyDeep();
             
             % We will iteratively add and remove basic features to find the optimum number
-            disp('Feature Number Optimization...')
             [obj, fitInfo.Old] = obj.IncreaseFeatureNumber( obj.feature, fitInfo.Old, 'Basic');
             [obj, fitInfo.Old] = obj.DecreaseFeatureNumber( obj.feature, fitInfo.Old, 'Basic');
             
-            fprintf('- FINAL N =  %d\n', obj.feature.getSubFeatureNumber() )                                   
+            if obj.parameters.verbose > 0; fprintf('   - Final N =  %d\n', obj.feature.getSubFeatureNumber() ); end                               
             fitInfo = fitInfo.Old;
         end
         % }}}
@@ -314,7 +303,7 @@ classdef FitEngine
                     featureNew.forceInsideMask();
                     obj = SetFeature( obj, featureNew);
 
-                    fprintf('- Add N = %d ---> %d\n', feature.getSubFeatureNumber(), featureNew.getSubFeatureNumber() )
+                    if obj.parameters.verbose > 0; fprintf('     - Add N = %d ---> %d\n', feature.getSubFeatureNumber(), featureNew.getSubFeatureNumber() ); end
 
                     % Run a global fit
                     [ fitProblem, fitInfo] = obj.PrepareOptimizeFeatureNumber('add');
@@ -356,14 +345,14 @@ classdef FitEngine
 
                     % if new feature was statiscally significant, stop
                     if p > obj.parameters.alpha
-                        fprintf('N = %d (p = %.3f, alpha = %.3f). Keep old model.\n', feature.getSubFeatureNumber(), p, obj.parameters.alpha )
+                        if obj.parameters.verbose > 0; fprintf('     - N = %d (p = %.3f, alpha = %.3f). Keep old model.\n', feature.getSubFeatureNumber(), p, obj.parameters.alpha ); end
 
                         obj = SetFeature( obj, feature);
                         fitInfoFinal = fitInfoOld;
                         continueAdd = 0;
 
                     elseif p < obj.parameters.alpha
-                        fprintf('N = %d (p = %.3f, alpha = %.3f). Keep improving model.\n',featureNew.getSubFeatureNumber(), p, obj.parameters.alpha)
+                        if obj.parameters.verbose > 0; fprintf('     - N = %d (p = %.3f, alpha = %.3f). Keep improving model.\n',featureNew.getSubFeatureNumber(), p, obj.parameters.alpha); end
 
                         fitInfoOld = fitInfo;
                         continueAdd = 1;
@@ -374,9 +363,11 @@ classdef FitEngine
                 else
                     continueAdd = 0;
                     fitInfoFinal = fitInfoOld;
-                    fprintf('- Add N = %d +\n', feature.getSubFeatureNumber() )
-                    fprintf('No more features to add\n')
-                    fprintf('N = %d , Keep old model.\n', feature.getSubFeatureNumber() )
+                    if obj.parameters.verbose > 0
+                        fprintf('     - Add N = %d +\n', feature.getSubFeatureNumber() )
+                        fprintf('     - No more features to add\n')
+                        fprintf('     - N = %d , Keep old model.\n', feature.getSubFeatureNumber() )
+                    end
                 end
 
             end
@@ -415,7 +406,7 @@ classdef FitEngine
                     % Run a global fit
                     featureNew.forceInsideMask();
                     obj = SetFeature( obj, featureNew);
-                    fprintf('- Rem N = %d ---> %d\n', feature.getSubFeatureNumber(), featureNew.getSubFeatureNumber() )
+                    if obj.parameters.verbose > 0; fprintf('     - Rem N = %d ---> %d\n', feature.getSubFeatureNumber(), featureNew.getSubFeatureNumber() ); end
 
                     % Run a global fit
                     [ fitProblem, fitInfo] = obj.PrepareOptimizeFeatureNumber('remove');
@@ -456,14 +447,14 @@ classdef FitEngine
                     p = FitEngine.CompareModels(im2_raw, im1_raw, im2, im1, numP2, numP1, obj.image, 'f');
 
                     if p < obj.parameters.alpha
-                        fprintf('N = %d (p = %.3f, alpha = %.3f). Keep old model.\n', feature.getSubFeatureNumber(), p, obj.parameters.alpha )
+                        if obj.parameters.verbose > 0; fprintf('     - N = %d (p = %.3f, alpha = %.3f). Keep old model.\n', feature.getSubFeatureNumber(), p, obj.parameters.alpha ); end
 
                         obj = SetFeature( obj, feature);
                         fitInfoFinal = fitInfoOld;
                         continueRemove = 0;
 
                     elseif p > obj.parameters.alpha
-                        fprintf('N = %d (p = %.3f, alpha = %.3f). Keep improving model.\n',featureNew.getSubFeatureNumber(), p, obj.parameters.alpha)
+                        if obj.parameters.verbose > 0; fprintf('     - N = %d (p = %.3f, alpha = %.3f). Keep improving model.\n',featureNew.getSubFeatureNumber(), p, obj.parameters.alpha); end
 
                         fitInfoOld = fitInfo;
                         continueRemove = 1;
@@ -474,11 +465,12 @@ classdef FitEngine
                 else
                     continueRemove = 0;
                     fitInfoFinal = fitInfoOld;
-                    fprintf('- Rem N = %d -\n', feature.getSubFeatureNumber() )
-                    fprintf('No more removable features\n')
-                    fprintf('N = %d , Keep old model.\n', feature.getSubFeatureNumber() )
+                    if obj.parameters.verbose > 0 
+                        fprintf('     - Rem N = %d -\n', feature.getSubFeatureNumber() )
+                        fprintf('     - No more removable features\n')
+                        fprintf('     - N = %d , Keep old model.\n', feature.getSubFeatureNumber() )
+                    end
                 end
-
             end
 
         end
@@ -494,7 +486,7 @@ classdef FitEngine
                 fitResults.exitflag, ...
                 fitResults.output, ~, ... 
                 fitResults.jacobian] = lsqnonlin( problem); 
-            fprintf('Exit Flag = %d\n', fitResults.exitflag); 
+            if obj.parameters.verbose > 0; fprintf('   - Exit Flag = %d\n', fitResults.exitflag); end
             
             % Get the errors from the jacobian
             % Use to calculate confidence intervals
@@ -530,12 +522,12 @@ classdef FitEngine
             % Only proceed if dimensionality is 3
             dim = length( size(obj.image ));
             if dim == 2
-                disp('Skipping 2D projection fitting: current dimensionality is 2')
+                disp('   - Skipping 2D projection fitting: current dimensionality is 2')
                 return
             end
             
             if isempty(obj.feature.featureList)
-                fprintf('Skipping fitting for %s\n', obj.feature.type); fitInfo = [];
+                fprintf('   - Skipping fitting for %s\n', obj.feature.type); fitInfo = [];
                 return
             end
             
@@ -906,7 +898,6 @@ classdef FitEngine
             fitInfo.featureCurrent = fitObj;
             fitInfo.fitScope = 'global';
             fitInfo.featureCurrent.fillParams( size( fitInfo.image));
-            fitInfo.timeReversal = obj.parameters.timeReversal;
             fitInfo.param_tracker = p_tracker;
 
             % Make the error function for optimization 
@@ -1293,20 +1284,16 @@ classdef FitEngine
                                 'TolFun', 1e-12, ...
                                 'FiniteDifferenceStepSize', 1e-2, ...
                                 'FiniteDifferenceType', 'central', ...
-                                'StepTolerance', 1e-5);
+                                'StepTolerance', 1e-5,...
+                                'MaxIter', 30);
 
             % Set configurable options
-            switch config.state
-                case 'RELEASE'
-                    opts = optimoptions( opts, ...
-                                        'display', 'iter',...
-                                        'MaxIter', 30);
-
-                case 'DEBUG'
-                    opts = optimoptions( opts, ...
-                                        'display', 'iter' ,...
-                                        'MaxIter', 10);
+            if config.verbose > 1
+                disp_type = 'iter';
+            else
+                disp_type = 'none';
             end
+            opts = optimoptions( opts, 'display', disp_type);
             
             % Set Parallel Optimization
             if config.useParallel
