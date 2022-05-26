@@ -10,6 +10,10 @@ function params = initConfiguration( opts)
     % Use parallel toolbox for fitting
     parallel = 0;
     
+    % First fit 2D features (this will lead to more optimization steps but
+    % can increase accuracy)
+    runFit2DFirst = 1;
+    
     % Local Fit (Flag to fit each feature individually)
     runLocalFit = 0;
     
@@ -17,11 +21,11 @@ function params = initConfiguration( opts)
     % features by iteratively adding/removing)
     runFeatureNumberFit = 1;
     
-    % Visual display (no display in RELEASE mode)
-    switch opts.CFG
-        case 'RELEASE'
+    % Visual display
+    switch opts.Display
+        case 0
             display = 0;
-        case 'DEBUG'
+        case 1
             display = 1;
     end
     
@@ -106,24 +110,24 @@ function params = initConfiguration( opts)
 
     % Fit {{{
     % Fit Parameters
+    fit.pad_xy = 10;            % Number of padding pixels in XY for fitting
+    fit.pad_z = 1;              % Number of padding pixels in Z for fitting
+    fit.alpha = 0.1;            % Significance level for adding/removing features
+    fit.fitExploreSpeed = 0;    % Custom parameter scan speed
+    fit.scaleParameters = 1;    % Parameter normalization
     fit.runLocalOptimization = runLocalFit;
     fit.runFeatureNumberOptimization = runFeatureNumberFit;
     fit.useParallel = parallel; 
-    fit.state = opts.CFG;
+    fit.state = display;
     fit.display = display;
-    fit.pad_xy = 10; % Number of padding pixels in XY for fitting
-    fit.pad_z = 1;   % Number of padding pixels in Z for fitting
-    fit.alpha = 0.1;
-    fit.fitExploreSpeed = 0;
-    fit.scaleParameters = 1;
-    fit.fit2DFirst = 1;
+    fit.fit2DFirst = runFit2DFirst;
     fit.verbose = verbose;
     % }}}
 
     params.estimate = estimate;
     params.fit = fit;
     params.LOC = opts.LOC;
-    params.CFG = opts.CFG;
+    params.DisplayState = display;
     params.verbose = verbose;
 
 end

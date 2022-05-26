@@ -793,7 +793,7 @@ classdef FitEngine
 
             % Set Optimization Options
             opts = FitEngine.SetOptimOptions( obj.parameters);
-            if strcmp( obj.parameters.state, 'DEBUG')
+            if obj.parameters.state == 1
                 plotHandle = createPlotFcnHandle( fitInfo);
                 fillParamHandle = createFillParamsFcnHandle(fitInfo);
                 opts = optimoptions( opts, 'OutputFcn', {plotHandle,fillParamHandle});
@@ -843,7 +843,7 @@ classdef FitEngine
         
             % Set Optimization Options
             opts = FitEngine.SetOptimOptions( obj.parameters);
-            if strcmp( obj.parameters.state, 'DEBUG')
+            if obj.parameters.state == 1
                 opts = optimoptions( opts, 'OutputFcn', {@plotFit, @fillParams} );
             else
                 opts = optimoptions( opts, 'OutputFcn', @fillParams );
@@ -939,7 +939,7 @@ classdef FitEngine
             end
 
             opts = fitProblem.options;
-            if strcmp( obj.parameters.state, 'DEBUG')
+            if obj.parameters.state == 1
                 opts = optimoptions( opts, 'OutputFcn', {@plotFit, @fillParams} );
             else
                 opts = optimoptions( opts, 'OutputFcn', @fillParams );

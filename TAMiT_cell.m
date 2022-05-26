@@ -1,4 +1,4 @@
-function features = singleCell( paramsPath)
+function myCell = TAMiT_cell( paramsPath)
     % Input: paramsPath is a path to a .mat file
 
     close all;
@@ -32,7 +32,7 @@ function features = singleCell( paramsPath)
     disp('--------------- C O N F I G U R A T I O N --------------')
     disp('--------------------------------------------------------')
     disp(' ')
-    disp( ['Mode: ' params.CFG])
+    disp( ['Display Mode: ' params.DisplayState])
     disp( ['Run Path: ' params.runPath])
     disp( ['Save Path: ' params.saveDirectory])
     disp( ['Params File Path: ' params.paramsPath])
@@ -42,7 +42,7 @@ function features = singleCell( paramsPath)
     if isempty( params.cellInfo.moviePath) 
         [cfile, cpath] = uigetfile({'*.mat';'*.tiff'});
         if cfile == 0
-            error( 'singleCell: no file was selected for import'); end
+            error( 'TAMiT_cell: no file was selected for import'); end
         params.moviePath = [cpath, cfile];
     end
 

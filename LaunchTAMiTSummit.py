@@ -11,27 +11,19 @@ import subprocess
 import numpy as np
 
 '''
-Name : RunSimulSingleCell.py
+Name : LaunchTAMiTSummit.py
 Description : Runs multiple fits on Summit by distirbuting them across multiple cores and nodes as needed.
-Usage : RunSimulSingleCell.py summit
+Usage : LaunchTAMiTSummit.py -F
 '''
 
 def parse_args():
     # parse comand line arguments
 
-    parser = argparse.ArgumentParser( prog='SimulSingleCell.py', description='Launcher for multiple matlab single cell fits on summit') 
+    parser = argparse.ArgumentParser( prog='LaunchTAMiTSummit.py', description='Launcher for multiple matlab tamit fits on summit') 
     
     # Fit option: Run fits
     parser.add_argument('-F', '--fit', action='store_true',  
             help='launch fit jobs via sbatch')
-
-    # Analyze flag: Run analysis 
-    parser.add_argument('-A', '--analyze', action='store_true', 
-            help='Analyze the cells either post fit or in specified directory if fit flag false.')
-
-    # Analyze directory: directory for analysis, used when fit flag is not enabled
-    parser.add_argument('--dir', type=str, 
-            help='Directory for analysis, used when the fit flag is disabled.')
 
     # DryRun option: Run normal and create jobs but don't launch the jobs
     parser.add_argument('-n', '--dryrun', action='store_true',  
@@ -66,7 +58,7 @@ class SimulSingleCell( object):
                 'time' : '4:00:00',
                 'qos' : 'condo',
                 'partition' : 'shas',
-                'jobname' : 'SingleCell',
+                'jobname' : 'TAMiT',
                 'output' : 'sim.log',
                 'error' : 'sim.err',
                 # Define architecture of clusters
@@ -78,12 +70,12 @@ class SimulSingleCell( object):
 
         # paths for different servers
         paths_workdir = {
-                'Summit' : '/projects/saan8193/ImageAnalysis/SingleCell',
-                'Local' : '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell'
+                'Summit' : '/projects/saan8193/ImageAnalysis/TAMiT',
+                'Local' : '/Users/saadjansari/Documents/Projects/ImageAnalysis/TAMiT'
         }
         paths_launch = {
                 'Summit' : '/projects/saan8193',
-                'Local' : '/Users/saadjansari/Documents/Projects/ImageAnalysis/SingleCell'
+                'Local' : '/Users/saadjansari/Documents/Projects/ImageAnalysis/TAMiT'
         }
 
         # set the correct working directory
@@ -94,10 +86,8 @@ class SimulSingleCell( object):
         elif self.opts.loc == 'Local':
             self.workdir = paths_workdir['Local']
             self.launchdir = paths_launch['Summit']
-        elif self.opts.loc == 'Rumor':
-            raise ValueError('RunSimulSingleCell: rumor not set up yet.')
         else:
-            raise ValueError('RunSimulSingleCell: acceptable configuration input argument options are Summit, Local and Rumor.')
+            raise ValueError('LaunchTAMiTSummit: acceptable configuration input argument options are Summit and Local.')
 
         os.chdir( self.workdir) 
 
@@ -140,10 +130,7 @@ class SimulSingleCell( object):
         print( 'Initializing Fit: running initParams.m to save parameters for the segmented cells :')
         
         # run parameter initialization and get paths to saved parameter files
-        if self.opts.loc == 'Summit':
-            opts_params = { 'LOC': 'Summit', 'CFG': 'RELEASE'}
-        elif self.opts.loc == 'Rumor':
-            opts_params = { 'LOC': 'Rumor', 'CFG': 'RELEASE'}
+        opts_params = { 'LOC': 'Summit', 'Display': 0}
 
         eng = matlab.engine.start_matlab()
         self.path_params = getattr( eng, self.fname['initparams'])( opts_params)
@@ -229,7 +216,7 @@ module load matlab/R2019b
             # Write jobString 
             jobString = jobStringDef.format( self.slurm['jobname'], self.slurm['qos'], self.slurm['partition'], self.slurm['account'], self.slurm['time'], nNodes, nCpuPerTask) 
 
-            jobString = jobString + 'matlab -nodesktop -r "clear all; setenv({3},{4}); cd {0}; addpath({1}); singleCell({2})"\n'.format( repr('/projects/saan8193/ImageAnalysis/SingleCell'), repr('classes'), repr(spath), repr('TZ'), repr('America/Denver'))
+            jobString = jobString + 'matlab -nodesktop -r "clear all; setenv({3},{4}); cd {0}; addpath({1}); TAMiT_cell({2})"\n'.format( repr('/projects/saan8193/ImageAnalysis/TAMiT'), repr('classes'), repr(spath), repr('TZ'), repr('America/Denver'))
             jobString = jobString + '\nrm -rf $SCRATCH/$SLURM_JOB_ID\n'
             jobStrings += [jobString]
 

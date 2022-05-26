@@ -1,4 +1,4 @@
-function status = main( varargin)
+function status = TAMiT( varargin)
     % ----------------------------- PREP ---------------------------
     
     opts = parseArgs( varargin{:} );
@@ -28,8 +28,8 @@ function status = main( varargin)
    
     for jCell = 1 : length( paramsPath)
 
-        % Run Single Cell
-        singleCell( paramsPath{ jCell} );
+        % Run a single TAMiT Cell
+        TAMiT_cell( paramsPath{ jCell} );
 
     end
 
@@ -39,16 +39,16 @@ function status = main( varargin)
     function opts = parseArgs( varargin)
 
         % default
-        defaultCFG = 'RELEASE';
+        defaultDisplay = 0;
         defaultLOC = 'Local';
 
         % valid Arguments
-        validCFG = @(x) strcmpi( x, 'RELEASE') || strcmpi( x, 'DEBUG');
+        validDisplay = @(x) x==0 || x==1;
         validLOC = @(x) strcmpi( x, 'Local') || strcmpi( x, 'Summit') || strcmpi( x, 'Rumor');
 
         % Input Parser
         p = inputParser;
-        addParameter( p, 'CFG', defaultCFG);
+        addParameter( p, 'Display', defaultDisplay);
         addParameter( p, 'LOC', defaultLOC);
 
         parse( p, varargin{:});

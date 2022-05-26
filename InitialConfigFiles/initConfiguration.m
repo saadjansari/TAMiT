@@ -21,11 +21,11 @@ function params = initConfiguration( opts)
     % features by iteratively adding/removing)
     runFeatureNumberFit = 1;
     
-    % Visual display (no display in RELEASE mode)
-    switch opts.CFG
-        case 'RELEASE'
+    % Visual display
+    switch opts.Display
+        case 0
             display = 0;
-        case 'DEBUG'
+        case 1
             display = 1;
     end
     
@@ -118,7 +118,7 @@ function params = initConfiguration( opts)
     fit.runLocalOptimization = runLocalFit;
     fit.runFeatureNumberOptimization = runFeatureNumberFit;
     fit.useParallel = parallel; 
-    fit.state = opts.CFG;
+    fit.state = display;
     fit.display = display;
     fit.fit2DFirst = runFit2DFirst;
     fit.verbose = verbose;
@@ -127,7 +127,7 @@ function params = initConfiguration( opts)
     params.estimate = estimate;
     params.fit = fit;
     params.LOC = opts.LOC;
-    params.CFG = opts.CFG;
+    params.DisplayState = display;
     params.verbose = verbose;
 
 end
