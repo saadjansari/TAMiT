@@ -155,9 +155,10 @@ classdef Cell < handle & matlab.mixin.Copyable
             % This stores a feature in obj.featureList
             obj.EstimateFeatures( Image4Estimate, parameters.time, parameters.channelTrue, parameters.channelIdx);
             
-            % Update image in feature to grayscale
+            % Update image in feature to grayscale, add parameters
             mainFeature = obj.featureList{ parameters.channelIdx , parameters.time};
             mainFeature.image = im2double(Image2Fit);
+            mainFeature.parameters = parameters;
             
             % Sync feature map. This tracks all features/subfeatures for
             % all channels and frames

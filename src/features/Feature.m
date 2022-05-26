@@ -5,7 +5,7 @@ classdef Feature < handle & matlab.mixin.Copyable
         imageSim
         type % feature specialization (if any)
         ID
-        label
+        label = ''
         fit = 'all' % 'all' or 'zonly'
     end
 

@@ -16,54 +16,24 @@ classdef MitoticCellBud < Cell
         % }}}
 
         % EstimateFeatures {{{
-        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel, timeReverse, newEstimate)
+        function obj = EstimateFeatures( obj, estimationImage, cTime, cChannel, idxChannel)
         % findFeatures : estimates and finds the features 
             
             % Get feature type
             currentFeature  = obj.featuresInChannels{ idxChannel};
 
-            % Get Start time 
-            lifetime = obj.imageData.GetLifetime;
-            if timeReverse
-                startTime = lifetime(2);
-            else
-                startTime = lifetime(1);
-            end
+            % Estimation
+            obj.featureList{ idxChannel, cTime} = obj.EstimateFeaturesNovel( currentFeature, estimationImage);
 
-            % Novel Estimation for first frame
-            if cTime == startTime || newEstimate
-                obj.featureList{ idxChannel, cTime} = obj.EstimateFeaturesNovel( currentFeature, estimationImage);
-            % Propagate old feature for later frames
-            else 
-                obj = obj.PropagateOldFeature( idxChannel, cChannel, cTime, timeReverse);
-            end
-
-            % Special Tasks 
-            % If cut7 channel, try to get spindle information from MT channel
-            if strcmp( obj.featuresInChannels{ idxChannel}, 'Cut7')
-                % Get spindle information from microtubule channel if possible
-                % (MICROTUBULE CHANNEL MUST BE ANALYZED FIRST FOR THIS TO WORK)
-                mtChannel = find( strcmp( obj.featuresInChannels, 'Microtubule' ) );
-                if ~isempty( mtChannel)
-                    obj.featureList{ idxChannel, cTime}.harvestSpindleInfo( obj.featureList{mtChannel, cTime} );
-                end
-            end
         end
         % }}}
 
         % EstimateFeaturesNovel {{{
         function feature = EstimateFeaturesNovel( obj, currentFeature, image)
-            disp('- DeNovo') 
 
             switch currentFeature
                 case 'Microtubule'
-                    feature = MitoticCellBud.findFeaturesDeNovo_MT( image, obj.params.estimate.spindle, obj.featureProps.spindle_bud);
-
-                case 'Kinetochore'
-                    feature = MitoticCellBud.findFeaturesDeNovo_KC( image, obj.params.estimate.kcbank);
-
-                case 'Cut7'
-                    feature = MitoticCellBud.findFeaturesDeNovo_Cut7( image, obj.params.estimate.cut7dist);
+                    feature = MitoticCellBud.findFeaturesDeNovo_MT( image, obj.params.estimate.spindleBud, obj.featureProps.spindle_bud);
             end
 
         end
@@ -82,50 +52,82 @@ classdef MitoticCellBud < Cell
             %   Find the Spindle microtubule
             %   From each spindle pole, find astral microtubules
 
+            % #################################
+            % ###########  Params  ############
+            % #################################
+
             displayFlag = params.display;
             dim = length( size(imageIn) );
             imageIn = im2double( imageIn);
-            spindleExclusionRange = deg2rad(45);
+            spindleExclusionRange = params.spindleExclusionRange;
+%             astralMTRepresentation = params.astralMTRepresentation;
+%             astralMinLength = params.astralMinLength;
+            sigma = params.common.sigma(1:dim);
+            bkg = median( imageIn( imageIn(:) > 0) );
+            spb_astral_dist = params.spb_astral_dist;
+            voxel_size = params.voxel_size;
+            curvature_model = params.curvature_model;
+           
+            % #################################
+            % ###########  B K G   ############
+            % #################################
 
             % Get background and nuclear background
             % Nuclear mask
-            mask = BY_find_nuclear_mask( imageIn);
+            mask = MitoticCellBud.BY_find_nuclear_mask( imageIn);
             bkg_nuc = median( imageIn( find(mask(:) ) ) );
 
             % new background first
             bkg = median( imageIn( find(mask(:)==0 ) ) );
+
+            % #################################
+            % #########  Spindle Line #########
+            % #################################
+
+            % Set up parameters for spindle finder
+            params_spindle_finder.linewidth = params.linewidth;
+            params_spindle_finder.brightestPixelAsSPB = params.brightestPixelAsSPB;
+            params_spindle_finder.spindleDeterminationSensitivity = params.spindleDeterminationSensitivity;
+            params_spindle_finder.spindleMinIntensity = params.spindleMinIntensity;
+            params_spindle_finder.visuals = params.visuals;
+            params_spindle_finder.visuals_path = params.visuals_path;
+            params_spindle_finder.verbose = params.common.verbose;
+
+            % Extract Spindle. 
+            spindle = MitoticCellBud.findTheSpindle( imageIn, params_spindle_finder);
             
-            if dim==2
-                sigma = [2.5,2.5];
-            else
-                sigma = [2.5,2.5,1.2];
-            end
+            % Find amplitude along spindle line, then subtract background.
+            lineAmpList = Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition );
+            spindleAmp = median(lineAmpList) - bkg_nuc;
+            
+            % Create a Line feature for the Spindle MTs
+            spindleMT = Line( spindle.MT.startPosition, spindle.MT.endPosition, spindleAmp, sigma, dim, props.fit{dim}.line, props.graphics.line);
+            spindleMT.label = 'spindle';
+%             spindleMT.SetBounds();
 
-            % Spindle
-            % Find the Spindle. 
-            spindle = MitoticCellBud.findTheSpindle( imageIn);
-
-            % Create the Spindle MT
-            if params.spindleMT
-                lineAmpList = Cell.findAmplitudeAlongLine( imageIn, spindle.MT.startPosition, spindle.MT.endPosition );
-                spindleAmp = median(lineAmpList) - bkg_nuc;
-                spindleMT = Line( spindle.MT.startPosition, spindle.MT.endPosition, spindleAmp, sigma, dim, props.fit{dim}.line, props.graphics.line);
-                spindleMT.label = 'spindle'; spindleMT.SetBounds();
-            else
-                fprintf('Not estimating spindle MT\n')
-            end
-
-            % Spindle Poles
+            % #################################
+            % ########  Spindle Poles  ########
+            % #################################
+            
             AsterObjects{1} = {};
             AsterObjects{2} = {};
+            
             if params.spindlePoles
-                % Create the SpindlePoleBody objects
+                
+                % Find amplitude at spindle pole locations
                 spbAmp(1) = imageIn( spindleMT.startPosition(2), spindleMT.startPosition(1), spindleMT.startPosition(3) ) - spindleAmp;
                 spbAmp(2) = imageIn( spindleMT.endPosition(2), spindleMT.endPosition(1), spindleMT.endPosition(3) ) - spindleAmp;
+                
+                % Force spindle pole body amplitude to be above atleast
+                % equal to the background value
                 if any(spbAmp < 0)
                     spbAmp( spbAmp < 0) = bkg;
-                    warning( 'findFeaturesMT_deNovo : forcing SPBAmp to be > 0')
+                    if params.common.verbose > 1
+                        warning( 'findFeaturesMT_deNovo : forcing SPBAmp to be > 0')
+                    end
                 end
+                
+                % Create the Spot features for SpindlePoleBodies
                 SPB{1} = Spot( spindleMT.startPosition, spbAmp(1), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot); 
                 SPB{1}.label = 'spb'; SPB{1}.SetBounds();
                 SPB{2} = Spot( spindleMT.endPosition, spbAmp(2), sigma, dim, props.fit{dim}.spot, props.graphics.aster.spot); 
@@ -134,27 +136,24 @@ classdef MitoticCellBud < Cell
                 AsterObjects{2} = {SPB{2}};
             end
 
-            % Astral MTs
+            % #################################
+            % ##########  Astral MTs  #########
+            % #################################
+            
             if params.astralMT
 
-                % Find the angle of this spindle w.r.t to each pole
+                % Find spindle angle w.r.t to each pole
                 spindleAngle(1) = mod( atan2( spindleMT.endPosition(2)-spindleMT.startPosition(2) , spindleMT.endPosition(1)-spindleMT.startPosition(1) ) , 2*pi );
                 spindleAngle(2) = mod( atan2( spindleMT.startPosition(2)-spindleMT.endPosition(2) , spindleMT.startPosition(1)-spindleMT.endPosition(1) ) , 2*pi );
 
-                % Get start position of astrals (3-5 pixels away from the
+                % Get start position of astrals (spb_astral_dist away from the
                 % spb opposite to the direction of spindle.
-                rr = 0.15;
-                voxSize = [0.05,0.05,0.5];
-                spos = voxSize.*spindleMT.startPosition; epos = voxSize.*spindleMT.endPosition;
+                spos = voxel_size.*spindleMT.startPosition; epos = voxel_size.*spindleMT.endPosition;
                 dir = (epos-spos)/norm(epos-spos);
-                sp{1} = spindleMT.startPosition+ (rr.*-dir)./voxSize;
-                sp{2} = spindleMT.endPosition+ (rr.*dir)./voxSize;
+                sp{1} = spindleMT.startPosition+ (spb_astral_dist.*-dir)./voxel_size;
+                sp{2} = spindleMT.endPosition+ (spb_astral_dist.*dir)./voxel_size;
                 
-%                 rr=3;
-%                 sp{1} = spindleMT.startPosition + rr*[cos(spindleAngle(1)+pi), sin(spindleAngle(1)+pi), 0];
-%                 sp{2} = spindleMT.endPosition + rr*[cos(spindleAngle(2)+pi), sin(spindleAngle(2)+pi), 0];
-                
-                % Find Astral Microtubules
+                % Extract Astral Microtubules
                 AMT{1} = MitoticCellBud.findAstralMicrotubules( imageIn, sp{1}, spindleAngle(1), spindleExclusionRange);
                 AMT{2} = MitoticCellBud.findAstralMicrotubules( imageIn, sp{2}, spindleAngle(2), spindleExclusionRange); 
 
@@ -168,7 +167,6 @@ classdef MitoticCellBud < Cell
                         
                         % get intial theta, curvature coefficients from
                         % coords
-                        curvature_model = 'fourier4';
                         [origin,thetaInit,curvature, L, ccd] = get_tan_curvature_coeffs( coords, curvature_model);
                         
                         % Ensure origin is within the Z stacks
@@ -201,7 +199,6 @@ classdef MitoticCellBud < Cell
 %                         end
 
                         % Create
-%                         curvedMTs{jb} = CurvedMT( origin', thetaInit, nV, L, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
                         curvedMTs{jb} = CurvedMT( curvature_model, origin', thetaInit, curvature, L, amp, sigma, dim, props.fit{dim}.curve, props.graphics.curve);
                     end
                     curvedMTs( idxRm) = [];
@@ -227,12 +224,20 @@ classdef MitoticCellBud < Cell
                 end
 
             end
+            
+            % ##############################################
+            % ##########  Setup Feature Heirarchy  #########
+            % ##############################################
+            
+            % Aster MT Objects
+            % SPBs + Curved MTs stored in an Aster object
 
             % Store basic objects in object Hierarchy
             % Aster objects stored in a class object: SPBs + Curved MTs stored in an Aster
             Asters = cell(1,2);
             for jAster = 1 : 2
                 Asters{jAster} = Aster( dim, AsterObjects{jAster}{:} );
+                Asters{jAster}.parameters = params;
             end
 
             % Spindle Feature
@@ -328,20 +333,53 @@ classdef MitoticCellBud < Cell
         % }}}
         
         % findTheSpindle {{{
-        function [spindle, ax] = findTheSpindle( imageIn, ax)
-            
-            if nargin < 2 && nargout > 1
-                h = figure('Visible', 'on');
-                ax = axes;
-                imagesc( max( imageIn, [], 3) ); colormap gray; axis equal; hold on;
-            end
+        function [spindle, h] = findTheSpindle( imageIn, params)
+            % Find's a bright 2D spindle line
+            % Input Parameters:
+            % -----------------
+            %   1. imageIn : 3D array (XYZ intensity data)
+            %   2. params  : struct
+            %       A. linewidth : float (Thickness of spindle axis used to
+            %           calculate spindle intensity)
+            %       B. spindleDeterminationSensitivity : float (Extended
+            %           Region Sensitivity) (Range 0-1)
+            %       C. spindleMinIntensity : float (Minimum Intensity of
+            %           spindle) (Range 0-1)
+            %       D. brightestPixelAsSPB: boolean (A setting that forces one 
+            %           of the ends of the spindle to be at the brightest pixel.)
+            %       E. visuals : boolean (turn on visuals)
+            %       F. visuals_path : str (location to save the visuals)
+            %       G. verbose : 0,1,2 (print relevant info to log)
 
-            % Params
-            spindleDeterminationSensitivity = 0.4;
-            spindleMinIntensity = 0.65;
-            linewidth = 2;
-            brightestPixelAsSPB = 0;
+            imageIn_old = imageIn;
+            h=0;
+            
+            % Extract Params
+            % Thickness of spindle axis used to calculate spindle intensity
+            linewidth = params.linewidth;
+            
+            % A setting (either 0 or 1) that forces one of the ends of the spindle to
+            % be at the brightest pixel.
+            brightestPixelAsSPB = params.brightestPixelAsSPB;
+            
+            % Extended max sensitivity
+%             spindleDeterminationSensitivity = params.spindleDeterminationSensitivity;
+            
+            % Minimum Intensity of spindle
+            spindleMinIntensity = params.spindleMinIntensity;
+            
+            % Other parameters
+            visuals = params.visuals; % to turn on visuals
+            visuals_path = params.visuals_path; % location to save the visuals
+            verbose = params.verbose; % descriptions ON
+            
+%             spindleDeterminationSensitivity = 0.4;
+%             spindleMinIntensity = 0.65;
+%             linewidth = 2;
+%             brightestPixelAsSPB = 0;
+
             imMask3D = imageIn > 0;
+            
 
             % Useful variables  
             % zAnisotropy = ceil( sizeVoxelsZ / sizeVoxelsX );
@@ -371,11 +409,12 @@ classdef MitoticCellBud < Cell
             SScell = struct2cell( SS);
             meanInts = cell2mat( SScell(4,:) );
             [ spindleInt, idx] = max( meanInts);
-
-            if spindleInt < 0.5
-                error( 'The mean spindle intensity is less than 50% of the maximum intensity in the image');
-            else
-                fprintf('\t Success: Spindle Mean Intensity = %.2f\n', spindleInt)
+            
+            if verbose > 0
+                 fprintf( ' - Spindle Mean Intensity = %.2f\n', spindleInt) 
+            end
+            if spindleInt < 0.6 && verbose>1
+                warning( 'The mean spindle intensity is less than 60% of the maximum intensity in the image. There may be issues with detection.');
             end
 
             % Now we can obtain the shape parameters of the spindle
@@ -445,7 +484,7 @@ classdef MitoticCellBud < Cell
             % Now lets obtain the two SPB points. 
             indSpindle = find( IntSpindle > spindleMinIntensity);
             if length( indSpindle) == 1
-                error('spindle found is not long enough. spindle min intensity is possibly too high. ');
+                error(' - Spindle found is not long enough. spindle min intensity is possibly too high. ');
             end
             ind1 = indSpindle(1); ind2 = indSpindle(end);
             
@@ -458,7 +497,7 @@ classdef MitoticCellBud < Cell
             [AstersY, AstersX] = ind2sub( size(imPlane), idxMaxPix( [ind1, ind2] ) );
             
             if AstersX(1) == AstersX(2) && AstersY(1) == AstersY(2)
-                error('only one point found for spindle')
+                error('Only one point found for spindle')
             end
 
             if brightestPixelAsSPB
@@ -705,120 +744,48 @@ classdef MitoticCellBud < Cell
         % }}}
         
         % }}}
-
-        % Kinetochores {{{
-
-        % findFeaturesDeNovo_KC {{{
-        function kcBank = findFeaturesDeNovo_KC( image2Find, displayFlag)
-            % Mitotic Cell: Find Kinetochores
-            
-            props.KC = {'position', 'amplitude', 'sigma'};
-            display.KC = {'Color', [0 0.8 0] , 'Marker', '*', 'MarkerSize', 5, 'LineWidth', 1};
-            
-            [ kc, maskNuclear, intNuclear] = MitoticCell.findKinetochores_mis12( image2Find);
-
-            % Create the Kinetochores
-            disp(sprintf( '                Number of kinetochores = %d', length(kc.x) ) )
-            if length(kc.x) > 6
-                error('too many kinetochores found. maybe you should fix the spot finder')
-            end
-            if length(kc.x) == 0 
-                error('too little kinetochores found. maybe you should fix the spot finder')
-            end
-            
-            dim = length( size( image2Find) ); 
-            if dim==2, sigma=[1.2 1.2]; elseif dim==3, sigma=[1.2 1.2 1.0]; end
-
-            for jspot = 1 : length(kc.x)
-                kcBank{ jspot} = Spot( [ kc.x(jspot), kc.y(jspot), kc.z(jspot)], kc.amplitude(jspot)-intNuclear, sigma, dim, props.KC, display.KC);
-                kcBank{ jspot}.findVoxelsInsideMask( logical(image2Find) );
-            end
-
-            % Create a Kinetochore Bank for handling and storage
-            kcBank = KinetochoreBank( image2Find, kcBank{:} );
-            kcBank.findEnvironmentalConditions();
-            kcBank.syncFeaturesWithMap();
-            kcBank.maskNuclear = maskNuclear;
-            kcBank.backgroundNuclear = intNuclear - kcBank.background;
-
-            if displayFlag
-                f = figure;
-                ax = axes;
-                imagesc( max( image2Find, [], 3) ); colormap gray; axis equal; hold on
-                kcBank.displayFeature( ax);
-            end
-
-        end
-        % }}}
-        % findKinetochores_mis12 {{{
-        function [kc, maskNuclear, intNuclear] = findKinetochores_mis12( image2Find) 
-            % Find Kinetochores that are mis12-gf labeled
-
-            % Process:
-            %   1. Find the 3D nucleus ( to a high accuracy)
-            %   2. Find Kinetochores inside the nucleus by looking for peaks
-
-            imageOrg = mat2gray(image2Find);
-            imMaskB3 = logical( imageOrg);
-            imMaskB2 = imMaskB3(:,:,1);
-            [ image2D, idxMax] = max( image2Find, [], 3);
-
-            imageG = mat2gray( imgaussfilt( imageOrg, 0.5) ); imageG = imageG .* imMaskB3;
-            imVals = imageG( imageG(:) > 0); T = multithresh( imVals, 2);
-            imMaskN3 = imageG; imMaskN3( imMaskN3 < T(1) ) = 0; imMaskN3 = logical( imMaskN3);
-
-            % For each slice, dilate the image to get connected components, then only keep the biggest obejct, and then apply a convex hull
-            for jZ = 1 : size( imMaskN3, 3)
-                imSlice = imMaskN3(:,:,jZ);
-                imSlice = imdilate( imSlice, strel('disk', 1) );
-                [labeledImage, numberOfBlobs] = bwlabel( imSlice);
-                blobMeasurements = regionprops(labeledImage, 'area');
-                allAreas = [blobMeasurements.Area];
-                [sortedAreas, sortIndexes] = sort(allAreas, 'descend');
-                biggestBlob = ismember(labeledImage, sortIndexes(1));
-                imSlice = biggestBlob > 0;
-                imMaskN3(:,:,jZ) = bwconvhull( imSlice);
-
-                %% MAYBE DRAW ELLIPSE AROUND BIG OBJECT
-
-            end
-
-            % Iterative thresholding
-            image2D = image2D .*  max( imMaskN3, [], 3);
-            imVal = image2D( image2D(:) > 0);
-            threshVal = min( imVal);
-            unmaskReg = sum( image2D(:) > threshVal);
-            unmaskThresh = 25; % threshold until 25 pixels remain
-            while unmaskReg > unmaskThresh
-                unmaskReg = sum( image2D(:) > threshVal);
-                threshVal = threshVal+0.01;
-            end
-            imgThreshed = image2D; imgThreshed( imgThreshed < threshVal) = 0;
-            imgThreshed = imgThreshed .* bwconvhull( logical(imgThreshed) );
-            
-            % Find maxima in the unmasked regions
-            maxima = imregionalmax( imgThreshed);
-            [kc.y, kc.x] = find( maxima );
-            % for each (x,y) pair find the z-pixel that has the max intensity, and find the amplitude
-            kc.z = idxMax( sub2ind( size(image2Find), kc.y, kc.x) );
-            kc.amplitude = image2Find( sub2ind( size(image2Find), round(kc.y), round(kc.x), round(kc.z) ) );
-            maskNuclear = imMaskN3;
-            intNuclear = sum( imMaskN3(:) .* image2Find(:) ) / sum( imMaskN3(:) );
-
-        end
-        % }}}
         
-        % }}}
+        function mask = BY_find_nuclear_mask( img3)
 
-        % Cut7 {{{
-        function Cut7 = findFeaturesDeNovo_Cut7( image2Find, displayFlag)
-            % Find cut7
+            % Check if image is 3D or 2D
+            if length( size(img3) ) == 3
+                dim = 3;
+            else
+                dim=2;
+            end
 
-            Cut7 = Cut7Distribution( image2Find, {} );
+            if dim==3
+                img = imgaussfilt3( img3, 1);
+            else
+                img = imgaussfilt( img3,1);
+            end
+            img = mat2gray(img);
 
+            % Define function for contrast adjustsment
+            func = 'histeq'; % imadjust,histeq or adapthisteq
+
+            % HISTEQ
+            imEdit = feval( func, img);
+
+            %Threshold
+            thresh = multithresh(imEdit(:),2);
+            imBinary = imbinarize( imEdit, thresh(1) );
+
+            % SE
+            se3 = strel('disk', 3);
+            im_filled = zeros( size(imBinary) );
+            for jZ = 1 : size(img3,3)
+                im_dilated = imdilate( imerode( imBinary(:,:,jZ), se3), se3);
+                im_filled(:,:,jZ) = imfill( im_dilated, 'holes');
+            end
+            im_filled = mat2gray(im_filled);
+
+            %montage({im2,imEdit,imBinary,im_dilated, im_filled, imColor},'Size',[1 6])
+
+            mask = im_filled;
         end
-        % }}}
 
+        
     end
 
 end

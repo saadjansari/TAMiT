@@ -287,12 +287,7 @@ classdef FitEngine
                 featureNew = feature.copyDeep();
 
                 % Add Features
-                switch featureType
-                    case 'Basic'
-                        [~, successAdd ] = featureNew.addSubFeatures( refImage);
-                    case 'Organizer'
-                        [~, successAdd ] = featureNew.addOrganizers( refImage);
-                end
+                [~, successAdd ] = featureNew.addSubFeatures( refImage);
                 
                 featureNew.syncFeaturesWithMap();
                 

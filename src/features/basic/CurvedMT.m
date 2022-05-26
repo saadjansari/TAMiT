@@ -582,7 +582,7 @@ classdef CurvedMT < BasicElement
                 lb.amplitude = pars.amplitude.lb;
                 if obj.amplitude < lb.amplitude
                     obj.amplitude = 1.05*lb.amplitude;
-                    disp('forcing curved MT amplitude above a lower threshold for Budding yeast')
+%                     disp('forcing curved MT amplitude above a lower threshold for Budding yeast')
                 end
             else
                 if ~isfield(obj.bounds, 'ub')

@@ -7,10 +7,10 @@ function features = singleCell( paramsPath)
     % Make sure we have the correct paths
     addpath( pwd);
 %     addpath( genpath( [pwd, filesep, 'functions'] ) );
-    addpath( [pwd, filesep, 'classes'] );
-    addpath( genpath([pwd, filesep, 'classes/accessory']) );
-    addpath( genpath([pwd, filesep, 'classes/cells']) );
-    addpath( genpath([pwd, filesep, 'classes/features']) );
+    addpath( [pwd, filesep, 'src'] );
+    addpath( genpath([pwd, filesep, 'src/accessory']) );
+    addpath( genpath([pwd, filesep, 'src/cells']) );
+    addpath( genpath([pwd, filesep, 'src/features']) );
     
     % Load the params
     load( paramsPath); 

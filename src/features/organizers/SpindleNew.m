@@ -32,7 +32,7 @@ classdef SpindleNew < OrganizerMaster
             props.spb = {'position', 'amplitude', 'sigma'};
             props.mt = {'thetaInit', 'normalVec', 'L', 'amplitude', 'sigma'};
             props.mt2 = {'thetaInit', 'curvature', 'L', 'amplitude', 'sigma'};
-            warning('using hard coded curvature property') 
+%             warning('using hard coded curvature property') 
             
             % get vector from Spindle microtubule
             [vec_spindle, vecLabels_spindle, ub_s, lb_s] = getVec( obj.featureList{ 1}, props.spindle );

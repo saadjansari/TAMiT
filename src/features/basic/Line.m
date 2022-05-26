@@ -27,9 +27,9 @@ classdef Line < BasicElement
             obj.startPosition = startPosition;
             obj.endPosition = endPosition;
             obj.length = norm( endPosition-startPosition);
-            if obj.length < 4
-                warning('line length is less than 4')
-            end
+%             if obj.length < 4
+%                 warning('line length is less than 4')
+%             end
             
             % find orientations
             obj.theta = atan2( obj.endPosition(2)-obj.startPosition(2),obj.endPosition(1)-obj.startPosition(1) );
@@ -625,7 +625,7 @@ classdef Line < BasicElement
             % If this is the spindle, move both start and end position,
             % otherwise just end position
             obj.length = len;
-            if obj.label == 'spindle'
+            if strcmp( obj.label,'spindle')
                 centerPos = (obj.startPosition + obj.endPosition)/2;
                 if obj.dim == 3
                     obj.endPosition = centerPos + (obj.length/2)* [sin(obj.theta(2))*cos(obj.theta(1)), sin(obj.theta(2))*sin(obj.theta(1)), cos(obj.theta(2))];

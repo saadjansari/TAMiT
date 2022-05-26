@@ -78,7 +78,7 @@ function [origin, thetaInit, cf, L, cc] = get_tan_curvature_coeffs( coords, mode
     % Fourier fit the curvature function
     [f,g] = fit(t_even',K',model_curvature);
     [f,g] = fit(t_even_twice',K_new',model_curvature);
-    if g.rsquare < 0.95
+    if g.rsquare < 0.9
         warning('%s curvature fit might be bad!\nR^2 value for curvature model "%s" < 0.95 (R^2 = %.3d)',...
             model_curvature, model_curvature,g.rsquare)
     end

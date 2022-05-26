@@ -208,6 +208,7 @@ classdef MitoticCell < Cell
             Asters = cell(1,2);
             for jAster = 1 : 2
                 Asters{jAster} = AsterMT( dim, AsterObjects{jAster}{:} );
+                Asters{jAster}.parameters = params;
             end
 
             % Spindle Feature

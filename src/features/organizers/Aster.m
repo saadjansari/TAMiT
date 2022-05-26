@@ -247,7 +247,7 @@ classdef Aster < Organizer
                         
                 % get intial theta, curvature coefficients from
                 % coords
-                curvature_model = 'fourier2';
+                curvature_model = obj.parameters.curvature_model;
                 [origin,thetaInit,curvature, L, ccd] = get_tan_curvature_coeffs( coords, curvature_model);
 
                 % Ensure origin is within the Z stacks

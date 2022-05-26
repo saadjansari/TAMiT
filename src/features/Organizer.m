@@ -4,6 +4,7 @@ classdef Organizer < Feature
         featureList
         numFeatures
         featureMap = containers.Map('KeyType', 'uint32', 'ValueType', 'any')
+        parameters
     end
 
     methods

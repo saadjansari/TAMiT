@@ -129,6 +129,7 @@ classdef MonopolarAster < OrganizerMaster
             amp = featureKeep.amplitude;
             feature = Line( featureKeep.startPosition, featureKeep.endPosition, amp, sigma, obj.dim, props2Fit, display);
             feature.repr = 'cartesian';
+            feature.label = 'astralFYMonopolar';
             
             cnt_err = 0;
             while ~( feature.endPosition(3) > 1)
@@ -148,7 +149,7 @@ classdef MonopolarAster < OrganizerMaster
                 end
             end
 
-            if feature.length < 7
+            if feature.length < obj.parameters.estimate.monopolar.astralMinLength
                 successAdd = 0;
                 return
             end
