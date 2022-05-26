@@ -3,7 +3,7 @@
 %% PARAMS
 
 % Path to segmented movie
-mov_path = '/Users/saadjansari/Documents/Projects/ImageAnalysis/FY Datasets/LukeTest/1149_100R_100G_25_deg_001_A.mat';
+mov_path = ['..',filesep,'demos',filesep,'FissionYeastBipolar',filesep,'cell_data.mat'];
 
 % Specify channel to analyze
 mt_channel = 1;
@@ -26,16 +26,16 @@ params.brightestPixelAsSPB = 0;
 % Other parameters
 params.visuals = 1; % Visuals ON. Necessary to produce demo figures.
 % Set path to save figs
-params.visuals_path = './test_figs'; % Path of folder where to save the demo figures.
-params.verbose = 0; % Command line outputs maximized.
+params.visuals_path = ['..',filesep,'Results',filesep,'test_figs']; % Path of folder where to save the demo figures.
+params.verbose = 1; % Command line outputs maximized.
 % -------------------
 
 %% ESTIMATION 
 
-fprintf('#########    TEST : Spindle Line Detection    ##########\n\n')
+fprintf('#########    ESTIMATION MOVIE : Spindle Line Detection    ##########\n\n')
 
 % Add relative paths
-addpath(genpath('../../classes/.'));
+addpath(genpath('.'));
 
 % Load movie
 imgData = ImageData.InitializeFromCell( mov_path);
@@ -65,7 +65,7 @@ end
 nFrames = size(imXYZT,4);
 
 % Set up movie making
-vidfile = VideoWriter( 'spindle_estimate.mp4','MPEG-4');
+vidfile = VideoWriter( ['..',filesep,'spindle_estimate_movie.mp4'],'MPEG-4');
 vidfile.FrameRate = 5;
 open(vidfile);
 
