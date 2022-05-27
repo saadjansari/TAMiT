@@ -7,7 +7,6 @@ finds a variety of microtubule-based structures:
 * Spindles (Fission and Budding yeast)
 * Rigid Microtubules (Fission yeast)
 * Curved Microtubules (Budding yeast)
-* Kinetochores
 
 TAMiT was designed to be fully automated and written in MATLAB
 using Object-Oriented Programing.
@@ -17,12 +16,13 @@ using Object-Oriented Programing.
 * [Initialization](#initialization)
 * [Usage](#usage)
 * [Demos](#demos)
+* [Estimation](#estimation)
 
 ## Installation
 You can download TAMiT using git.
 
 ```
-git clone https://github.com/saadjansari/SingleCell.git
+git clone https://github.com/saadjansari/TAMiT.git
 git submodule init
 git submodule update
 ```
@@ -34,6 +34,14 @@ MATLAB (R2019b and later)
 ## Initialization
 
 There are 3 essential initial files that TAMiT needs to run.
+`initParams.m` is provided in the TAMiT directory.
+`initCellInfo.m` and `initConfiguration.m` are not present in the TAMiT directory, but must be supplied by the user. 
+TAMiT expects all 3 of these files to be present in the TAMiT directory.
+For convenience, we provide sample files in the InitialConfigFiles directory that the user can copy.
+```
+cp InitialConfigFiles/initCellInfo.m
+cp InitialConfigFiles/initConfiguration.m
+```
 
 ##### initParams.m:
 Creates the settings needed for running TAMiT. 
@@ -81,17 +89,37 @@ This contains configuration info, and other parameters.
 
 TAMiT can be run via:
 ```Matlab
-main()
+TAMiT()
 ```
+To use the active display mode, run:
+```Matlab
+TAMiT('Display',1)
+```
+
 This does a few things, in this order:
 1. Runs `initParams.m` to create a `params.mat` settings file. TAMiT creates a time-labeled folder in the save path specified by the user. This contains the `params.mat` file. It does it for each cell specified in the `initCellInfo.m` file.
-2. Runs `TAMiT.m` in serial fashion for each cell. It provides as input the path to the saved `params.mat` file.
-
-3. Analysis (yet to be added)
-
+2. Runs `TAMiT_cell.m` in serial fashion for each cell. It provides as input the path to the saved `params.mat` file.
 
 ## Demos
-A major strength of TAMiT lies in its detection / estimation capability. It these demos, we show how TAMiT extracts features from microscopy images.
+
+We provide 3 sample cells for a user to test. These are provided here:
+* Fission Yeast Bipolar : `demos/FissionYeastBipolar`
+* Fission Yeast Monopolar: `demos/FissionYeastMonopolar`
+* Budding Yeast Bipolar : `demos/BuddingYeastBipolar`
+
+To demo TAMiT on the Fission Yeast Bipolar cell, run:
+```
+cp -r demos/FissionYeastBipolar/init* .
+TAMiT('Display',1)
+```
+
+Other demos can be run in a similar fashion.
+
+Note: `initParams.m` file must be updated by the user for this to work.
+
+## Estimation
+
+A major strength of TAMiT lies in its detection / estimation capability. Here, we show how TAMiT extracts features from microscopy images.
 
 ### Spindle Pole Body Detection (Spots)
 Take the following 2D grayscale intensity image. This shows 2 clearly visible spots. The goal is to detect the locations of the spots.
