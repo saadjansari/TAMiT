@@ -1,5 +1,15 @@
 function myCell = TAMiT_cell( paramsPath)
-    % Input: paramsPath is a path to a .mat file
+    % TAMiT_cell : Evalautes results for a single cell using TAMiT.
+    % 
+    % Note : This function is automatically called by TAMiT.m
+    % 
+    % Input Parameters : 
+    %       1. paramsPath : Path to a params.mat file created by initParams.m 
+    % 
+    % Usage : TAMiT_cell( paramsPath)
+    % 
+    % Copyright (c) 2022 Saad J. Ansari
+    
 
     close all;
     clearvars -except paramsPath 
