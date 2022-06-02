@@ -8,7 +8,7 @@ finds a variety of microtubule-based structures:
 * Rigid Microtubules (Fission yeast)
 * Curved Microtubules (Budding yeast)
 
-TAMiT was designed to be fully automated and written in MATLAB
+TAMiT is designed to be fully automated and written in MATLAB
 using Object-Oriented Programing.
 
 ### Table of Contents:
@@ -28,31 +28,33 @@ git submodule update
 ```
 
 Dependencies:
-MATLAB (R2019b and later)
+MATLAB (R2019b and later), 
 [utrack](https://github.com/DanuserLab/u-track)
 
 ## Initialization
 
 There are 3 essential initial files that TAMiT needs to run.
 `initParams.m` is provided in the TAMiT directory.
-`initCellInfo.m` and `initConfiguration.m` are not present in the TAMiT directory, but must be supplied by the user. 
+`initCellInfo.m` and `initConfiguration.m` are not present in the TAMiT directory, and must be supplied by the user. 
 TAMiT expects all 3 of these files to be present in the TAMiT directory.
 For convenience, we provide sample files in the InitialConfigFiles directory that the user can copy.
 ```
-cp InitialConfigFiles/initCellInfo.m
-cp InitialConfigFiles/initConfiguration.m
+cp InitialConfigFiles/initCellInfo.m .
+cp InitialConfigFiles/initConfiguration.m .
 ```
 
 ##### initParams.m:
-Creates the settings needed for running TAMiT. 
-User needs to set the following paths:
+This file creates the main parameters file for running TAMiT. 
+It runs both the initCellInfo.m and the initConfiguration.m files. 
+In `initParams.m`, the user needs to set the following paths:
 ```Matlab
 exec_loc.local.runpath = <path to the TAMiT repo>
 exec_loc.local.savepath = <path to results folders> 
 ```
 
 ##### initCellInfo.m:
-Specifies information about the cells of interest.
+This is called by initParams. 
+It specifies information about the cells of interest.
 User needs to set the following:
 ```Matlab
 % Path to parent folder containing segmented cell movies
@@ -83,7 +85,8 @@ channelFeatures = {'Sid4', 'Cut7'};
 ```
 
 ##### initConfiguration.m
-This contains configuration info, and other parameters.
+This is called by the initParams.m file and contains the configuration parameters.
+Users can change parameters here, if desired, to fit their needs.
 
 ## Usage
 
@@ -97,10 +100,12 @@ TAMiT('Display',1)
 ```
 
 This does a few things, in this order:
-1. Runs `initParams.m` to create a `params.mat` settings file. TAMiT creates a time-labeled folder in the save path specified by the user. This contains the `params.mat` file. It does it for each cell specified in the `initCellInfo.m` file.
+1. Runs `initParams.m` to create a `params.mat` parameters file. TAMiT creates a time-labeled folder in the save path specified by the user. This contains the `params.mat` file. It does it for each cell specified in the `initCellInfo.m` file.
 2. Runs `TAMiT_cell.m` in serial fashion for each cell. It provides as input the path to the saved `params.mat` file.
 
 ## Demos
+
+Once you have updated the `initParams.m` file, you can use the demos that come with TAMiT.
 
 We provide 3 sample cells for a user to test. These are provided here:
 * Fission Yeast Bipolar : `demos/FissionYeastBipolar`
